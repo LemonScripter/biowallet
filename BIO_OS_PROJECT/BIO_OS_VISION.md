@@ -32,6 +32,11 @@ BioOS follows a biological life cycle:
 3.  **Axiom Growth:** `if (stimulus(Graphics) > 0) => grow_organ(VisualCortex)`
 4.  **Axiom Immunity:** `if (hash(cell.state) != signature) => regenerate(cell)`
 
+### D. Symbiotic Architecture (Type-2 Hypervisor)
+BioOS lives as a "Symbiote" within Windows.
+- **Bio-Gate:** A high-speed bridge that ingests host data into the Bio-Zone.
+- **Placenta Layer:** Uses host drivers for I/O while maintaining pure logic homeostasis.
+
 ---
 **Status:** Initializing Digital Homeostasis via .bio Axioms.
 **Next Milestone:** Full implementation of the .bio-to-native execution bridge.
