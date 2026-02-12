@@ -9,14 +9,16 @@ namespace MetaSpace {
     // --- TopologicalCache Implementation ---
 
     std::string TopologicalCache::GenerateDNA(const std::vector<double>& state) {
+        if (state.empty()) return "0";
+
+        // Call the AVX-512 Assembly Core
+        // It returns a 64-bit hardware-calculated hash
+        uint64_t hash = MetaCore_GenerateDNA(state.data(), state.size());
+        
+        // Convert to hex string for map key (In production, use uint64_t directly for the map key)
         std::stringstream ss;
-        for (double val : state) {
-            // High-speed normalization: round to tolerance
-            double normalized = std::round(val / DEFAULT_TOLERANCE) * DEFAULT_TOLERANCE;
-            // Binary-stable representation
-            ss << std::hex << std::setw(16) << std::setfill('0') << *(uint64_t*)&normalized;
-        }
-        return ss.str(); // Note: In production, use xxHash for O(1) string/binary keys
+        ss << std::hex << hash;
+        return ss.str();
     }
 
     void TopologicalCache::Put(const std::string& dna, double result) {

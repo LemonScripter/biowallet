@@ -14,6 +14,9 @@ namespace MetaSpace {
     const double DEFAULT_TOLERANCE = 1e-4;
     const int Z3_TIMEOUT_MS = 100;
 
+    // External Assembly functions (from src/kernel/fast_homeostasis.asm)
+    extern "C" uint64_t MetaCore_GenerateDNA(const double* data, uint64_t length);
+
     /**
      * @brief High-performance Topological Cache using C++ unordered_map.
      */

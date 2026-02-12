@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(MetaSpaceCore)
+project(MetaSpaceCore LANGUAGES CXX ASM_NASM)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -9,8 +9,10 @@ find_library(Z3_LIBRARY NAMES z3)
 
 include_directories(${Z3_INCLUDE_DIR})
 
+# Build the core with Assembly integration
 add_library(metaspace_core STATIC 
     src/core/metaspace_core.cpp
+    src/kernel/fast_homeostasis.asm
 )
 
 target_link_libraries(metaspace_core ${Z3_LIBRARY})
