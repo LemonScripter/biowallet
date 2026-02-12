@@ -21,16 +21,23 @@ This project implements the **MetaSpace Logic Engine**, a software layer designe
 -   **Mechanism:** Uses the Z3 Theorem Prover to verify that cached results satisfy required invariants before returning them.
 -   **Safety:** Ensures Zero False Positives. If verification fails or times out (100ms), the computation is forced (Fail-Safe).
 
-## Documentation
--   [Universal Interface Specification](docs/Universal_Interface.md)
--   [.bio DSL Specification](docs/bio_DSL_Spec.md)
--   [8GB RAM Optimization Strategy](docs/Memory_Optimization.md)
-
 ### 4. MetaCore Kernel Module (Ring 0 Acceleration)
 -   **Structure:**
     -   `src/kernel/driver_entry.c`: Windows Kernel Driver Entry point (IOCTL interface).
     -   `src/kernel/fast_homeostasis.asm`: AVX-512 Assembly optimization for zero-latency comparisons.
 -   **Role:** Allows the Logic Engine to operate directly on CPU interrupts and memory, bypassing OS overhead.
+
+### 5. JIT Injection (The "Shim")
+-   **Structure:** `src/injector/metaspace_shim.cpp`
+-   **Role:** User-mode DLL that injects into running applications, intercepts function calls, and redirects them to the MetaCore driver.
+-   **Method:** Inline Hooking (Trampoline) + IOCTL communication.
+
+## Documentation
+-   [Universal Interface Specification](docs/Universal_Interface.md)
+-   [.bio DSL Specification](docs/bio_DSL_Spec.md)
+-   [8GB RAM Optimization Strategy](docs/Memory_Optimization.md)
+-   [Kernel Architecture](docs/Kernel_Architecture.md)
+-   [JIT Injection Strategy](docs/JIT_Injection_Strategy.md)
 
 ## Usage
 
