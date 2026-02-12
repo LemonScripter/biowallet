@@ -8,9 +8,41 @@ PDEVICE_OBJECT g_DeviceObject = NULL;
 UNICODE_STRING g_DeviceName = RTL_CONSTANT_STRING(L"\Device\MetaCore");
 UNICODE_STRING g_SymLinkName = RTL_CONSTANT_STRING(L"\DosDevices\MetaCore");
 
-// IOCTL Codes (Communication with User Mode .bio engine)
+// IOCTL Codes
 #define IOCTL_REGISTER_INVARIANT CTL_CODE(FILE_DEVICE_UNKNOWN, 0x800, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_CHECK_HOMEOSTASIS  CTL_CODE(FILE_DEVICE_UNKNOWN, 0x801, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_MAP_VAULT          CTL_CODE(FILE_DEVICE_UNKNOWN, 0x802, METHOD_NEITHER, FILE_ANY_ACCESS)
+
+// Shared Memory Structures
+PVOID g_VaultBase = NULL;
+PMDL  g_VaultMdl = NULL;
+const ULONG VAULT_SIZE = 512 * 1024 * 1024; // 512 MB
+
+// --- Memory Mapping Handler ---
+NTSTATUS MapVaultToUser(PIRP Irp, PIO_STACK_LOCATION Stack) {
+    UNREFERENCED_PARAMETER(Stack);
+    
+    // Allocate physical memory for the Vault
+    g_VaultBase = ExAllocatePoolWithTag(NonPagedPool, VAULT_SIZE, 'Meta');
+    if (!g_VaultBase) return STATUS_INSUFFICIENT_RESOURCES;
+
+    // Create MDL for the memory
+    g_VaultMdl = IoAllocateMdl(g_VaultBase, VAULT_SIZE, FALSE, FALSE, NULL);
+    if (!g_VaultMdl) {
+        ExFreePoolWithTag(g_VaultBase, 'Meta');
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
+
+    MmBuildMdlForNonPagedPool(g_VaultMdl);
+
+    // Map to User Space
+    PVOID userAddress = MmMapLockedPagesSpecifyCache(
+        g_VaultMdl, UserMode, MmCached, NULL, FALSE, NormalPagePriority);
+
+    // Return the address to User Mode
+    *(PVOID*)Irp->AssociatedIrp.SystemBuffer = userAddress;
+    
+    return STATUS_SUCCESS;
+}
 
 // --- Driver Unload ---
 VOID MetaCoreUnload(PDRIVER_OBJECT DriverObject) {

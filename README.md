@@ -32,12 +32,18 @@ This project implements the **MetaSpace Logic Engine**, a software layer designe
 -   **Role:** User-mode DLL that injects into running applications, intercepts function calls, and redirects them to the MetaCore driver.
 -   **Method:** Inline Hooking (Trampoline) + IOCTL communication.
 
+### 6. Global Manager (The "Watchdog")
+-   **Structure:** `src/manager/global_optimizer.cpp`
+-   **Role:** Background service that monitors system processes for high CPU usage and automatically injects the acceleration shim.
+-   **Strategy:** Dynamic targeting based on real-time load, avoiding critical system processes.
+
 ## Documentation
 -   [Universal Interface Specification](docs/Universal_Interface.md)
 -   [.bio DSL Specification](docs/bio_DSL_Spec.md)
 -   [8GB RAM Optimization Strategy](docs/Memory_Optimization.md)
 -   [Kernel Architecture](docs/Kernel_Architecture.md)
 -   [JIT Injection Strategy](docs/JIT_Injection_Strategy.md)
+-   [Global Manager Logic](src/manager/global_optimizer.cpp)
 
 ## Usage
 
