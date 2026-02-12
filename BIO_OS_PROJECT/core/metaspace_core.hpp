@@ -25,6 +25,10 @@ namespace MetaSpace {
         void Put(const std::string& dna, double result);
         bool Get(const std::string& dna, double& outResult);
         std::string GenerateDNA(const std::vector<double>& state);
+        
+        // Persistent Memory Interface
+        void SaveToDNA(const std::string& filename);
+        void LoadFromDNA(const std::string& filename);
 
     private:
         std::unordered_map<std::string, double> cache;

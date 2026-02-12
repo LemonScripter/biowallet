@@ -44,6 +44,41 @@ namespace MetaSpace {
         return false;
     }
 
+    void TopologicalCache::SaveToDNA(const std::string& filename) {
+        std::lock_guard<std::mutex> lock(cacheMutex);
+        std::ofstream f(filename, std::ios::binary);
+        if (!f) return;
+        
+        size_t size = cache.size();
+        f.write((char*)&size, sizeof(size));
+        
+        for (const auto& [dna, val] : cache) {
+            size_t s = dna.size();
+            f.write((char*)&s, sizeof(s));
+            f.write(dna.c_str(), s);
+            f.write((char*)&val, sizeof(val));
+        }
+    }
+
+    void TopologicalCache::LoadFromDNA(const std::string& filename) {
+        std::lock_guard<std::mutex> lock(cacheMutex);
+        std::ifstream f(filename, std::ios::binary);
+        if (!f) return;
+        
+        size_t size;
+        f.read((char*)&size, sizeof(size));
+        
+        for (size_t i = 0; i < size; ++i) {
+            size_t s;
+            f.read((char*)&s, sizeof(s));
+            std::string dna(s, ' ');
+            f.read(&dna[0], s);
+            double val;
+            f.read((char*)&val, sizeof(val));
+            cache[dna] = val;
+        }
+    }
+
     // --- Z3Gatekeeper Implementation ---
 
     Z3Gatekeeper::Z3Gatekeeper() : solver(ctx) {
