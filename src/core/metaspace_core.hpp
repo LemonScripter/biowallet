@@ -37,11 +37,12 @@ namespace MetaSpace {
     class Z3Gatekeeper {
     public:
         Z3Gatekeeper();
-        bool Verify(const std::vector<double>& input_state);
-        // Note: In a full impl, this would take .bio compiled invariants
+        bool Verify(const std::string& dna, const std::vector<double>& input_state);
     private:
         z3::context ctx;
         z3::solver solver;
+        std::unordered_map<std::string, bool> verified_manifolds; // Flattened logic map
+        std::mutex vMutex;
     };
 
     /**

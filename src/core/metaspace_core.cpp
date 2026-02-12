@@ -3,6 +3,7 @@
 #include <sstream>
 #include <iomanip>
 #include <iostream>
+#include <cstring>
 
 namespace MetaSpace {
 
@@ -11,11 +12,18 @@ namespace MetaSpace {
     std::string TopologicalCache::GenerateDNA(const std::vector<double>& state) {
         if (state.empty()) return "0";
 
-        // Call the AVX-512 Assembly Core
-        // It returns a 64-bit hardware-calculated hash
-        uint64_t hash = MetaCore_GenerateDNA(state.data(), state.size());
+        // High-performance C++ fallback (FNV-1a inspired hash)
+        uint64_t hash = 0xcbf29ce484222325ULL;
+        for (double val : state) {
+            // Normalize
+            double normalized = std::round(val / DEFAULT_TOLERANCE) * DEFAULT_TOLERANCE;
+            uint64_t raw;
+            std::memcpy(&raw, &normalized, sizeof(uint64_t));
+            
+            hash ^= raw;
+            hash *= 0x100000001b3ULL;
+        }
         
-        // Convert to hex string for map key (In production, use uint64_t directly for the map key)
         std::stringstream ss;
         ss << std::hex << hash;
         return ss.str();
@@ -44,23 +52,33 @@ namespace MetaSpace {
         solver.set(p);
     }
 
-    bool Z3Gatekeeper::Verify(const std::vector<double>& input_state) {
-        // Simple safety invariant: input must be within reasonable bounds
-        // In reality, this would check the .bio defined invariants
+    bool Z3Gatekeeper::Verify(const std::string& dna, const std::vector<double>& input_state) {
+        // 1. Check if we already flattened this manifold
+        {
+            std::lock_guard<std::mutex> lock(vMutex);
+            auto it = verified_manifolds.find(dna);
+            if (it != verified_manifolds.end()) {
+                return it->second; // INSTANT RETURN - Logic is flattened!
+            }
+        }
+
+        // 2. Slow path: Call Z3 (only once per DNA bucket)
         solver.push();
         try {
             z3::expr x = ctx.real_const("x");
-            // Placeholder: x > 0
-            solver.add(x > 0);
+            solver.add(x > 0); // Placeholder invariant
             
-            // Map input[0] to x for this check
             if (!input_state.empty()) {
                 solver.add(x == ctx.real_val(std::to_string(input_state[0]).c_str()));
             }
 
-            bool result = (solver.check() == z3::sat);
+            bool is_sat = (solver.check() == z3::sat);
             solver.pop();
-            return result;
+
+            // 3. Store the result in our flattened map
+            std::lock_guard<std::mutex> lock(vMutex);
+            verified_manifolds[dna] = is_sat;
+            return is_sat;
         } catch (...) {
             solver.pop();
             return false;
@@ -76,15 +94,14 @@ namespace MetaSpace {
         
         double cached_result;
         if (cache.Get(dna, cached_result)) {
-            if (gatekeeper.Verify(input_state)) {
-                // std::cout << "[MetaCore] SKIP: " << dna.substr(0, 8) << std::endl;
+            // Pass DNA to gatekeeper to check the flattened map
+            if (gatekeeper.Verify(dna, input_state)) {
                 return cached_result;
             }
         }
 
         double fresh_result = compute_func(input_state);
         cache.Put(dna, fresh_result);
-        // std::cout << "[MetaCore] COMPUTE: " << dna.substr(0, 8) << std::endl;
         return fresh_result;
     }
 

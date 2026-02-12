@@ -5,93 +5,84 @@
 #include <string>
 #include <thread>
 #include <chrono>
+#include "metaspace_core.hpp"
 
-// Configuration
-const double CPU_THRESHOLD_PERCENT = 15.0; // Inject if CPU > 15%
-const std::vector<std::string> BLACKLIST = {
-    "System", "smss.exe", "csrss.exe", "wininit.exe", "services.exe", "lsass.exe"
-};
+// Global Engine for decision making
+MetaSpace::LogicEngine* g_SupervisorEngine = nullptr;
 
-struct ProcessInfo {
-    DWORD pid;
-    std::string name;
-    double cpu_usage;
-};
-
-// Helper: Check if process is critical/blacklisted
-bool IsBlacklisted(const std::string& name) {
-    for (const auto& bl : BLACKLIST) {
-        if (name == bl) return true;
-    }
-    return false;
-}
-
-// Helper: Get Process List (Simplified for prototype)
-std::vector<ProcessInfo> ScanProcesses() {
-    std::vector<ProcessInfo> processes;
-    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    
-    if (hSnapshot) {
-        PROCESSENTRY32 pe32;
-        pe32.dwSize = sizeof(PROCESSENTRY32);
-        if (Process32First(hSnapshot, &pe32)) {
-            do {
-                // In a real implementation, we would calculate actual CPU usage here
-                // using GetProcessTimes or PDH counters.
-                // For this simulation, we assign random load to demonstrate logic.
-                double simulated_load = (rand() % 1000) / 10.0; 
-                
-                processes.push_back({
-                    pe32.th32ProcessID,
-                    pe32.szExeFile,
-                    simulated_load
-                });
-            } while (Process32Next(hSnapshot, &pe32));
+void OptimizeProcess(DWORD pid, const std::string& name) {
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+    if (hProcess) {
+        // 1. Set to REALTIME priority (Highest possible in Windows)
+        if (SetPriorityClass(hProcess, REALTIME_PRIORITY_CLASS)) {
+            // std::cout << "[MetaSupervisor] " << name << " -> REALTIME PRIORITY" << std::endl;
         }
-        CloseHandle(hSnapshot);
+
+        // 2. Lock to Performance Cores (Affinity Mask)
+        // Assume first 4 cores are the fastest for this prototype
+        DWORD_PTR affinityMask = 0x000F; 
+        if (SetProcessAffinityMask(hProcess, affinityMask)) {
+            // std::cout << "[MetaSupervisor] " << name << " -> LOCKED TO PERFORMANCE CORES" << std::endl;
+        }
+
+        CloseHandle(hProcess);
     }
-    return processes;
 }
 
-// Action: Inject the Accelerator
-void InjectAccelerator(DWORD pid, const std::string& name) {
-    std::cout << "[MetaSpace] DETECTED HIGH LOAD: " << name << " (PID: " << pid << ")" << std::endl;
-    std::cout << "[MetaSpace] >>> INJECTING MetaCore Shim (AVX-512 Enabled)..." << std::endl;
-    
-    // Real Injection Logic (Code Injection / CreateRemoteThread) would go here.
-    // Simulating injection delay...
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
-    
-    std::cout << "[MetaSpace] >>> SUCCESS: " << name << " is now ACCELERATED." << std::endl;
+void RestoreProcess(DWORD pid) {
+    HANDLE hProcess = OpenProcess(PROCESS_SET_INFORMATION, FALSE, pid);
+    if (hProcess) {
+        SetPriorityClass(hProcess, NORMAL_PRIORITY_CLASS);
+        CloseHandle(hProcess);
+    }
 }
 
 int main() {
     std::cout << "===================================================" << std::endl;
-    std::cout << "   MetaSpace Global Optimizer (v4.0 Prototype)     " << std::endl;
+    std::cout << "   MetaSpace Supervisor v5.0 (Flattened Logic)     " << std::endl;
     std::cout << "===================================================" << std::endl;
-    std::cout << "Initializing Process Watchdog..." << std::endl;
-    std::cout << "Threshold: " << CPU_THRESHOLD_PERCENT << "% CPU Usage" << std::endl;
-    std::cout << "Strategy: Dynamic JIT Injection" << std::endl;
-    std::cout << "---------------------------------------------------" << std::endl;
+
+    try {
+        g_SupervisorEngine = new MetaSpace::LogicEngine();
+        std::cout << "[Init] Decision Engine Online." << std::endl;
+    } catch (...) {
+        return 1;
+    }
+
+    // In a real scenario, we'd use a JSON library like nlohmann/json
+    // For this high-performance prototype, we simulate the registry/config scan
+    std::vector<std::string> target_apps = {"firefox.exe", "python.exe", "maya.exe", "blender.exe"};
 
     while (true) {
-        std::vector<ProcessInfo> procs = ScanProcesses();
-        
-        std::cout << "Scanning " << procs.size() << " processes..." << std::flush;
+        HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if (hSnapshot != INVALID_HANDLE_VALUE) {
+            PROCESSENTRY32 pe32;
+            pe32.dwSize = sizeof(PROCESSENTRY32);
+            if (Process32First(hSnapshot, &pe32)) {
+                do {
+                    std::string procName = pe32.szExeFile;
+                    bool is_target = false;
+                    for(const auto& app : target_apps) {
+                        if (procName == app) { is_target = true; break; }
+                    }
 
-        for (const auto& p : procs) {
-            if (p.cpu_usage > CPU_THRESHOLD_PERCENT && !IsBlacklisted(p.name)) {
-                // We found a target!
-                std::cout << "
-"; 
-                InjectAccelerator(p.pid, p.name);
-                
-                // Prevent spamming injection for this demo
-                std::this_thread::sleep_for(std::chrono::seconds(1)); 
+                    if (is_target) {
+                        // MetaSpace Logic Decision: PID + Time based Manifold
+                        std::vector<double> state = {(double)pe32.th32ProcessID, (double)time(NULL)};
+                        
+                        double decision = g_SupervisorEngine->Process(state, [](const std::vector<double>& v) {
+                            return 1.0; 
+                        });
+
+                        if (decision > 0.5) {
+                            OptimizeProcess(pe32.th32ProcessID, procName);
+                        }
+                    }
+                } while (Process32Next(hSnapshot, &pe32));
             }
+            CloseHandle(hSnapshot);
         }
-
-        std::this_thread::sleep_for(std::chrono::seconds(2));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
 
     return 0;

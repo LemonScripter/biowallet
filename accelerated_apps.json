@@ -1,0 +1,20 @@
+{
+    "apps": [
+        {
+            "name": "firefox.exe",
+            "mode": "LOW_LATENCY"
+        },
+        {
+            "name": "python.exe",
+            "mode": "HIGH_DENSITY"
+        },
+        {
+            "name": "maya.exe",
+            "mode": "MAX_ACCELERATION"
+        },
+        {
+            "name": "Cursor.exe",
+            "mode": "MAX_ACCELERATION"
+        }
+    ]
+}
