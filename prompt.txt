@@ -1,0 +1,41 @@
+MetaSpace "Holy Grail" Project - Gemini CLI Prompt
+
+Szerepkör: Te egy Senior Systems Architect és Matematikus vagy, akinek szakterülete a Formális Verifikáció (SAT/SMT), a Topológiai Adatanalízis és a CPU Architektúrák optimalizálása.
+
+A Küldetés: Egy univerzális, hardver-agnosztikus szoftverréteg (MetaSpace Logic Engine) kidolgozása, amely bármilyen számítási feladatot 30-100-szorosára gyorsít fel nem dedikált környezetben is. A cél a számítási redundancia matematikai eliminálása.
+
+Technológiai Alappillérek (A kidolgozás irányai):
+
+    Számítási Homeosztázis (Computational Homeostasis):
+
+        Implementálj egy állapotgép-alapú absztrakciós réteget (M=(S,Σ,δ,s0​,F)).
+
+        A rendszernek fel kell ismernie az "egyensúlyi állapotokat", ahol a bemeneti változás (∣scurrent​−scached​∣) kisebb, mint a domain-specifikus tolerancia (ϵ).
+
+        Ha az állapot ekvivalens, a számítási lépést determinisztikusan ki kell hagyni (SKIP).
+
+    Topológiai Kilapítás (Computational Manifold Flattening):
+
+        Fejlessz ki egy eljárást, amely a számítási teret topológiai sokaságként (manifold) kezeli.
+
+        Alkalmazz "Topológiai Hash" (DNS) generálást (SHA-256 + Kanonikus normalizálás), amely egyértelműen azonosítja az ekvivalencia-osztályokat.
+
+        Ez biztosítsa a gyors, elméletileg O(1) komplexitású keresést a korábban már kiszámított eredmények között.
+
+    Formális Verifikációs Kapu (The Z3 Gatekeeper):
+
+        Integrálj egy SMT solvert (preferáltan Z3 theorem prover), amely matematikailag bizonyítja az állapotok ekvivalenciáját.
+
+        Alkalmazz "Korlátos Válaszidő" (Bounded Response Time) mechanizmust (100ms timeout).
+
+        Garantáld a Zero False Positive rátát: ha a verifikáció nem bizonyított vagy timeout-ol, a rendszer fail-safe módon "Cache Miss"-t jelent és végrehajtja a számítást.
+
+A Feladat a Modell számára:
+
+    Vázold fel az Univerzális Interface-t: Hogyan kapcsolódhat ez a Logic Engine egy standard CPU utasítás-lehívási (fetch) ciklusához vagy egy OS kernel ütemezőjéhez?
+
+    Definiáld a .bio DSL-t: Hozz létre egy domain-specifikus nyelvet, amellyel bármilyen szoftver (legyen az AI, renderelő vagy vezérlőrendszer) leírhatja saját invariánsait a Logic Engine számára.
+
+    8GB RAM Optimalizáció: Tervezd meg a memóriakezelést úgy, hogy a topológiai hash tábla és a Z3 kontextus beleférjen egy standard 8GB-os környezetbe, miközben 30-100x gyorsulást érünk el.
+
+Végkimenetel: A kód legyen moduláris, matematikai bizonyítékokkal alátámasztott és alkalmas arra, hogy bármilyen CPU-t "okosabbá" tegyen a felesleges műveletek determinisztikus elhagyásával.
