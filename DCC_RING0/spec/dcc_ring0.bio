@@ -1,0 +1,99 @@
+// DCC Ring 0 — Formális MetaSpace Specifikáció
+// Fájl: dcc_ring0.bio
+// Feltaláló: Szőke László-Ferenc | Citrom Média LTD
+// Szabadalom: OSIM 20251221-2230
+//
+// Ez a .bio fájl formálisan leírja a Digital Causal Closure Ring 0
+// implementációjának invariánsait és állapotgépét.
+//
+// Bizonyítja:
+//   1. Autonóm folyamat (irq=FALSE) soha nem ér COMMITTED állapotba
+//   2. TOCTOU kísérlet (TX_STAGED + más inode) mindig TX_ROLLBACK
+//   3. BLOCKED fájlra nincs írás, semmilyen konfigurációval
+//   4. A teljes állapottér véges → Turing-hiányos → Z3-mal verifikálható
+//
+// Challenge paritás:
+//   Axiom_Validator.js WRITE axiom = itt: file_axiom_map[fname] & op_class
+//   Virtual_CPU.js LOCK→STAGE→COMMIT = itt: TX_LOCKED→TX_STAGED→SAT
+//   AUTONOMOUS always false = itt: irq_event==FALSE → UNSAT_NO_TOKEN
+
+CELL DCCRing0Guard {
+
+  INTERFACE {
+    INPUT  irq_event:    BINARY;       // volt-e hardware IRQ (input_event)?
+    INPUT  op_class:     INTEGER;      // token op_class bitmaszkja (OP_WRITE=1, OP_NET=2, OP_EXEC=4, OP_ANY=255)
+    INPUT  file_axiom:   INTEGER;      // file_axiom_map bejegyzés értéke (0=BLOCK, 255=ANY, 1=WRITE)
+    INPUT  token_age_ms: FLOAT;        // token kora milliszekundumban
+    INPUT  tx_state:     INTEGER;      // 0=IDLE, 1=LOCKED, 2=STAGED
+    INPUT  same_inode:   BINARY;       // az írás célpontja ugyanaz az inode, mint a tx bound_ino?
+    OUTPUT verdict:      INTEGER;      // 1=SAT, 2=NO_TOKEN, 3=EXPIRED, 4=CONSUMED,
+                                       // 11=TX_ROLLBACK, 12=AXIOM_MISMATCH
+  }
+
+  INVARIANTS {
+
+    // I1: Autonóm folyamat soha nem kaphat SAT verdiktet
+    // Ez a challenge AUTONOMOUS axiom kernel-szintű megfelelője
+    RULE no_autonomous_write:
+        (irq_event == FALSE) IMPLIES (verdict != 1);
+
+    // I2: Kauzális ablak — 500ms hard limit
+    RULE causality_window:
+        token_age_ms < 500.0;
+
+    // I3: BLOCKED fájl — semmilyen token sem nyitja meg
+    // Challenge analóg: TEXT szegmens (0x0000-0x0FFF) és BIO zóna (0xDEAD) soha nem írható
+    RULE blocked_file_immutable:
+        (file_axiom == 0) IMPLIES (verdict != 1);
+
+    // I4: op_class mismatch → soha nem SAT
+    // Challenge analóg: Axiom_Validator score < 5 → UNSAT
+    RULE op_class_match_required:
+        ((file_axiom != 255) AND ((file_axiom AND op_class) == 0)) IMPLIES (verdict != 1);
+
+    // I5: TOCTOU — TX_STAGED + más inode → mindig TX_ROLLBACK (11)
+    // Challenge analóg: Virtual_CPU staging buffer — commit csak az eredeti tranzakcióra
+    RULE toctou_rollback:
+        ((tx_state == 2) AND (same_inode == FALSE)) IMPLIES (verdict == 11);
+
+    // I6: SAT csak érvényes kauzális lánccal lehetséges
+    RULE sat_requires_causal_chain:
+        (verdict == 1) IMPLIES (irq_event == TRUE AND token_age_ms < 500.0);
+
+  }
+
+  STATES {
+
+    // TX_IDLE: nincs aktív tranzakció, nincs token
+    STATE TX_IDLE {
+      verdict = 2;   // NO_TOKEN
+      TRANSITION TO TX_LOCKED IF irq_event == TRUE AND token_age_ms < 500.0;
+    }
+
+    // TX_LOCKED: IRQ érkezett, token él, első írásra vár
+    STATE TX_LOCKED {
+      TRANSITION TO TX_STAGED   IF file_axiom != 0
+                                AND (file_axiom == 255 OR (file_axiom AND op_class) != 0);
+      TRANSITION TO TX_IDLE     IF token_age_ms >= 500.0;
+      // Timeout esetén verdict = EXPIRED (3)
+    }
+
+    // TX_STAGED: első írás megtörtént, inode kötve
+    // SAT állapot — de csak ugyanarra az inode-ra
+    STATE TX_STAGED {
+      verdict = 1;   // SAT
+      TRANSITION TO TX_STAGED IF same_inode == TRUE AND token_age_ms < 500.0;
+      TRANSITION TO TX_IDLE   IF same_inode == FALSE;   // TX_ROLLBACK (11)
+      TRANSITION TO TX_IDLE   IF token_age_ms >= 500.0; // EXPIRED (3)
+    }
+
+    // TX_COMMITTED: finális állapot (atomi commit, nincs visszatérés)
+    // A Ring0-ban ez a sikeres write() syscall visszatérése utáni állapot
+    STATE TX_COMMITTED TYPE CRITICAL_SHIELD {
+      verdict = 1;   // SAT
+      // Nincs további tranzíció — determinisztikus lezárás
+    }
+
+  }
+
+}
