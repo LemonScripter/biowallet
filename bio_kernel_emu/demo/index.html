@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BioOS — Kauzális Alkotmány Demo</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="inert">
+
+<!-- ── Header ── -->
+<header class="header">
+    <div>
+        <h1>BioOS — Kauzális Alkotmány Emulátor</h1>
+        <div class="subtitle">
+            Izomorf: DCC Ring 0 eBPF/LSM · Tokyo szerver · kernel 6.1.0-48
+        </div>
+    </div>
+    <div id="state-badge" class="state-badge inert">
+        <div class="state-dot"></div>
+        <span id="state-label">STATE_INERT</span>
+    </div>
+</header>
+
+<!-- ── Main Grid ── -->
+<main class="main">
+
+    <!-- Kamera Panel -->
+    <div class="panel">
+        <div class="panel-header">
+            <span>📷 Kamera Feed</span>
+            <span id="camera-status" style="color: var(--inert-color); font-size:10px;">ENODEV</span>
+        </div>
+        <div class="panel-body">
+            <canvas id="camera-canvas"></canvas>
+            <div class="camera-overlay">
+                <div class="icon">⬛</div>
+                <div>ENODEV — eszköz nem létezik</div>
+                <div style="font-size:10px; color: var(--text-dim);">Nincs kauzális lánc</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Böngésző Panel -->
+    <div class="panel">
+        <div class="panel-header">
+            <span>🌐 Böngésző</span>
+            <span id="net-status" style="color: var(--inert-color); font-size:10px;">ECONNREFUSED</span>
+        </div>
+        <div class="panel-body" style="display:flex; flex-direction:column;">
+            <div class="browser-chrome">
+                <div class="browser-dots">
+                    <div class="browser-dot"></div>
+                    <div class="browser-dot"></div>
+                    <div class="browser-dot"></div>
+                </div>
+                <div class="browser-url" id="browser-url">about:blank — No Causal Chain</div>
+            </div>
+            <div class="browser-content" style="flex:1; position:relative;">
+                <div class="browser-blank">ECONNREFUSED — hálózat nem létezik</div>
+                <div class="browser-page" id="browser-page">
+                    <div class="page-title">metaspace.bio</div>
+                    <div class="page-sub">BioOS Logic Lock · OSIM 20251221-2230</div>
+                    <div class="page-line w80"></div>
+                    <div class="page-line w60"></div>
+                    <div class="page-line w90"></div>
+                    <div class="page-line w80"></div>
+                    <div style="margin-top:12px; font-size:11px; color: var(--active-color);">
+                        ✓ Kauzális lánc aktív — erőforrások elérhetők
+                    </div>
+                    <div class="page-line w60" style="margin-top:8px;"></div>
+                    <div class="page-line w90"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audit Log Panel -->
+    <div class="panel">
+        <div class="panel-header">
+            <span>📋 Kernel Audit Log</span>
+            <span id="event-count" style="font-size:10px;">0 esemény</span>
+        </div>
+        <div class="panel-body">
+            <div class="audit-log" id="audit-log">
+                <div class="audit-event denied">
+                    <div class="audit-time">boot</div>
+                    BioKernelEmu initialized — STATE_INERT
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aktiváló sáv -->
+    <div class="trigger-bar">
+        <div>
+            <div class="chain-viz">
+                <div class="chain-node">IRQ</div>
+                <div class="chain-arrow">→</div>
+                <div class="chain-node">Token (200ms)</div>
+                <div class="chain-arrow">→</div>
+                <div class="chain-node">Z3: SAT</div>
+                <div class="chain-arrow">→</div>
+                <div class="chain-node">ACTIVE</div>
+            </div>
+            <div class="trigger-hint" style="margin-top:6px;">
+                Kauzális lánc: fizikai IRQ → token → verifikáció → erőforrás
+            </div>
+        </div>
+
+        <button id="trigger-btn" class="trigger-btn">
+            ⚡ FIZIKAI ÉRINTÉS — KAUZÁLIS LÁNC AKTIVÁLÁSA
+        </button>
+
+        <div class="trigger-hint">
+            isTrusted=true → IRQ token<br>
+            Izomorf: raw_tp/input_event
+        </div>
+    </div>
+
+</main>
+
+<!-- Kernel komponensek — sorrend fontos! -->
+<script src="../src/audit_log.js"></script>
+<script src="../src/state_manager.js"></script>
+<script src="../src/causal_irq_bridge.js"></script>
+<script src="../src/z3_gatekeeper.js"></script>
+<script src="../src/index.js"></script>
+<script src="demo.js"></script>
+
+</body>
+</html>
