@@ -157,10 +157,12 @@ CausalIRQBridge.prototype.trigger = function(event, opClass) {
         return;
     }
 
-    this._token = new CausalToken(event, opClass);
+    // Accumulate op_class: if already ACTIVE, OR the new class onto existing
+    var accumulated = this._stateManager.isInert ? opClass : (this._stateManager._opClass | opClass);
+    this._token = new CausalToken(event, accumulated);
     this._stateManager.takeSnapshot();
-    this._stateManager.setState(STATE_ACTIVE, opClass);
-    if (this._auditLog) this._auditLog.active(this._token.pid, opClass);
+    this._stateManager.setState(STATE_ACTIVE, accumulated);
+    if (this._auditLog) this._auditLog.active(this._token.pid, accumulated);
 
     for (var i = 0; i < this._handlers.length; i++) this._handlers[i](this._token);
 };
