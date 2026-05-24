@@ -46,9 +46,8 @@ class T09_PidRecycle(AttackBase):
                                   "--file", "/tmp/dcc_pid_recycle.txt",
                                   "--comm", "dcc_attacker",
                                   timeout=10.0)
-        # exit 0 = write succeeded (vulnerability confirmed)
-        # exit 1 = write blocked (kernel may have cleaned up or PID wasn't recycled)
-        kernel_exploitable = (proc.returncode == 0)
+        kb = self._kernel_blocked(proc)
+        kernel_exploitable = (kb is False)  # False=allowed=exploit succeeded
 
         detail_parts = []
         if oracle_vulnerable:
@@ -57,6 +56,14 @@ class T09_PidRecycle(AttackBase):
             detail_parts.append("kernel: PID recycle exploit succeeded")
         else:
             detail_parts.append("kernel: PID not recycled in test window (probabilistic)")
+
+        if oracle_vulnerable and kb is None:
+            return self._oracle_result(
+                outcome=AttackOutcome.ORACLE_BYPASS,
+                oracle_verdict=result.verdict,
+                detail="oracle: stale token persists after exit (no cleanup BPF program) — known gap",
+                invariants_violated=["I1", "I6"],
+            )
 
         if oracle_vulnerable and kernel_exploitable:
             return self._oracle_result(
@@ -68,7 +75,6 @@ class T09_PidRecycle(AttackBase):
             )
 
         if oracle_vulnerable and not kernel_exploitable:
-            # Known weakness but not deterministically triggerable
             return self._oracle_result(
                 outcome=AttackOutcome.BLOCKED,
                 oracle_verdict=result.verdict,

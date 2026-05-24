@@ -45,7 +45,14 @@ class T10_MapFlood(AttackBase):
                                   "--file", "/tmp/dcc_victim.txt",
                                   "--comm", "dcc_victim",
                                   timeout=30.0)
-        kernel_victim_blocked = (proc.returncode == 1)
+        kernel_victim_blocked = self._kernel_blocked(proc)
+
+        if kernel_victim_blocked is None:
+            return self._oracle_result(
+                outcome=AttackOutcome.ORACLE_ONLY,
+                oracle_verdict=result.verdict,
+                detail=f"oracle: token_map has no Python cap; kernel cap={TOKEN_MAP_MAX} (DoS possible)",
+            )
 
         if oracle_vulnerable and kernel_victim_blocked:
             return self._oracle_result(

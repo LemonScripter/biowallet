@@ -35,13 +35,11 @@ class T05_TOCTOU(AttackBase):
                                   inode=22222, comm="dcc_attacker")
         oracle_blocks = (r2.verdict == VERDICT_TX_ROLLBACK)
 
-        # Kernel: injector performs IRQ → write fileA → write fileB in sequence
         proc = self._run_injector("--mode", "toctou",
                                   "--file-a", "/tmp/dcc_fileA.txt",
                                   "--file-b", "/tmp/dcc_fileB.txt",
                                   "--comm",   "dcc_attacker")
-        # exit 0 = second write succeeded (bypass), exit 1 = blocked
-        kernel_blocked = (proc.returncode == 1)
+        kernel_blocked = self._kernel_blocked(proc)
 
         violations = self.oracle.validate_invariants(
             irq_event=True, op_class=0x07, file_axiom=0xFF,
@@ -55,6 +53,13 @@ class T05_TOCTOU(AttackBase):
                 oracle_verdict=r2.verdict,
                 detail=f"Oracle returned {r2.verdict_name()} — expected TX_ROLLBACK",
                 invariants_violated=[v.invariant for v in violations],
+            )
+
+        if kernel_blocked is None:
+            return self._oracle_result(
+                outcome=AttackOutcome.ORACLE_ONLY,
+                oracle_verdict=r2.verdict,
+                detail="oracle=TX_ROLLBACK (I5 holds: TX_STAGED + different inode always rollback)",
             )
 
         if not kernel_blocked:

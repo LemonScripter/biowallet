@@ -69,8 +69,9 @@ def run_all(
         cls = load_attack_class(module_name, class_name)
         instance: AttackBase = cls(
             oracle=oracle,
-            injector_bin=injector if kernel_enabled else "/dev/null/nonexistent",
-            bpftool=bpftool if kernel_enabled else "/dev/null/nonexistent",
+            injector_bin=injector,
+            bpftool=bpftool,
+            kernel_enabled=kernel_enabled,
         )
         if filter_ids and instance.ATTACK_ID not in filter_ids:
             continue
@@ -101,20 +102,23 @@ def print_report(results: list[AttackResult], as_json: bool) -> None:
         print(json.dumps(data, indent=2))
         return
 
-    passed   = [r for r in results if r.outcome == AttackOutcome.BLOCKED]
-    bypassed = [r for r in results if r.outcome == AttackOutcome.BYPASSED]
+    passed     = [r for r in results if r.outcome == AttackOutcome.BLOCKED]
+    ora_ok     = [r for r in results if r.outcome == AttackOutcome.ORACLE_ONLY]
+    bypassed   = [r for r in results if r.outcome == AttackOutcome.BYPASSED]
+    ora_bypass = [r for r in results if r.outcome == AttackOutcome.ORACLE_BYPASS]
     mismatches = [r for r in results if r.outcome == AttackOutcome.ORACLE_MISMATCH]
-    errors   = [r for r in results if r.outcome == AttackOutcome.ERROR]
-    skipped  = [r for r in results if r.outcome == AttackOutcome.SKIPPED]
+    errors     = [r for r in results if r.outcome == AttackOutcome.ERROR]
+    skipped    = [r for r in results if r.outcome == AttackOutcome.SKIPPED]
 
     print()
     print("=" * 70)
-    print(f"DCC Ring 0 — Attack Validation Report  {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"DCC Ring 0 -- Attack Validation Report  {time.strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 70)
     for r in results:
         print(r.summary_line())
     print("-" * 70)
-    print(f"Total: {len(results)}  |  BLOCKED: {len(passed)}  |  BYPASSED: {len(bypassed)}  "
+    print(f"Total: {len(results)}  |  BLOCKED: {len(passed)}  |  ORACLE_ONLY: {len(ora_ok)}  "
+          f"|  BYPASSED: {len(bypassed)}  |  ORACLE_BYPASS: {len(ora_bypass)}  "
           f"|  MISMATCH: {len(mismatches)}  |  ERROR: {len(errors)}  |  SKIPPED: {len(skipped)}")
     print("=" * 70)
 
@@ -124,6 +128,11 @@ def print_report(results: list[AttackResult], as_json: bool) -> None:
             print(f"  {r.attack_id}: {r.detail}")
             if r.invariants_violated:
                 print(f"    Invariants violated: {', '.join(r.invariants_violated)}")
+
+    if ora_bypass:
+        print("\nORACLE_BYPASS (known gaps / expected non-enforcement):")
+        for r in ora_bypass:
+            print(f"  {r.attack_id}: {r.detail}")
 
     if mismatches:
         print("\nORACLE MISMATCHES (oracle vs kernel disagree):")
@@ -160,7 +169,7 @@ def main():
 
     print_report(results, as_json=args.json)
 
-    # Exit 1 if any real bypasses found
+    # Exit 1 only for real kernel bypasses (not expected ORACLE_BYPASS)
     bypasses = [r for r in results if r.outcome == AttackOutcome.BYPASSED]
     sys.exit(1 if bypasses else 0)
 

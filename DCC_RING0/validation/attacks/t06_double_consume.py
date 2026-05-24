@@ -44,17 +44,24 @@ class T06_DoubleConsume(AttackBase):
                                   inode=77777, comm="dcc_attacker")
         oracle_final_blocked = (r3.verdict == VERDICT_TX_ROLLBACK)
 
-        proc = self._run_injector("--mode", "multi-write",
-                                  "--file", "/tmp/dcc_shared.dat",
-                                  "--pivot", "/tmp/dcc_pivot.dat",
-                                  "--comm",  "dcc_attacker")
-        kernel_pivot_blocked = (proc.returncode == 1)
-
         if not oracle_final_blocked:
             return self._oracle_result(
                 outcome=AttackOutcome.ERROR,
                 oracle_verdict=r3.verdict,
                 detail=f"Oracle should TX_ROLLBACK on pivot, got {r3.verdict_name()}",
+            )
+
+        proc = self._run_injector("--mode", "multi-write",
+                                  "--file", "/tmp/dcc_shared.dat",
+                                  "--pivot", "/tmp/dcc_pivot.dat",
+                                  "--comm",  "dcc_attacker")
+        kernel_pivot_blocked = self._kernel_blocked(proc)
+
+        if kernel_pivot_blocked is None:
+            return self._oracle_result(
+                outcome=AttackOutcome.ORACLE_ONLY,
+                oracle_verdict=r3.verdict,
+                detail="oracle: same-inode multi-write=SAT, pivot=TX_ROLLBACK (I5 holds)",
             )
 
         if not kernel_pivot_blocked:

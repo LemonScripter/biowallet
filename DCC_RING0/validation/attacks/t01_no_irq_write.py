@@ -25,8 +25,7 @@ class T01_NoIrqWrite(AttackBase):
         proc = self._run_injector("--mode", "write-only",
                                   "--file", "/tmp/dcc_test_target.txt",
                                   "--comm", "dcc_attacker")
-        # exit 0 = write succeeded (bypass), exit 1 = write blocked (correct)
-        kernel_blocked = (proc.returncode == 1)
+        kernel_blocked = self._kernel_blocked(proc)
 
         violations = self.oracle.validate_invariants(
             irq_event=False, op_class=0x01, file_axiom=0xFF,
@@ -42,6 +41,13 @@ class T01_NoIrqWrite(AttackBase):
                 invariants_violated=[v.invariant for v in violations],
             )
 
+        if kernel_blocked is None:
+            return self._oracle_result(
+                outcome=AttackOutcome.ORACLE_ONLY,
+                oracle_verdict=result.verdict,
+                detail=f"oracle={result.verdict_name()} (I1 holds: no-IRQ never SAT)",
+            )
+
         if not kernel_blocked:
             return self._oracle_result(
                 outcome=AttackOutcome.BYPASSED,
@@ -49,14 +55,6 @@ class T01_NoIrqWrite(AttackBase):
                 kernel_verdict=0,
                 detail="Kernel allowed write without IRQ — I1 bypass",
                 invariants_violated=["I1"],
-            )
-
-        if oracle_blocks != kernel_blocked:
-            return self._oracle_result(
-                outcome=AttackOutcome.ORACLE_MISMATCH,
-                oracle_verdict=result.verdict,
-                kernel_verdict=1,
-                detail="Oracle and kernel disagree on no-IRQ block",
             )
 
         return self._oracle_result(

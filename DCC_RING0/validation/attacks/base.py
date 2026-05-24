@@ -19,11 +19,13 @@ from oracle.bio_semantics import (
 
 
 class AttackOutcome(Enum):
-    BLOCKED       = "BLOCKED"        # kernel blocked as expected
-    BYPASSED      = "BYPASSED"       # attack succeeded — real bug
+    BLOCKED         = "BLOCKED"          # kernel blocked as expected
+    BYPASSED        = "BYPASSED"         # attack succeeded — real bug
     ORACLE_MISMATCH = "ORACLE_MISMATCH"  # kernel disagrees with oracle
-    ERROR         = "ERROR"          # test infra error (not a bug)
-    SKIPPED       = "SKIPPED"        # prereq missing (bpftool not found, etc.)
+    ORACLE_ONLY     = "ORACLE_ONLY"      # --no-kernel: oracle says blocked
+    ORACLE_BYPASS   = "ORACLE_BYPASS"    # --no-kernel: oracle says bypassed
+    ERROR           = "ERROR"            # test infra error (not a bug)
+    SKIPPED         = "SKIPPED"          # prereq missing (bpftool not found, etc.)
 
 
 @dataclass
@@ -39,12 +41,15 @@ class AttackResult:
 
     @property
     def passed(self) -> bool:
-        return self.outcome == AttackOutcome.BLOCKED
+        return self.outcome in (AttackOutcome.BLOCKED, AttackOutcome.ORACLE_ONLY)
 
     def summary_line(self) -> str:
-        icon = "✓" if self.passed else "✗"
+        icon = "+" if self.passed else "-"
         return (f"{icon} [{self.attack_id}] {self.attack_name}: "
                 f"{self.outcome.value}  ({self.duration_ms:.1f}ms)  {self.detail}")
+
+
+KERNEL_DISABLED_RC = 127   # sentinel: kernel tests not run
 
 
 class AttackBase(ABC):
@@ -55,10 +60,12 @@ class AttackBase(ABC):
 
     def __init__(self, oracle: BioSemanticsOracle,
                  injector_bin: str = "/tmp/dcc_inject",
-                 bpftool: str = "bpftool"):
-        self.oracle       = oracle
-        self.injector_bin = injector_bin
-        self.bpftool      = bpftool
+                 bpftool: str = "bpftool",
+                 kernel_enabled: bool = True):
+        self.oracle         = oracle
+        self.injector_bin   = injector_bin
+        self.bpftool        = bpftool
+        self.kernel_enabled = kernel_enabled
 
     def run(self) -> AttackResult:
         t0 = time.monotonic()
@@ -86,8 +93,25 @@ class AttackBase(ABC):
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     def _run_injector(self, *args: str, timeout: float = 5.0) -> subprocess.CompletedProcess:
+        if not self.kernel_enabled:
+            return subprocess.CompletedProcess(args=[], returncode=KERNEL_DISABLED_RC,
+                                               stdout="", stderr="")
         cmd = [self.injector_bin, *args]
         return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+
+    def _kernel_blocked(self, proc: subprocess.CompletedProcess) -> Optional[bool]:
+        """True=blocked, False=allowed, None=kernel not tested."""
+        if proc.returncode == KERNEL_DISABLED_RC:
+            return None
+        return proc.returncode == 1
+
+    def _bpftool_map_update(self, map_name: str, key_hex: str, value_hex: str) -> bool:
+        if not self.kernel_enabled:
+            return False
+        cmd = [self.bpftool, "map", "update", "name", map_name,
+               "key", *key_hex.split(), "value", *value_hex.split()]
+        r = subprocess.run(cmd, capture_output=True, text=True)
+        return r.returncode == 0
 
     def _bpftool_map_update(self, map_name: str, key_hex: str, value_hex: str) -> bool:
         """Update a BPF map entry. key_hex/value_hex are space-separated bytes."""

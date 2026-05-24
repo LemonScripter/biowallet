@@ -32,22 +32,6 @@ class T03_BlockedFile(AttackBase):
         # Set OP_BLOCK in kernel map via bpftool
         key_hex   = self._filename_to_hex(BLOCKED_FILE)
         value_hex = self._u32_to_hex(OP_BLOCK)
-        map_ok = self._bpftool_map_update("file_axiom_map", key_hex, value_hex)
-        if not map_ok:
-            return self._oracle_result(
-                outcome=AttackOutcome.SKIPPED,
-                detail="bpftool map update failed — not running as root or BPF not loaded",
-            )
-
-        # Kernel: inject IRQ for pid then try to write the blocked file
-        proc = self._run_injector("--mode", "irq-then-write",
-                                  "--file", f"/tmp/{BLOCKED_FILE}",
-                                  "--comm", "dcc_attacker")
-        kernel_blocked = (proc.returncode == 1)
-
-        # Cleanup: remove the blocked entry
-        self._bpftool_map_delete("file_axiom_map", key_hex)
-
         if not oracle_blocks:
             return self._oracle_result(
                 outcome=AttackOutcome.ERROR,
@@ -55,6 +39,26 @@ class T03_BlockedFile(AttackBase):
                 detail="Oracle returned SAT for OP_BLOCK file — oracle bug",
                 invariants_violated=["I3"],
             )
+
+        map_ok = self._bpftool_map_update("file_axiom_map", key_hex, value_hex)
+        if not map_ok and self.kernel_enabled:
+            return self._oracle_result(
+                outcome=AttackOutcome.SKIPPED,
+                detail="bpftool map update failed — not running as root or BPF not loaded",
+            )
+
+        if not self.kernel_enabled:
+            return self._oracle_result(
+                outcome=AttackOutcome.ORACLE_ONLY,
+                oracle_verdict=result.verdict,
+                detail=f"oracle=AXIOM_MISMATCH (I3 holds: OP_BLOCK file never SAT)",
+            )
+
+        proc = self._run_injector("--mode", "irq-then-write",
+                                  "--file", f"/tmp/{BLOCKED_FILE}",
+                                  "--comm", "dcc_attacker")
+        kernel_blocked = self._kernel_blocked(proc)
+        self._bpftool_map_delete("file_axiom_map", key_hex)
 
         if not kernel_blocked:
             return self._oracle_result(

@@ -28,16 +28,16 @@ class T08_CommSpoof(AttackBase):
         proc = self._run_injector("--mode", "comm-spoof",
                                   "--comm", "bash",
                                   "--file", "/tmp/dcc_comm_spoof.txt")
-        # exit 0 = write allowed (expected for this known weakness)
-        kernel_allows = (proc.returncode == 0)
+        kernel_allows_raw = self._kernel_blocked(proc)
+        # kernel_blocked=True means write was blocked; for this test "allows" = not blocked
+        kernel_allows = (kernel_allows_raw is False)  # False=allowed, True=blocked, None=no-kernel
 
-        if oracle_allows and kernel_allows:
+        if oracle_allows and (kernel_allows or kernel_allows_raw is None):
             return self._oracle_result(
-                outcome=AttackOutcome.BYPASSED,
+                outcome=AttackOutcome.ORACLE_BYPASS,
                 oracle_verdict=result.verdict,
-                kernel_verdict=0,
-                detail="comm-spoof succeeds as designed — known weakness, documented",
-                invariants_violated=[],
+                kernel_verdict=0 if kernel_allows else None,
+                detail="comm-spoof allowed by design (prctl+whitelist) — known limitation, in-scope for Phase 11",
             )
 
         if oracle_allows and not kernel_allows:

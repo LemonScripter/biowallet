@@ -41,25 +41,6 @@ class T04_OpClassMismatch(AttackBase):
         # a file with OP_NET axiom
         key_hex   = self._filename_to_hex(NET_FILE)
         value_hex = self._u32_to_hex(OP_NET)
-        map_ok = self._bpftool_map_update("file_axiom_map", key_hex, value_hex)
-        if not map_ok:
-            return self._oracle_result(
-                outcome=AttackOutcome.SKIPPED,
-                detail="bpftool unavailable",
-            )
-
-        # Inject IRQ with high keycode (>=256) to get OP_ANY token, then expect
-        # the axiom check to use the file axiom only (OP_NET & OP_WRITE = 0)
-        # NOTE: keyboard code<256 gives OP_WRITE|OP_NET|OP_EXEC which matches OP_NET.
-        # To properly test I4 isolation we use the injector's --op-class override.
-        proc = self._run_injector("--mode", "irq-then-write",
-                                  "--op-class", "1",    # force OP_WRITE only
-                                  "--file", f"/tmp/{NET_FILE}",
-                                  "--comm", "dcc_attacker")
-        kernel_blocked = (proc.returncode == 1)
-
-        self._bpftool_map_delete("file_axiom_map", key_hex)
-
         if not oracle_blocks:
             return self._oracle_result(
                 outcome=AttackOutcome.ERROR,
@@ -67,6 +48,27 @@ class T04_OpClassMismatch(AttackBase):
                 detail="Oracle returned SAT for op_class mismatch — oracle bug",
                 invariants_violated=["I4"],
             )
+
+        if not self.kernel_enabled:
+            return self._oracle_result(
+                outcome=AttackOutcome.ORACLE_ONLY,
+                oracle_verdict=result.verdict,
+                detail="oracle=AXIOM_MISMATCH (I4 holds: OP_WRITE & OP_NET = 0)",
+            )
+
+        map_ok = self._bpftool_map_update("file_axiom_map", key_hex, value_hex)
+        if not map_ok:
+            return self._oracle_result(
+                outcome=AttackOutcome.SKIPPED,
+                detail="bpftool unavailable",
+            )
+
+        proc = self._run_injector("--mode", "irq-then-write",
+                                  "--op-class", "1",
+                                  "--file", f"/tmp/{NET_FILE}",
+                                  "--comm", "dcc_attacker")
+        kernel_blocked = self._kernel_blocked(proc)
+        self._bpftool_map_delete("file_axiom_map", key_hex)
 
         if not kernel_blocked:
             return self._oracle_result(

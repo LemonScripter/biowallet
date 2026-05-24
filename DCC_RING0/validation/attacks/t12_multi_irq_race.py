@@ -38,17 +38,26 @@ class T12_MultiIrqRace(AttackBase):
                                       now_ns=now + 100_000_000)
         oracle_write_ok = (result.verdict == VERDICT_SAT)
 
-        proc = self._run_injector("--mode", "double-irq",
-                                  "--file", "/tmp/dcc_double_irq.txt",
-                                  "--comm", "dcc_attacker")
-        kernel_ok = (proc.returncode == 0)  # write should succeed (not bypass, just valid)
-
         if not oracle_ok or not oracle_write_ok:
             return self._oracle_result(
                 outcome=AttackOutcome.ERROR,
                 oracle_verdict=result.verdict,
                 detail=f"Oracle double-IRQ state broken: ok={oracle_ok} write={oracle_write_ok}",
             )
+
+        proc = self._run_injector("--mode", "double-irq",
+                                  "--file", "/tmp/dcc_double_irq.txt",
+                                  "--comm", "dcc_attacker")
+        kb = self._kernel_blocked(proc)
+
+        if kb is None:
+            return self._oracle_result(
+                outcome=AttackOutcome.ORACLE_ONLY,
+                oracle_verdict=result.verdict,
+                detail="oracle: double-IRQ overwrites token safely, write valid",
+            )
+
+        kernel_ok = (kb is False)  # False=allowed=correct
 
         if oracle_ok and kernel_ok:
             return self._oracle_result(
@@ -61,6 +70,6 @@ class T12_MultiIrqRace(AttackBase):
         return self._oracle_result(
             outcome=AttackOutcome.ORACLE_MISMATCH,
             oracle_verdict=result.verdict,
-            kernel_verdict=1 if not kernel_ok else 0,
-            detail=f"Oracle says OK but kernel disagrees: kernel_ok={kernel_ok}",
+            kernel_verdict=1,
+            detail=f"Oracle says write valid but kernel blocked",
         )

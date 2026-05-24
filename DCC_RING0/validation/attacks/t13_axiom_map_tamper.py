@@ -37,6 +37,13 @@ class T13_AxiomMapTamper(AttackBase):
         # Tamper: update axiom to OP_WRITE
         key_hex   = self._filename_to_hex(PROTECTED_FILE)
         value_hex = self._u32_to_hex(OP_WRITE)
+        if not self.kernel_enabled:
+            return self._oracle_result(
+                outcome=AttackOutcome.ORACLE_ONLY,
+                oracle_verdict=r_before.verdict,
+                detail="oracle: OP_BLOCK blocks (I3). Kernel map tamper requires root+bpftool (trust boundary test).",
+            )
+
         tamper_ok = self._bpftool_map_update("file_axiom_map", key_hex, value_hex)
 
         if not tamper_ok:

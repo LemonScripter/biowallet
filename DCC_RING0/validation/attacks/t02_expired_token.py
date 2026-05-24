@@ -33,13 +33,20 @@ class T02_ExpiredToken(AttackBase):
                                   "--wait-ms", "550",
                                   "--file", "/tmp/dcc_test_target.txt",
                                   "--comm", "dcc_attacker")
-        kernel_blocked = (proc.returncode == 1)
+        kernel_blocked = self._kernel_blocked(proc)
 
         if not oracle_blocks:
             return self._oracle_result(
                 outcome=AttackOutcome.ERROR,
                 oracle_verdict=result.verdict,
                 detail=f"Oracle returned {result.verdict_name()} — expected EXPIRED",
+            )
+
+        if kernel_blocked is None:
+            return self._oracle_result(
+                outcome=AttackOutcome.ORACLE_ONLY,
+                oracle_verdict=result.verdict,
+                detail=f"oracle={result.verdict_name()} (I2 holds: 600ms > 500ms window)",
             )
 
         if not kernel_blocked:

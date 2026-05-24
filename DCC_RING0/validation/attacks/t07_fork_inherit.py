@@ -41,17 +41,23 @@ class T07_ForkInheritLimit(AttackBase):
                                       inode=33333, comm="dcc_attacker")
         oracle_gen4_blocked = (result.verdict != VERDICT_SAT)
 
-        # Kernel: injector forks 4 deep, gen4 tries write
-        proc = self._run_injector("--mode", "fork-depth",
-                                  "--depth", "4",
-                                  "--file",  "/tmp/dcc_owned.txt",
-                                  "--comm",  "dcc_attacker")
-        kernel_blocked = (proc.returncode == 1)
-
         if not oracle_blocks_gen4 or not oracle_gen4_blocked:
             return self._oracle_result(
                 outcome=AttackOutcome.ERROR,
                 detail=f"Oracle fork-depth check failed: gen4_in_map={gen4_has_token}",
+            )
+
+        proc = self._run_injector("--mode", "fork-depth",
+                                  "--depth", "4",
+                                  "--file",  "/tmp/dcc_owned.txt",
+                                  "--comm",  "dcc_attacker")
+        kernel_blocked = self._kernel_blocked(proc)
+
+        if kernel_blocked is None:
+            return self._oracle_result(
+                outcome=AttackOutcome.ORACLE_ONLY,
+                oracle_verdict=result.verdict,
+                detail=f"oracle: gen3=token, gen4=no token (MAX_FORK_GENERATION=3 holds)",
             )
 
         if not kernel_blocked:
