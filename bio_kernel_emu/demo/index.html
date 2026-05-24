@@ -1,72 +1,96 @@
 <!DOCTYPE html>
-<html lang="hu">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BioOS — Kauzális Alkotmány Demo</title>
+    <title>BioOS — Causal Constitution Demo</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body class="inert">
 
+<!-- ── Modal overlay ── -->
+<div id="modal-overlay" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-box">
+        <div class="modal-header">
+            <span id="modal-title" class="modal-title"></span>
+            <button id="modal-close" class="modal-close" aria-label="Close">✕</button>
+        </div>
+        <div id="modal-body" class="modal-body"></div>
+    </div>
+</div>
+
 <!-- ── Header ── -->
 <header class="header">
     <div>
-        <h1>BioOS — Kauzális Alkotmány Emulátor</h1>
+        <h1>BioOS — Causal Constitution Emulator</h1>
         <div class="subtitle">
-            Izomorf: DCC Ring 0 eBPF/LSM · Tokyo szerver · kernel 6.1.0-48
+            Isomorphic to DCC Ring 0 eBPF/LSM · Tokyo server · kernel 6.1.0-48-cloud-amd64
         </div>
     </div>
-    <div id="state-badge" class="state-badge inert">
-        <div class="state-dot"></div>
-        <span id="state-label">STATE_INERT</span>
+    <div style="display:flex; align-items:center; gap:10px;">
+        <div id="state-badge" class="state-badge inert">
+            <div class="state-dot"></div>
+            <span id="state-label">STATE_INERT</span>
+        </div>
+        <button class="info-btn" data-modal="state">ℹ</button>
     </div>
 </header>
 
 <!-- ── Main Grid ── -->
 <main class="main">
 
-    <!-- Kamera Panel -->
-    <div class="panel">
+    <!-- Camera Panel -->
+    <div class="panel" id="camera-panel">
         <div class="panel-header">
-            <span>📷 Kamera Feed</span>
-            <span id="camera-status" style="color: var(--inert-color); font-size:10px;">ENODEV</span>
+            <span>📷 Camera Feed <span class="op-tag">OP_WRITE</span></span>
+            <span style="display:flex;align-items:center;gap:8px;">
+                <span id="camera-status" class="res-status denied">ENODEV</span>
+                <button class="info-btn" data-modal="camera">ℹ</button>
+            </span>
         </div>
         <div class="panel-body">
             <canvas id="camera-canvas"></canvas>
-            <div class="camera-overlay">
-                <div class="icon">⬛</div>
-                <div>ENODEV — eszköz nem létezik</div>
-                <div style="font-size:10px; color: var(--text-dim);">Nincs kauzális lánc</div>
+            <div class="resource-overlay" id="camera-overlay">
+                <div class="overlay-code">ENODEV</div>
+                <div class="overlay-msg">No such device</div>
+                <div class="overlay-hint">Click this panel to establish<br>an OP_WRITE causal chain</div>
             </div>
         </div>
     </div>
 
-    <!-- Böngésző Panel -->
-    <div class="panel">
+    <!-- Browser Panel -->
+    <div class="panel" id="browser-panel">
         <div class="panel-header">
-            <span>🌐 Böngésző</span>
-            <span id="net-status" style="color: var(--inert-color); font-size:10px;">ECONNREFUSED</span>
+            <span>🌐 Network / Browser <span class="op-tag">OP_NET</span></span>
+            <span style="display:flex;align-items:center;gap:8px;">
+                <span id="net-status" class="res-status denied">ECONNREFUSED</span>
+                <button class="info-btn" data-modal="network">ℹ</button>
+            </span>
         </div>
-        <div class="panel-body" style="display:flex; flex-direction:column;">
+        <div class="panel-body" style="display:flex;flex-direction:column;">
             <div class="browser-chrome">
                 <div class="browser-dots">
                     <div class="browser-dot"></div>
                     <div class="browser-dot"></div>
                     <div class="browser-dot"></div>
                 </div>
-                <div class="browser-url" id="browser-url">about:blank — No Causal Chain</div>
+                <div class="browser-url" id="browser-url">about:blank — ECONNREFUSED: No Causal Chain</div>
             </div>
-            <div class="browser-content" style="flex:1; position:relative;">
-                <div class="browser-blank">ECONNREFUSED — hálózat nem létezik</div>
+            <div class="browser-content">
+                <div class="resource-overlay" id="browser-overlay">
+                    <div class="overlay-code">ECONNREFUSED</div>
+                    <div class="overlay-msg">Connection refused</div>
+                    <div class="overlay-hint">Click this panel to establish<br>an OP_NET causal chain</div>
+                </div>
                 <div class="browser-page" id="browser-page">
                     <div class="page-title">metaspace.bio</div>
-                    <div class="page-sub">BioOS Logic Lock · OSIM 20251221-2230</div>
+                    <div class="page-sub">BioOS Logic Lock · OSIM 20251221-2230 · Citrom Média LTD</div>
                     <div class="page-line w80"></div>
                     <div class="page-line w60"></div>
                     <div class="page-line w90"></div>
                     <div class="page-line w80"></div>
-                    <div style="margin-top:12px; font-size:11px; color: var(--active-color);">
-                        ✓ Kauzális lánc aktív — erőforrások elérhetők
+                    <div style="margin-top:12px;font-size:11px;color:var(--active-color);">
+                        ✓ OP_NET causal chain active — network access granted
                     </div>
                     <div class="page-line w60" style="margin-top:8px;"></div>
                     <div class="page-line w90"></div>
@@ -79,11 +103,14 @@
     <div class="panel">
         <div class="panel-header">
             <span>📋 Kernel Audit Log</span>
-            <span id="event-count" style="font-size:10px;">0 esemény</span>
+            <span style="display:flex;align-items:center;gap:8px;">
+                <span id="event-count" style="font-size:10px;color:var(--text-dim);">0 events</span>
+                <button class="info-btn" data-modal="audit">ℹ</button>
+            </span>
         </div>
         <div class="panel-body">
             <div class="audit-log" id="audit-log">
-                <div class="audit-event denied">
+                <div class="audit-event system">
                     <div class="audit-time">boot</div>
                     BioKernelEmu initialized — STATE_INERT
                 </div>
@@ -91,37 +118,35 @@
         </div>
     </div>
 
-    <!-- Aktiváló sáv -->
+    <!-- Footer / Trigger bar -->
     <div class="trigger-bar">
         <div>
             <div class="chain-viz">
-                <div class="chain-node">IRQ</div>
+                <div class="chain-node" data-modal="chain-irq">IRQ</div>
                 <div class="chain-arrow">→</div>
-                <div class="chain-node">Token (200ms)</div>
+                <div class="chain-node" data-modal="chain-token">Token (200ms)</div>
                 <div class="chain-arrow">→</div>
-                <div class="chain-node">Z3: SAT</div>
+                <div class="chain-node" data-modal="chain-z3">Z3: SAT</div>
                 <div class="chain-arrow">→</div>
-                <div class="chain-node">ACTIVE</div>
+                <div class="chain-node" data-modal="chain-active">ACTIVE</div>
             </div>
-            <div class="trigger-hint" style="margin-top:6px;">
-                Kauzális lánc: fizikai IRQ → token → verifikáció → erőforrás
+            <div class="trigger-hint" style="margin-top:5px;">
+                Causal chain · click a panel to activate its resource class
             </div>
         </div>
 
-        <button id="trigger-btn" class="trigger-btn">
-            ⚡ FIZIKAI ÉRINTÉS — KAUZÁLIS LÁNC AKTIVÁLÁSA
-        </button>
-
-        <div class="trigger-hint">
-            isTrusted=true → IRQ token<br>
-            Izomorf: raw_tp/input_event
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+            <button id="trigger-btn" class="trigger-btn">
+                ⚡ PHYSICAL TOUCH — ACTIVATE ALL RESOURCES (OP_ANY)
+            </button>
+            <div class="trigger-hint">isTrusted=true · OP_WRITE | OP_NET | OP_EXEC</div>
         </div>
+
+        <button class="info-btn info-btn-lg" data-modal="trigger">ℹ</button>
     </div>
 
 </main>
 
-<!-- Egyetlen bundle — SES/LavaMoat kompatibilis -->
 <script src="bundle.js"></script>
-
 </body>
 </html>
