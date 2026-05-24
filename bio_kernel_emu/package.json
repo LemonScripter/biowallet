@@ -1,0 +1,13 @@
+{
+  "name": "bio-kernel-emu",
+  "version": "0.1.0",
+  "description": "BioOS Kauzális Alkotmány Emulátor — formálisan izomorf a DCC Ring 0 eBPF/LSM implementációval",
+  "main": "src/index.js",
+  "scripts": {
+    "demo": "npx serve demo -p 3000",
+    "test": "python3 tests/verify_isomorphism.py"
+  },
+  "author": "Szőke László-Ferenc (Citrom Média LTD)",
+  "license": "UNLICENSED",
+  "private": true
+}
