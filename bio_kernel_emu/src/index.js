@@ -2,10 +2,13 @@
 // Kernel entry point: komponensek összekapcsolása
 // Izomorf: dcc_core.bpf.c — a 6 BPF program együttese
 
-const { AuditLog }        = typeof require !== 'undefined' ? require('./audit_log')        : window;
-const { StateManager }    = typeof require !== 'undefined' ? require('./state_manager')    : window;
-const { CausalIRQBridge } = typeof require !== 'undefined' ? require('./causal_irq_bridge'): window;
-const { Z3Gatekeeper }    = typeof require !== 'undefined' ? require('./z3_gatekeeper')    : window;
+// Node.js: require; böngésző: window.X globálisok (script tag-enként beállítva)
+if (typeof require !== 'undefined' && typeof module !== 'undefined') {
+    var { AuditLog }        = require('./audit_log');
+    var { StateManager }    = require('./state_manager');
+    var { CausalIRQBridge } = require('./causal_irq_bridge');
+    var { Z3Gatekeeper }    = require('./z3_gatekeeper');
+}
 
 class BioKernelEmu {
     constructor() {

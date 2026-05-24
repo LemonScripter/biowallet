@@ -107,4 +107,8 @@ class CausalIRQBridge {
 
 if (typeof module !== 'undefined') {
     module.exports = { CausalIRQBridge, CausalToken, CAUSALITY_WINDOW_MS, OP_WRITE, OP_NET, OP_EXEC, OP_ANY };
+} else {
+    window.CausalIRQBridge    = CausalIRQBridge;
+    window.CausalToken        = CausalToken;
+    window.CAUSALITY_WINDOW_MS = CAUSALITY_WINDOW_MS;
 }

@@ -71,4 +71,8 @@ class StateManager {
 // Csak Node.js / bundler környezetben
 if (typeof module !== 'undefined') {
     module.exports = { StateManager, STATE_INERT, STATE_ACTIVE, ENODEV, ECONNREFUSED };
+} else {
+    window.StateManager = StateManager;
+    window.STATE_INERT  = STATE_INERT;
+    window.STATE_ACTIVE = STATE_ACTIVE;
 }

@@ -115,4 +115,6 @@ if (typeof module !== 'undefined') {
         VERDICT_CONSUMED, VERDICT_AXIOM_MISMATCH,
         VERDICT_NET_BLOCKED, VERDICT_READ_BLOCKED, VERDICT_EXEC_BLOCKED,
     };
+} else {
+    window.Z3Gatekeeper = Z3Gatekeeper;
 }

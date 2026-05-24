@@ -71,4 +71,6 @@ class AuditLog {
 
 if (typeof module !== 'undefined') {
     module.exports = { AuditLog, AuditEvent };
+} else {
+    window.AuditLog = AuditLog;
 }
