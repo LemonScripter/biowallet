@@ -38,6 +38,13 @@ body {
 }
 .header h1   { font-size: 13px; font-weight: 600; letter-spacing: .05em; }
 .subtitle    { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+.proof-link  {
+    font-size: 10px; font-weight: 700; letter-spacing: .07em;
+    padding: 4px 10px; border: 1px solid var(--active-color);
+    border-radius: 3px; color: var(--active-color); text-decoration: none;
+    transition: var(--transition); white-space: nowrap;
+}
+.proof-link:hover { background: rgba(39,174,96,.1); }
 
 /* ── State Badge ── */
 .state-badge {
