@@ -432,13 +432,15 @@ function updateBrowser(hasAccess) {
         if (browserIframe.src === 'about:blank' || browserIframe.src === window.location.href) {
             browserIframe.src = 'metaspace_page.html';
         }
-        browserIframe.style.opacity = '1';
+        browserIframe.style.opacity      = '1';
+        browserIframe.style.pointerEvents = 'all';
     } else {
         netStatus.className = 'res-status denied'; netStatus.textContent = 'ECONNREFUSED';
         browserUrl.textContent = 'about:blank — ECONNREFUSED: No Causal Chain';
         browserUrl.style.color = '';
         browserOvl.classList.remove('hidden');
-        browserIframe.style.opacity = '0';
+        browserIframe.style.opacity      = '0';
+        browserIframe.style.pointerEvents = 'none';
         setTimeout(function() { browserIframe.src = 'about:blank'; }, 500);
     }
 }
