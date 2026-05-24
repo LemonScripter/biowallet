@@ -118,11 +118,24 @@ def test_multi_write_same_inode_always_sat(pid, inode, comm, irq_ts, n_writes):
 @settings(max_examples=2000, deadline=5000)
 def test_invariants_never_violated_random(pid, irq_ts, file_axiom, op_class,
                                           inode, comm):
-    """General fuzz: validate_invariants must return empty list for any oracle-generated verdict."""
-    assume(file_axiom != OP_BLOCK)   # OP_BLOCK tested separately
+    """General fuzz: oracle output never violates its own invariants.
+
+    The oracle is configured with the SAME file_axiom and op_class that are
+    passed to validate_invariants — so the checker sees a consistent picture.
+    Hypothesis found an earlier version where these were decoupled, causing
+    spurious I4 flags (file_axiom set in checker but not in oracle).
+    """
+    assume(file_axiom != OP_BLOCK)   # OP_BLOCK tested by test_blocked_file_never_sat
 
     o = fresh_oracle()
+    # Register the file axiom so the oracle actually enforces it
+    o.set_file_axiom("rand.dat", file_axiom)
+
     o.on_irq(pid=pid, code=30, comm=comm, now_ns=irq_ts)
+
+    # Override the token's op_class to the fuzzed value (IRQ normally sets OP_WRITE|NET|EXEC)
+    if pid in o.token_map:
+        o.token_map[pid].op_class = op_class
 
     result = o.on_write(pid=pid, filename="rand.dat", inode=inode, comm=comm,
                         now_ns=irq_ts + 1_000_000)
@@ -131,6 +144,7 @@ def test_invariants_never_violated_random(pid, irq_ts, file_axiom, op_class,
     tx = o.tx_map.get(pid)
     tx_state_val = tx.state if tx else 0
 
+    # Now validate_invariants sees exactly the same axiom/op_class the oracle used
     violations = o.validate_invariants(
         irq_event=True,
         op_class=op_class,

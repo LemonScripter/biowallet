@@ -1,0 +1,148 @@
+﻿  Running T01 No-IRQ write (I1: no_autonomous_write)... ORACLE_ONLY
+  Running T02 Expired token write (I2: causality_window)... ORACLE_ONLY
+  Running T03 Blocked file write (I3: blocked_file_immutable)... SKIPPED
+  Running T04 Op-class mismatch write (I4: op_class_match_required)... ORACLE_ONLY
+  Running T05 TOCTOU pivot (I5: toctou_rollback)... ORACLE_ONLY
+  Running T06 Double-consume / multi-write same inode (I6 boundary)... ORACLE_ONLY
+  Running T07 Fork inherit depth limit (MAX_FORK_GENERATION=3)... ORACLE_ONLY
+  Running T08 prctl comm spoof (whitelist bypass � known weakness)... ORACLE_BYPASS
+  Running T09 PID recycling token inheritance (known gap, no exit cleanup)... ORACLE_BYPASS
+  Running T10 token_map flood DoS (max_entries=4096)... ORACLE_ONLY
+  Running T11 Log-only mode non-enforcement (expected bypass)... ORACLE_BYPASS
+  Running T12 Double-IRQ token overwrite race... ORACLE_ONLY
+  Running T13 Axiom map tampering via bpftool (trust boundary test)... ORACLE_ONLY
+[
+  {
+    "id": "T01",
+    "name": "No-IRQ write (I1: no_autonomous_write)",
+    "outcome": "ORACLE_ONLY",
+    "oracle": 2,
+    "kernel_errno": null,
+    "detail": "oracle=NO_TOKEN (I1 holds: no-IRQ never SAT)",
+    "duration_ms": 0.0,
+    "violations": []
+  },
+  {
+    "id": "T02",
+    "name": "Expired token write (I2: causality_window)",
+    "outcome": "ORACLE_ONLY",
+    "oracle": 3,
+    "kernel_errno": null,
+    "detail": "oracle=EXPIRED (I2 holds: 600ms > 500ms window)",
+    "duration_ms": 0.0,
+    "violations": []
+  },
+  {
+    "id": "T03",
+    "name": "Blocked file write (I3: blocked_file_immutable)",
+    "outcome": "SKIPPED",
+    "oracle": null,
+    "kernel_errno": null,
+    "detail": "prereq missing: [WinError 2] A rendszer nem tal\u00e1lja a megadott f\u00e1jlt",
+    "duration_ms": 47.0,
+    "violations": []
+  },
+  {
+    "id": "T04",
+    "name": "Op-class mismatch write (I4: op_class_match_required)",
+    "outcome": "ORACLE_ONLY",
+    "oracle": 12,
+    "kernel_errno": null,
+    "detail": "oracle=AXIOM_MISMATCH (I4 holds: OP_WRITE & OP_NET = 0)",
+    "duration_ms": 0.0,
+    "violations": []
+  },
+  {
+    "id": "T05",
+    "name": "TOCTOU pivot (I5: toctou_rollback)",
+    "outcome": "ORACLE_ONLY",
+    "oracle": 11,
+    "kernel_errno": null,
+    "detail": "oracle=TX_ROLLBACK (I5 holds: TX_STAGED + different inode always rollback)",
+    "duration_ms": 0.0,
+    "violations": []
+  },
+  {
+    "id": "T06",
+    "name": "Double-consume / multi-write same inode (I6 boundary)",
+    "outcome": "ORACLE_ONLY",
+    "oracle": 11,
+    "kernel_errno": null,
+    "detail": "oracle: same-inode multi-write=SAT, pivot=TX_ROLLBACK (I5 holds)",
+    "duration_ms": 0.0,
+    "violations": []
+  },
+  {
+    "id": "T07",
+    "name": "Fork inherit depth limit (MAX_FORK_GENERATION=3)",
+    "outcome": "ORACLE_ONLY",
+    "oracle": 2,
+    "kernel_errno": null,
+    "detail": "oracle: gen3=token, gen4=no token (MAX_FORK_GENERATION=3 holds)",
+    "duration_ms": 0.0,
+    "violations": []
+  },
+  {
+    "id": "T08",
+    "name": "prctl comm spoof (whitelist bypass \u2014 known weakness)",
+    "outcome": "ORACLE_BYPASS",
+    "oracle": 6,
+    "kernel_errno": null,
+    "detail": "comm-spoof allowed by design (prctl+whitelist) \u2014 known limitation, in-scope for Phase 11",
+    "duration_ms": 0.0,
+    "violations": []
+  },
+  {
+    "id": "T09",
+    "name": "PID recycling token inheritance (known gap, no exit cleanup)",
+    "outcome": "ORACLE_BYPASS",
+    "oracle": 1,
+    "kernel_errno": null,
+    "detail": "oracle: stale token persists after exit (no cleanup BPF program) \u2014 known gap",
+    "duration_ms": 0.0,
+    "violations": [
+      "I1",
+      "I6"
+    ]
+  },
+  {
+    "id": "T10",
+    "name": "token_map flood DoS (max_entries=4096)",
+    "outcome": "ORACLE_ONLY",
+    "oracle": 1,
+    "kernel_errno": null,
+    "detail": "oracle: token_map has no Python cap; kernel cap=4096 (DoS possible)",
+    "duration_ms": 0.0,
+    "violations": []
+  },
+  {
+    "id": "T11",
+    "name": "Log-only mode non-enforcement (expected bypass)",
+    "outcome": "ORACLE_BYPASS",
+    "oracle": 2,
+    "kernel_errno": null,
+    "detail": "oracle: log-only mode allows writes (errno=0) \u2014 intended non-enforcement",
+    "duration_ms": 0.0,
+    "violations": []
+  },
+  {
+    "id": "T12",
+    "name": "Double-IRQ token overwrite race",
+    "outcome": "ORACLE_ONLY",
+    "oracle": 1,
+    "kernel_errno": null,
+    "detail": "oracle: double-IRQ overwrites token safely, write valid",
+    "duration_ms": 0.0,
+    "violations": []
+  },
+  {
+    "id": "T13",
+    "name": "Axiom map tampering via bpftool (trust boundary test)",
+    "outcome": "ORACLE_ONLY",
+    "oracle": 12,
+    "kernel_errno": null,
+    "detail": "oracle: OP_BLOCK blocks (I3). Kernel map tamper requires root+bpftool (trust boundary test).",
+    "duration_ms": 0.0,
+    "violations": []
+  }
+]
