@@ -484,16 +484,43 @@ kernel.onStateChange(function(from, to, opClass) {
 });
 
 // ── Audit log renderer ──
+var botDenyCount = 0;      // consecutive bot DENY counter
+var botDenyEl    = null;   // last bot-deny DOM element (updated in-place)
+
 kernel.onAuditEvent(function(ev) {
     eventTotal++;
     eventCount.textContent = eventTotal + ' events';
+
+    // Collapse repetitive bot DENY entries into a single counter line
+    var isBotDeny = (ev.type === 'denied' && ev.pid === 'bot');
+    if (isBotDeny) {
+        botDenyCount++;
+        if (botDenyEl) {
+            botDenyEl.querySelector('.audit-time').textContent =
+                new Date(ev.timestamp).toISOString().slice(11, 23);
+            botDenyEl.lastChild.textContent =
+                'Bot blocked ×' + botDenyCount + ' — ECONNREFUSED (no causal chain)';
+            auditLogEl.scrollTop = auditLogEl.scrollHeight;
+            return;
+        }
+    } else {
+        botDenyCount = 0;
+        botDenyEl    = null;
+    }
+
     var el  = document.createElement('div');
     el.className = 'audit-event ' + ev.type;
     var ts  = new Date(ev.timestamp).toISOString().slice(11, 23);
-    el.innerHTML = '<div class="audit-time">' + ts + '</div>' + ev.message;
+    var msg = isBotDeny
+        ? 'Bot blocked ×1 — ECONNREFUSED (no causal chain)'
+        : ev.message;
+    el.innerHTML = '<div class="audit-time">' + ts + '</div>';
+    el.appendChild(document.createTextNode(msg));
     auditLogEl.appendChild(el);
+    if (isBotDeny) botDenyEl = el;
+
     auditLogEl.scrollTop = auditLogEl.scrollHeight;
-    while (auditLogEl.children.length > 60) auditLogEl.removeChild(auditLogEl.firstChild);
+    while (auditLogEl.children.length > 100) auditLogEl.removeChild(auditLogEl.firstChild);
 });
 
 // ── Panel-specific IRQ binding (per op_class) ──
