@@ -52,8 +52,11 @@
             <canvas id="camera-canvas"></canvas>
             <div class="resource-overlay" id="camera-overlay">
                 <div class="overlay-code">ENODEV</div>
-                <div class="overlay-msg">No such device</div>
-                <div class="overlay-hint">Click this panel to establish<br>an OP_WRITE causal chain</div>
+                <div class="overlay-msg">No such device — /dev/video0</div>
+                <button class="activate-btn" id="camera-activate-btn">
+                    ⚡ ACTIVATE CAMERA · OP_WRITE
+                </button>
+                <div class="overlay-hint">isTrusted=true · physical touch required</div>
             </div>
         </div>
     </div>
@@ -79,8 +82,11 @@
             <div class="browser-content">
                 <div class="resource-overlay" id="browser-overlay">
                     <div class="overlay-code">ECONNREFUSED</div>
-                    <div class="overlay-msg">Connection refused</div>
-                    <div class="overlay-hint">Click this panel to establish<br>an OP_NET causal chain</div>
+                    <div class="overlay-msg">Connection refused — errno 111</div>
+                    <button class="activate-btn activate-btn-net" id="browser-activate-btn">
+                        ⚡ ACTIVATE NETWORK · OP_NET
+                    </button>
+                    <div class="overlay-hint">isTrusted=true · physical touch required</div>
                 </div>
                 <iframe id="browser-iframe" src="about:blank"
                     style="position:absolute;inset:0;width:100%;height:100%;border:none;opacity:0;transition:opacity .5s ease .15s;"
@@ -130,6 +136,13 @@
                 ⚡ PHYSICAL TOUCH — ACTIVATE ALL RESOURCES (OP_ANY)
             </button>
             <div class="trigger-hint">isTrusted=true · OP_WRITE | OP_NET | OP_EXEC</div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+            <button id="reset-btn" class="reset-btn" disabled>
+                ↺ RESET TO INERT
+            </button>
+            <div class="trigger-hint" id="reset-hint" style="opacity:0.3;">STATE_INERT — no active causal chain</div>
         </div>
 
         <button class="info-btn info-btn-lg" data-modal="trigger">ℹ</button>

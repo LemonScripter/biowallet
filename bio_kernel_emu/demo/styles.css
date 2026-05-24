@@ -110,10 +110,58 @@ body {
     transition: opacity var(--transition);
     background: rgba(0,0,0,.55);
 }
-.resource-overlay.hidden { opacity: 0; }
+.resource-overlay.hidden { opacity: 0; pointer-events: none; }
 .overlay-code { font-size: 22px; font-weight: 700; color: var(--inert-color); letter-spacing: .05em; }
 .overlay-msg  { font-size: 11px; color: var(--text-dim); }
-.overlay-hint { font-size: 10px; color: #444; text-align: center; line-height: 1.6; margin-top: 4px; }
+.overlay-hint { font-size: 10px; color: #555; text-align: center; line-height: 1.6; margin-top: 2px; }
+
+/* ── Activate button (inside overlay) ── */
+.activate-btn {
+    pointer-events: all;
+    margin-top: 10px;
+    padding: 9px 22px;
+    border: 2px solid var(--inert-color);
+    border-radius: 5px;
+    background: transparent;
+    color: var(--inert-color);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    cursor: pointer;
+    animation: activate-pulse 2s ease-in-out infinite;
+    transition: background .15s;
+}
+.activate-btn:hover  { background: rgba(192,57,43,.15); }
+.activate-btn:active { background: rgba(192,57,43,.3); }
+.activate-btn-net { border-color: #e67e22; color: #e67e22; animation: activate-pulse-net 2s ease-in-out infinite; }
+.activate-btn-net:hover  { background: rgba(230,126,34,.15); }
+@keyframes activate-pulse     { 0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,.5)} 50%{box-shadow:0 0 0 7px rgba(192,57,43,0)} }
+@keyframes activate-pulse-net { 0%,100%{box-shadow:0 0 0 0 rgba(230,126,34,.5)} 50%{box-shadow:0 0 0 7px rgba(230,126,34,0)} }
+
+/* ── Reset button ── */
+.reset-btn {
+    padding: 10px 28px;
+    border: 2px solid var(--inert-color);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--inert-color);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    cursor: pointer;
+    opacity: 0.25;
+    transition: opacity .35s, box-shadow .35s, background .15s;
+    pointer-events: none;
+}
+.reset-btn.live {
+    opacity: 1;
+    pointer-events: all;
+    box-shadow: 0 0 12px rgba(192,57,43,.3);
+}
+.reset-btn.live:hover  { background: rgba(192,57,43,.1); }
+.reset-btn.live:active { background: rgba(192,57,43,.25); }
 
 /* ── Browser ── */
 .browser-chrome {

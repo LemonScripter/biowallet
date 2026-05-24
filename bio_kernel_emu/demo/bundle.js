@@ -162,17 +162,6 @@ CausalIRQBridge.prototype.trigger = function(event, opClass) {
     this._stateManager.setState(STATE_ACTIVE, opClass);
     if (this._auditLog) this._auditLog.active(this._token.pid, opClass);
 
-    // Reset visual-hold timer on each new physical touch
-    var self = this;
-    var pid  = this._token.pid;
-    if (this._activeTimer) clearTimeout(this._activeTimer);
-    this._activeTimer = setTimeout(function() {
-        self._stateManager.setState(STATE_INERT, 0);
-        if (self._auditLog) self._auditLog.expired(pid);
-        self._token       = null;
-        self._activeTimer = null;
-    }, DEMO_ACTIVE_DURATION_MS);
-
     for (var i = 0; i < this._handlers.length; i++) this._handlers[i](this._token);
 };
 CausalIRQBridge.prototype.onToken = function(fn) { this._handlers.push(fn); };
@@ -368,6 +357,8 @@ var browserPanel = document.getElementById('browser-panel');
 var browserIframe = document.getElementById('browser-iframe');
 var cameraOvl    = document.getElementById('camera-overlay');
 var browserOvl   = document.getElementById('browser-overlay');
+var resetBtn     = document.getElementById('reset-btn');
+var resetHint    = document.getElementById('reset-hint');
 var canvas       = document.getElementById('camera-canvas');
 var ctx          = canvas.getContext('2d');
 var chainViz     = document.querySelector('.chain-viz');
@@ -461,6 +452,10 @@ kernel.onStateChange(function(from, to, opClass) {
         stateLabel.textContent = 'STATE_ACTIVE · ' + label;
         triggerBtn.className   = 'trigger-btn active';
         chainViz.className     = 'chain-viz chain-active';
+        resetBtn.className     = 'reset-btn live';
+        resetBtn.disabled      = false;
+        resetHint.textContent  = 'STATE_ACTIVE — click to reset';
+        resetHint.style.opacity = '1';
 
         var writeActive = !!(opClass & OP_WRITE);
         var netActive   = !!(opClass & OP_NET);
@@ -475,6 +470,10 @@ kernel.onStateChange(function(from, to, opClass) {
         stateLabel.textContent = 'STATE_INERT';
         triggerBtn.className   = 'trigger-btn';
         chainViz.className     = 'chain-viz';
+        resetBtn.className     = 'reset-btn';
+        resetBtn.disabled      = true;
+        resetHint.textContent  = 'STATE_INERT — no active causal chain';
+        resetHint.style.opacity = '0.3';
         updateCamera(false);
         updateBrowser(false);
     }
@@ -505,6 +504,13 @@ browserPanel.querySelector('.panel-body').addEventListener('mousedown', function
 triggerBtn.addEventListener('mousedown', function(e) {
     kernel.irqBridge.trigger(e, OP_ANY);
     e.stopPropagation();
+});
+
+// ── Reset to INERT (manual, jury-demo mode) ──
+resetBtn.addEventListener('mousedown', function(e) {
+    e.stopPropagation();
+    kernel.stateManager.setState(STATE_INERT, 0);
+    kernel.auditLog._emit('system', 'Manual reset — STATE_INERT restored', 'demo_ui');
 });
 
 // ── Autonomous bot simulation (headless server isomorph) ──
