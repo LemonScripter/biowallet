@@ -365,7 +365,7 @@ var netStatus    = document.getElementById('net-status');
 var browserUrl   = document.getElementById('browser-url');
 var cameraPanel  = document.getElementById('camera-panel');
 var browserPanel = document.getElementById('browser-panel');
-var browserPage  = document.getElementById('browser-page');
+var browserIframe = document.getElementById('browser-iframe');
 var cameraOvl    = document.getElementById('camera-overlay');
 var browserOvl   = document.getElementById('browser-overlay');
 var canvas       = document.getElementById('camera-canvas');
@@ -433,16 +433,20 @@ function updateCamera(hasAccess) {
 function updateBrowser(hasAccess) {
     if (hasAccess) {
         netStatus.className = 'res-status granted'; netStatus.textContent = 'CONNECTED';
-        browserUrl.textContent = 'https://metaspace.bio/ — OP_NET active';
+        browserUrl.textContent = 'metaspace.bio — Bio Logic Engine · OP_NET active';
         browserUrl.style.color = 'var(--active-color)';
         browserOvl.classList.add('hidden');
-        browserPage.classList.add('visible');
+        if (browserIframe.src === 'about:blank' || browserIframe.src === window.location.href) {
+            browserIframe.src = 'metaspace_page.html';
+        }
+        browserIframe.style.opacity = '1';
     } else {
         netStatus.className = 'res-status denied'; netStatus.textContent = 'ECONNREFUSED';
         browserUrl.textContent = 'about:blank — ECONNREFUSED: No Causal Chain';
         browserUrl.style.color = '';
         browserOvl.classList.remove('hidden');
-        browserPage.classList.remove('visible');
+        browserIframe.style.opacity = '0';
+        setTimeout(function() { browserIframe.src = 'about:blank'; }, 500);
     }
 }
 
