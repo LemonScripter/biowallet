@@ -20,7 +20,8 @@ body {
     background: var(--bg);
     color: var(--text);
     font-family: var(--mono);
-    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     user-select: none;
@@ -96,6 +97,7 @@ body {
 /* ── Main Grid ── */
 .main {
     flex: 1;
+    min-height: 0;        /* ← flex gyerek ne nyomja ki a footert */
     display: grid;
     grid-template-columns: 1fr 1fr 320px;
     grid-template-rows: 1fr auto;
@@ -107,6 +109,8 @@ body {
     background: var(--surface);
     display: flex;
     flex-direction: column;
+    min-height: 0;        /* ← grid cell ne nőjön a tartalom után */
+    overflow: hidden;
 }
 
 .panel-header {

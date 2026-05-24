@@ -100,7 +100,8 @@ class StateManager {
 // ─────────────────────────────────────────────
 // CausalIRQBridge
 // ─────────────────────────────────────────────
-var CAUSALITY_WINDOW_MS = 200;
+var CAUSALITY_WINDOW_MS      = 200;   // token érvényessége (spec: 200ms)
+var DEMO_ACTIVE_DURATION_MS  = 8000;  // vizuális ACTIVE tartás demo-ban
 var OP_WRITE = 1;
 var OP_NET   = 2;
 var OP_EXEC  = 4;
@@ -148,15 +149,17 @@ class CausalIRQBridge {
         this._stateManager.setState(STATE_ACTIVE);
         if (this._auditLog) this._auditLog.active(this._token.pid, event.type);
 
+        // Token lejárat (200ms) — biztonsági ablak vége
+        // Vizuális ACTIVE állapot tovább tart (DEMO_ACTIVE_DURATION_MS)
         var self = this;
         var pid  = this._token.pid;
-        setTimeout(function() {
-            if (self._token && !self._token.isValid) {
-                self._stateManager.setState(STATE_INERT);
-                if (self._auditLog) self._auditLog.expired(pid);
-                self._token = null;
-            }
-        }, CAUSALITY_WINDOW_MS + 10);
+        if (this._activeTimer) clearTimeout(this._activeTimer);
+        this._activeTimer = setTimeout(function() {
+            self._stateManager.setState(STATE_INERT);
+            if (self._auditLog) self._auditLog.expired(pid);
+            self._token = null;
+            self._activeTimer = null;
+        }, DEMO_ACTIVE_DURATION_MS);
 
         for (var i = 0; i < this._handlers.length; i++) this._handlers[i](this._token);
     }
