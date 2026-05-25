@@ -577,8 +577,12 @@ Privileged operations on the DCC itself — BPF program management,
 ordinary file-write operations accept any valid token regardless of origin.
 This preserves the constitution's core invariant: \emph{no operation proceeds
 without a physical human intent}, while enabling authorized remote
-administration by the verified owner.  Full implementation is planned for
-Phase~12 (see Section~\ref{sec:limits}).
+administration by the verified owner.  Phase~12a--d infrastructure is
+implemented (2026-05-25): \texttt{dcc\_bpf\_prog\_guard} and
+\texttt{dcc\_task\_kill\_guard} LSM hooks are active; hardware-bound SSH key
+(Phase~12b) is pending a FIDO2 hardware token; full blocking mode
+(Phase~12d) activates after 24-hour stability verification
+(see Section~\ref{sec:limits}).
 
 % =============================================================
 \section{Compiler backend and isomorphism theorem}
@@ -822,12 +826,15 @@ have a physical causal ancestor?'' The models are orthogonal and composable.
   \item \textit{[Completed — Phase~11, 2026-05-25]} Persistent systemd service
         for DCC Ring~0 (\path{dcc-ring0.service}), log-only mode, boot-enabled.
   \item Formal \texttt{.bio} encoding in TLA+ or Coq.
-  \item \textit{[Planned — Phase~12]} Extended causal chain with remote physical
-        attestation (Section~\ref{sec:remote-attestation}): generalize the
-        physical event set to include FIDO2/TPM-attested owner actions; extend
-        LSM hooks to \texttt{security\_bpf\_prog()} and
-        \texttt{security\_bpf\_map()} for DCC self-protection; implement
-        \texttt{dcc\_rat\_daemon} for remote attested token issuance.
+  \item \textit{[Partially implemented — Phase~12a/c/d, 2026-05-25]}
+        Extended causal chain with remote physical attestation
+        (Section~\ref{sec:remote-attestation}).
+        \texttt{dcc\_bpf\_prog\_guard} (LSM hook, LOG\_ONLY$\to$BLOCKING via
+        map toggle) and \texttt{dcc\_task\_kill\_guard} (BLOCKING) are active;
+        \texttt{remote\_token\_map} and \texttt{dcc\_rat\_daemon} deployed.
+        \textit{Remaining:} Phase~12b hardware FIDO2 key; Phase~12d blocking
+        activation (24\,h stability gate); \texttt{lsm/bpf\_map} hook requires
+        bare-metal kernel.
 \end{enumerate}
 
 % =============================================================

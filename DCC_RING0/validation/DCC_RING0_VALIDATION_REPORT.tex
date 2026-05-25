@@ -92,13 +92,13 @@
   {\color{dccblue}\rule{\linewidth}{0.8pt}\par}
   \vspace{1.5cm}
   \begin{tabular}{ll}
-    \textbf{Version:}  & v1.3 (T10/T13 + Phase~11 + Phase~12a) \\[4pt]
+    \textbf{Version:}  & v1.4 (T10/T13 + Phase~11 + Phase~12a/b/c/d) \\[4pt]
     \textbf{Date:}     & 2026-05-25 \\[4pt]
     \textbf{Kernel:}   & Linux 6.1.0-48-cloud-amd64, eBPF/LSM \\[4pt]
     \textbf{Author:}   & Szőke László-Ferenc \\[4pt]
     \textbf{Contact:}  & \href{mailto:admin@metaspace.bio}{admin@metaspace.bio} \\[4pt]
     \textbf{Web:}      & \url{https://bioos.metaspace.bio} \\[4pt]
-    \textbf{Branch:}   & \texttt{bio-kernel-emu} (commit \texttt{24796cc}) \\
+    \textbf{Branch:}   & \texttt{bio-kernel-emu} (commit \texttt{8eb8b9e}) \\
   \end{tabular}
   \vfill
   \begin{notebox}
@@ -511,7 +511,7 @@ the \texttt{linux-image-cloud-amd64} kernel. T05 is SKIP\_FROZEN (see above).
 These tests are deferred to a bare-metal or custom-VM environment.
 
 % ─────────────────────────────────────────────────────────────────────────────
-\section{Phase 12 — Extended causal chain (in progress)}
+\section{Phase 12 — Extended causal chain (infrastructure complete, 2026-05-25)}
 
 \subsection*{Architectural insight}
 
@@ -541,21 +541,86 @@ BioOS Causal Constitution paper (Section~4.4).
   \item Phase~12 constants added to \path{dcc_core.bpf.c}:
         \texttt{TOKEN\_LOCAL\_IRQ}, \texttt{TOKEN\_REMOTE\_ATTESTED},
         \texttt{ASSURANCE\_*} (0--5).
-  \item New BPF object \path{dcc_phase12_prog.bpf.c}: \texttt{lsm/bpf\_prog}
-        hook in LOG\_ONLY mode — every BPF program operation is logged with
-        the token's assurance level. Loaded and pinned at
-        \path{/sys/fs/bpf/dcc_phase12_prog} (prog~ID~617).
+  \item \texttt{lsm/bpf\_prog} and \texttt{lsm/task\_kill} hooks merged into
+        \path{dcc_core.bpf.c} (Phase~12d architectural decision): programs
+        now share \texttt{token\_map}, \texttt{loader\_pid\_map}, and the new
+        Phase~12c/d maps without cross-object coordination.
   \item \texttt{lsm/bpf\_map} hook: compile-time OK, but BPF verifier rejects
-        it on \texttt{linux-image-cloud-amd64} 6.1 (restricted kernel type
-        access). Documented as cloud-kernel platform limitation;
-        bare-metal deployment expected to succeed.
+        it on \texttt{linux-image-cloud-amd64} 6.1.  Documented platform
+        limitation; bare-metal deployment expected to succeed.
+\end{enumerate}
+
+\subsection*{Phase 12b — Dedicated admin SSH key (2026-05-25)}
+
+\begin{enumerate}[noitemsep]
+  \item New \texttt{ed25519} key \texttt{id\_ed25519\_dcc\_admin} generated
+        on the admin machine; added to \path{authorized\_keys} in parallel
+        with the existing \texttt{google\_compute\_engine} key (old key
+        retained until hardware-bound replacement is verified $\geq 48$\,h).
+  \item Attempted FIDO2/TPM binding (\texttt{ssh-keygen -t ecdsa-sk}):
+        Windows~11~Home + OpenSSH~9.5 cannot expose the system TPM
+        as a FIDO2 platform authenticator via this code path.
+        Full hardware binding requires a dedicated FIDO2 key
+        (e.g.\ YubiKey~5); deferred to future procurement.
+  \item SSH login with new admin key verified on Tokyo server.
+\end{enumerate}
+
+\subsection*{Phase 12c — \texttt{remote\_token\_map} and \texttt{dcc\_rat\_daemon} (2026-05-25)}
+
+\begin{enumerate}[noitemsep]
+  \item Three new BPF maps added to \path{dcc_core.bpf.c}:
+    \begin{itemize}[noitemsep]
+      \item \texttt{remote\_token\_map} (HASH/64): written by
+            \texttt{dcc\_rat\_daemon} via \texttt{bpftool map update};
+            read by Phase~12d hooks alongside \texttt{token\_map}.
+      \item \texttt{dcc\_blocking\_mode} (ARRAY/1): runtime toggle —
+            \texttt{value=0} LOG\_ONLY (default), \texttt{value=1} BLOCKING.
+            Map updates are \emph{not} intercepted by \texttt{lsm/bpf\_prog},
+            making the kill-switch always accessible.
+      \item \texttt{dcc\_bypass\_mode} (ARRAY/1): emergency override —
+            \texttt{value=1} disables all Phase~12 blocking unconditionally.
+    \end{itemize}
+  \item \path{userspace/dcc_rat_daemon.py} deployed to
+        \path{/home/lszok/dcc\_ebpf/userspace/}: Unix socket at
+        \path{/run/dcc\_rat\_daemon.sock}; FIDO2 verification is a stub
+        (\texttt{--allow-stub} flag for testing) pending Phase~12b hardware key.
+\end{enumerate}
+
+\subsection*{Phase 12d — BPF self-protection (infrastructure live, 2026-05-25)}
+
+\begin{enumerate}[noitemsep]
+  \item \textbf{\texttt{dcc\_task\_kill\_guard}} (prog~660, link~217):
+        \texttt{lsm/task\_kill} hook, \textbf{BLOCKING}. Any process sending a
+        signal to the DCC loader PID without a valid token ($\geq$
+        \texttt{ASSURANCE\_HW\_KEY}) receives \texttt{EPERM}.
+        Loader-self exception (graceful shutdown) and emergency bypass map
+        are exempt.
+  \item \textbf{\texttt{dcc\_bpf\_prog\_guard}} (prog~659, link~216):
+        \texttt{lsm/bpf\_prog} hook, \textbf{LOG\_ONLY by default}.
+        Blocking activated by: \verb|bpftool map update id 402 key 0 0 0 0 value 1 0 0 0|.
+        \begin{itemize}[noitemsep]
+          \item Token check covers both \texttt{token\_map} (LOCAL\_IRQ) and
+                \texttt{remote\_token\_map} (REMOTE\_ATTESTED).
+          \item Loader PID exception: the running loader always passes
+                (bootstrapping safety).
+          \item Verified: blocking\_mode=1 causes \texttt{libbpf} probe-load
+                to return \texttt{EPERM} (\texttt{Operation not permitted(1)}).
+        \end{itemize}
+  \item All 7 active links are pinned to bpffs
+        (\texttt{lnk\_bpf\_prog\_guard} and \texttt{lnk\_task\_kill\_guard}
+        included); they survive loader \texttt{kill~-9}.
+  \item Blocking mode activation gate: 24\,h LOG\_ONLY stability
+        verification, then single \texttt{bpftool map update} command.
+        Rollback at any time: set \texttt{dcc\_blocking\_mode=0} or
+        \texttt{dcc\_bypass\_mode=1} (map updates, never blocked).
 \end{enumerate}
 
 \begin{notebox}
-Phase~12b (TPM-bound SSH key), 12c (\texttt{dcc\_rat\_daemon}), and 12d
-(blocking mode for BPF hooks) are deferred until Phase~12a has been stable
-for 24~hours and the FIDO2 attestation path is verified end-to-end.
-All blocking-mode activations follow the same safety protocol as Phase~11.
+\textbf{Safety invariant preserved:} Phase~12d blocking mode does not
+introduce a lock-out risk.  The loader PID exception ensures service restart
+succeeds; \texttt{dcc\_blocking\_mode} and \texttt{dcc\_bypass\_mode} use
+\texttt{bpf(BPF\_MAP\_UPDATE\_ELEM)} — a map operation, not a prog operation
+— and are therefore never intercepted by \texttt{dcc\_bpf\_prog\_guard}.
 \end{notebox}
 
 \subsection*{Oracle extension}

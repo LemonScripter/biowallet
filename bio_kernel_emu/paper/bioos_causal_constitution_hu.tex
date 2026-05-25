@@ -611,7 +611,11 @@ szintű tokent igényelnek; hagyományos fájlírási műveletek bármilyen
 Ez megőrzi az alkotmány alapinvariánsát — \emph{egyetlen művelet sem hajtódik
 végre fizikai emberi szándék nélkül} —, miközben lehetővé teszi a hitelesített
 tulajdonos számára a jogszerű távolsági kezelést.
-A teljes implementáció a 12.\ fázisban valósul meg (lásd: \ref{sec:korlatok}.\ szakasz).
+A 12a--d.\ fázis infrastruktúrája implementálva (2026-05-25):
+\texttt{dcc\_bpf\_prog\_guard} és \texttt{dcc\_task\_kill\_guard} LSM-hook-ok aktívak;
+a hardveres SSH-kulcs (12b.\ fázis) FIDO2 hardware token-t igényel;
+a teljes blokkoló mód (12d.\ fázis) 24 óra stabilitás után aktiválható
+(lásd: \ref{sec:korlatok}.\ szakasz).
 
 % =============================================================
 \section{A fordítói háttér és az izomorfizmus-tétel}
@@ -868,12 +872,15 @@ műveletnek fizikai kauzális elődje?" A modellek ortogonálisak és kompozálh
         a DCC Ring~0 automatikus betöltéséhez (\path{dcc-ring0.service}),
         log-only módban, boot-indítással engedélyezve.
   \item Formális \texttt{.bio} szemantika TLA+-ban vagy Coq-ban.
-  \item \textit{[Tervezett --- 12.\ fázis]} Kiterjesztett kauzális lánc
-        távoli fizikai igazolással (\ref{sec:tavoli-igazolas}.\ szakasz):
-        a fizikai eseményhalmaz kiterjesztése FIDO2/TPM-igazolt tulajdonosi
-        műveletekre; LSM-hook-ok bővítése \texttt{security\_bpf\_prog()} és
-        \texttt{security\_bpf\_map()} funkciókkal a DCC önvédelmére;
-        \texttt{dcc\_rat\_daemon} implementálása távolról igazolt token kiadásához.
+  \item \textit{[Részben implementálva --- 12a/c/d.\ fázis, 2026-05-25]}
+        Kiterjesztett kauzális lánc távoli fizikai igazolással
+        (\ref{sec:tavoli-igazolas}.\ szakasz).
+        \texttt{dcc\_bpf\_prog\_guard} (LOG\_ONLY$\to$BLOCKING map-kapcsolóval)
+        és \texttt{dcc\_task\_kill\_guard} (BLOCKING) aktívak;
+        \texttt{remote\_token\_map} és \texttt{dcc\_rat\_daemon} telepítve.
+        \textit{Hátralévő:} 12b.\ fázis hardveres FIDO2-kulcs; 12d.\ fázis
+        blokkoló aktiválás (24~h stabilitási kapu); \texttt{lsm/bpf\_map}
+        hook bare-metal kernelt igényel.
 \end{enumerate}
 
 \subsection{Összefoglalás}
