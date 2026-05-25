@@ -30,6 +30,7 @@
 #include <errno.h>
 #include <bpf/libbpf.h>
 #include <bpf/bpf.h>
+#include <sys/stat.h>
 
 // ─── Verdict kódok ───
 #define VERDICT_SAT              1
@@ -401,12 +402,28 @@ int main(int argc, char **argv) {
     struct bpf_link *links[MAX_LINKS] = {0};
     int nl = 0;
 
+    const char *BPF_PIN_DIR = "/sys/fs/bpf/dcc_ring0";
+    const char *link_names[] = {
+        "causality_monitor","fork_inherit","axiom_validator",
+        "read_guard","network_guard","exec_guard",
+        "bpf_prog_guard","task_kill_guard"
+    };
+    const int NUM_HOOKS = 8;
+    mkdir(BPF_PIN_DIR, 0700);
+    for (int k=0; k<NUM_HOOKS; k++) {
+        char pp[128];
+        snprintf(pp, sizeof(pp), "%s/lnk_%s", BPF_PIN_DIR, link_names[k]);
+        unlink(pp);
+    }
+
     links[nl++] = attach_prog(obj, "dcc_causality_monitor");
     links[nl++] = attach_prog(obj, "dcc_fork_inherit");
     links[nl++] = attach_prog(obj, "dcc_axiom_validator");
     links[nl++] = attach_prog(obj, "dcc_read_guard");
     links[nl++] = attach_prog(obj, "dcc_network_guard");
     links[nl++] = attach_prog(obj, "dcc_exec_guard");
+    links[nl++] = attach_prog(obj, "dcc_bpf_prog_guard");
+    links[nl++] = attach_prog(obj, "dcc_task_kill_guard");
 
     int any_attached = 0;
     for (int i = 0; i < nl; i++) if (links[i]) any_attached++;
@@ -416,6 +433,17 @@ int main(int argc, char **argv) {
         return 1;
     }
     printf("[OK]  %d program aktiv\n", any_attached);
+
+    int pinned = 0;
+    for (int k=0; k<nl && k<NUM_HOOKS; k++) {
+        if (!links[k]) continue;
+        char pp[128];
+        snprintf(pp, sizeof(pp), "%s/lnk_%s", BPF_PIN_DIR, link_names[k]);
+        if (bpf_link__pin(links[k], pp) == 0) pinned++;
+        else fprintf(stderr, "[--]  pin failed: lnk_%s\n", link_names[k]);
+    }
+    if (pinned > 0)
+        printf("[OK]  %d link pinnelve (kill-9 vedett)\n", pinned);
 
     // ─── 5. Ring buffer ───
     struct bpf_map *ring_map = bpf_object__find_map_by_name(obj, "audit_buf");
@@ -443,6 +471,11 @@ int main(int argc, char **argv) {
     print_summary();
 
     ring_buffer__free(rb);
+    for (int k=0; k<nl && k<NUM_HOOKS; k++) {
+        char pp[128];
+        snprintf(pp, sizeof(pp), "%s/lnk_%s", BPF_PIN_DIR, link_names[k]);
+        unlink(pp);
+    }
     for (int i = 0; i < nl; i++)
         if (links[i]) bpf_link__destroy(links[i]);
     bpf_object__close(obj);

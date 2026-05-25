@@ -44,6 +44,19 @@
 #define VERDICT_EXEC_BLOCKED    10
 #define VERDICT_TX_ROLLBACK     11   // Phase 9: TOCTOU — mindig hard block
 #define VERDICT_AXIOM_MISMATCH  12   // Phase 8: op_class ≠ file axiom
+#define VERDICT_INSUFFICIENT_ASSURANCE 13  // Phase 12: assurance_level too low
+
+// Phase 12 — Token provenance
+#define TOKEN_LOCAL_IRQ        0x01  // hardware IRQ on server
+#define TOKEN_REMOTE_ATTESTED  0x02  // FIDO2/TPM-attested owner action
+
+// Phase 12 — Assurance levels
+#define ASSURANCE_NONE       0
+#define ASSURANCE_PASSWORD   1
+#define ASSURANCE_OTP        2
+#define ASSURANCE_HW_KEY     3   // minimum for privileged BPF ops
+#define ASSURANCE_BIOMETRIC  4
+#define ASSURANCE_LOCAL_IRQ  5   // highest: hardware IRQ on server
 
 // Guard módok
 #define GUARD_OFF    0
@@ -76,7 +89,8 @@ struct causal_token {
     char  comm[16];
     __u8  generation;
     __u8  op_class;     // Phase 8: milyen operációra szól
-    __u8  _pad[2];
+    __u8  token_type;      // Phase 12: TOKEN_LOCAL_IRQ | TOKEN_REMOTE_ATTESTED
+    __u8  assurance_level; // Phase 12: 0=none .. 5=local_irq
 };
 
 struct audit_event {
@@ -170,6 +184,34 @@ struct {
     __type(key,   __u32);
     __type(value, struct tx_state);
 } tx_map SEC(".maps");
+
+// Phase 12c: REMOTE_ATTESTED tokens (written by dcc_rat_daemon via bpftool)
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 64);
+    __type(key,   __u32);
+    __type(value, struct causal_token);
+} remote_token_map SEC(".maps");
+
+// Phase 12d: runtime blocking toggle — default 0 (LOG_ONLY)
+// Enable: bpftool map update id <ID> key 0 0 0 0 value 1 0 0 0
+// Disable: bpftool map update id <ID> key 0 0 0 0 value 0 0 0 0
+// Safe: map updates are NOT intercepted by lsm/bpf_prog
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(max_entries, 1);
+    __type(key,   __u32);
+    __type(value, __u32);
+} dcc_blocking_mode SEC(".maps");
+
+// Phase 12d: emergency bypass — if set to 1, ALL blocking is disabled
+// Use if service cannot restart due to blocking loop
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(max_entries, 1);
+    __type(key,   __u32);
+    __type(value, __u32);
+} dcc_bypass_mode SEC(".maps");
 
 // ─────────────────────────────────────────────
 // Segédfüggvények
@@ -294,8 +336,10 @@ int BPF_PROG(dcc_causality_monitor,
         .timestamp_ns = bpf_ktime_get_ns(),
         .pid          = pid,
         .consumed     = 0,
-        .generation   = 0,
-        .op_class     = op_class,
+        .generation      = 0,
+        .op_class        = op_class,
+        .token_type      = TOKEN_LOCAL_IRQ,
+        .assurance_level = ASSURANCE_LOCAL_IRQ,
     };
     bpf_get_current_comm(tok.comm, sizeof(tok.comm));
     bpf_map_update_elem(&token_map, &pid, &tok, BPF_ANY);
@@ -501,6 +545,90 @@ int BPF_PROG(dcc_exec_guard, struct linux_binprm *bprm)
     __u64 age = bpf_ktime_get_ns() - tok->timestamp_ns;
     if (age > CAUSALITY_WINDOW_NS) { emit_ex(pid, VERDICT_EXEC_BLOCKED, 3); return blocking ? -1 : 0; }
     emit_ex(pid, VERDICT_SAT, 3);
+    return 0;
+}
+
+
+#ifndef EPERM
+#define EPERM 1
+#endif
+// ─── Phase 12: BPF Self-Protection Hooks ─────────────────────────────────────
+
+static __always_inline int p12_check_token(__u32 pid)
+{
+    struct causal_token *tok = bpf_map_lookup_elem(&token_map, &pid);
+    if (!tok) tok = bpf_map_lookup_elem(&remote_token_map, &pid);
+    if (!tok) return 0;
+    __u64 age = bpf_ktime_get_ns() - tok->timestamp_ns;
+    if (age > CAUSALITY_WINDOW_NS || tok->consumed) return 0;
+    if (tok->assurance_level < ASSURANCE_HW_KEY) return 0;
+    return 1;
+}
+
+// lsm/bpf_prog: guards BPF program load/unload operations
+// blocking_mode=0 → LOG_ONLY (default, safe for service restart)
+// blocking_mode=1 → BLOCKING (enable after Phase 12c daemon is verified)
+SEC("lsm/bpf_prog")
+int BPF_PROG(dcc_bpf_prog_guard, struct bpf_prog *prog)
+{
+    __u32 pid  = bpf_get_current_pid_tgid() >> 32;
+    __u32 zero = 0;
+
+    // Emergency bypass (priority 1)
+    __u32 *bypass = bpf_map_lookup_elem(&dcc_bypass_mode, &zero);
+    if (bypass && *bypass == 1) return 0;
+
+    // Loader PID exception: the running loader can always manage its hooks
+    __u32 *lp = bpf_map_lookup_elem(&loader_pid_map, &zero);
+    if (lp && *lp == pid) return 0;
+
+    // Token check (token_map OR remote_token_map)
+    int ok = p12_check_token(pid);
+
+    // Blocking mode (map-controlled, default off)
+    __u32 *bm = bpf_map_lookup_elem(&dcc_blocking_mode, &zero);
+    int blocking = bm && *bm == 1;
+
+    if (!ok) {
+        bpf_printk("DCC P12 BPF_PROG_GUARD: pid=%u NO/LOW token %s\n",
+                   pid, blocking ? "BLOCKED" : "(LOG_ONLY)");
+        return blocking ? -EPERM : 0;
+    }
+    bpf_printk("DCC P12 BPF_PROG_GUARD: pid=%u SAT\n", pid);
+    return 0;
+}
+
+// lsm/task_kill: BLOCKING — prevents killing the DCC loader without a valid token
+// The loader itself (graceful shutdown) is always allowed
+SEC("lsm/task_kill")
+int BPF_PROG(dcc_task_kill_guard, struct task_struct *p,
+             struct kernel_siginfo *info, int sig, const struct cred *cred)
+{
+    __u32 target_pid = BPF_CORE_READ(p, pid);
+    __u32 zero = 0;
+
+    // Only intercept kills targeting the DCC loader
+    __u32 *loader_pid = bpf_map_lookup_elem(&loader_pid_map, &zero);
+    if (!loader_pid || *loader_pid == 0 || *loader_pid != target_pid)
+        return 0;
+
+    // Emergency bypass
+    __u32 *bypass = bpf_map_lookup_elem(&dcc_bypass_mode, &zero);
+    if (bypass && *bypass == 1) return 0;
+
+    __u32 killer_pid = bpf_get_current_pid_tgid() >> 32;
+
+    // Loader can kill itself (SIGTERM on graceful shutdown)
+    if (loader_pid && *loader_pid == killer_pid) return 0;
+
+    int ok = p12_check_token(killer_pid);
+    if (!ok) {
+        bpf_printk("DCC P12 TASK_KILL_GUARD: pid=%u -> loader BLOCKED (sig=%d)\n",
+                   killer_pid, sig);
+        return -EPERM;
+    }
+    bpf_printk("DCC P12 TASK_KILL_GUARD: pid=%u -> loader SAT (sig=%d)\n",
+               killer_pid, sig);
     return 0;
 }
 
