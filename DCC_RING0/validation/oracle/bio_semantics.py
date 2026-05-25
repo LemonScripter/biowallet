@@ -16,18 +16,19 @@ from typing import Optional
 CAUSALITY_WINDOW_NS = 500_000_000  # 500 ms
 MAX_FORK_GENERATION = 3
 
-VERDICT_SAT             = 1
-VERDICT_NO_TOKEN        = 2
-VERDICT_EXPIRED         = 3
-VERDICT_CONSUMED        = 4
-VERDICT_AXIOM           = 5
-VERDICT_WHITELISTED     = 6
-VERDICT_TOKEN_INHERITED = 7
-VERDICT_READ_BLOCKED    = 8
-VERDICT_NET_BLOCKED     = 9
-VERDICT_EXEC_BLOCKED    = 10
-VERDICT_TX_ROLLBACK     = 11
-VERDICT_AXIOM_MISMATCH  = 12
+VERDICT_SAT                    = 1
+VERDICT_NO_TOKEN               = 2
+VERDICT_EXPIRED                = 3
+VERDICT_CONSUMED               = 4
+VERDICT_AXIOM                  = 5
+VERDICT_WHITELISTED            = 6
+VERDICT_TOKEN_INHERITED        = 7
+VERDICT_READ_BLOCKED           = 8
+VERDICT_NET_BLOCKED            = 9
+VERDICT_EXEC_BLOCKED           = 10
+VERDICT_TX_ROLLBACK            = 11
+VERDICT_AXIOM_MISMATCH         = 12
+VERDICT_INSUFFICIENT_ASSURANCE = 13  # Phase 12: token exists but assurance_level too low
 
 OP_WRITE = 0x01
 OP_NET   = 0x02
@@ -39,19 +40,37 @@ TX_IDLE   = 0
 TX_LOCKED = 1
 TX_STAGED = 2
 
+# ── Phase 12: Token provenance types ─────────────────────────────────────────
+
+TOKEN_LOCAL_IRQ       = 0x01  # hardware IRQ on server (raw_tp/input_event)
+TOKEN_REMOTE_ATTESTED = 0x02  # FIDO2/TPM-attested action by authenticated owner
+
+# Assurance levels (higher = stronger physical binding)
+ASSURANCE_NONE      = 0  # no authentication
+ASSURANCE_PASSWORD  = 1  # software credential (not accepted for privileged ops)
+ASSURANCE_OTP       = 2  # TOTP/HOTP (partially physical)
+ASSURANCE_HW_KEY    = 3  # FIDO2 hardware key tap (fully physical, hardware-bound)
+ASSURANCE_BIOMETRIC = 4  # biometric + TPM
+ASSURANCE_LOCAL_IRQ = 5  # local hardware IRQ on server (highest)
+
+# Minimum assurance required by operation class
+ASSURANCE_REQUIRED_FILE_WRITE   = 0  # any valid token accepted
+ASSURANCE_REQUIRED_PRIVILEGED   = 3  # BPF ops, axiom map reconfig → hw_key minimum
+
 VERDICT_NAMES = {
-    VERDICT_SAT:             "SAT",
-    VERDICT_NO_TOKEN:        "NO_TOKEN",
-    VERDICT_EXPIRED:         "EXPIRED",
-    VERDICT_CONSUMED:        "CONSUMED",
-    VERDICT_AXIOM:           "AXIOM",
-    VERDICT_WHITELISTED:     "WHITELISTED",
-    VERDICT_TOKEN_INHERITED: "TOKEN_INHERITED",
-    VERDICT_READ_BLOCKED:    "READ_BLOCKED",
-    VERDICT_NET_BLOCKED:     "NET_BLOCKED",
-    VERDICT_EXEC_BLOCKED:    "EXEC_BLOCKED",
-    VERDICT_TX_ROLLBACK:     "TX_ROLLBACK",
-    VERDICT_AXIOM_MISMATCH:  "AXIOM_MISMATCH",
+    VERDICT_SAT:                    "SAT",
+    VERDICT_NO_TOKEN:               "NO_TOKEN",
+    VERDICT_EXPIRED:                "EXPIRED",
+    VERDICT_CONSUMED:               "CONSUMED",
+    VERDICT_AXIOM:                  "AXIOM",
+    VERDICT_WHITELISTED:            "WHITELISTED",
+    VERDICT_TOKEN_INHERITED:        "TOKEN_INHERITED",
+    VERDICT_READ_BLOCKED:           "READ_BLOCKED",
+    VERDICT_NET_BLOCKED:            "NET_BLOCKED",
+    VERDICT_EXEC_BLOCKED:           "EXEC_BLOCKED",
+    VERDICT_TX_ROLLBACK:            "TX_ROLLBACK",
+    VERDICT_AXIOM_MISMATCH:         "AXIOM_MISMATCH",
+    VERDICT_INSUFFICIENT_ASSURANCE: "INSUFFICIENT_ASSURANCE",
 }
 
 
@@ -65,6 +84,10 @@ class CausalToken:
     comm: str             # 16-char process name (truncated)
     generation: int
     op_class: int
+    # Phase 12: provenance fields (default = LOCAL_IRQ for backward compat)
+    token_type:     int = TOKEN_LOCAL_IRQ
+    assurance_level: int = ASSURANCE_LOCAL_IRQ
+    attestation_id: int = 0  # FIDO2 assertion hash (0 = not attested)
 
 
 @dataclass
@@ -164,12 +187,67 @@ class BioSemanticsOracle:
         tok = CausalToken(
             timestamp_ns=t, pid=pid, consumed=False,
             comm=comm16, generation=0, op_class=op_class,
+            token_type=TOKEN_LOCAL_IRQ, assurance_level=ASSURANCE_LOCAL_IRQ,
         )
         self.token_map[pid] = tok
 
         tx = TxState(state=TX_LOCKED, lock_time_ns=t, bound_ino=0)
         self.tx_map[pid] = tx
 
+        return self._emit(pid, VERDICT_SAT, comm16)
+
+    def issue_remote_attested_token(
+        self, pid: int, comm: str, assurance_level: int,
+        attestation_id: int = 0, now_ns: Optional[int] = None,
+    ) -> OracleResult:
+        """Phase 12: issue a REMOTE_ATTESTED token for an FIDO2/TPM-verified owner action."""
+        t = now_ns if now_ns is not None else self._now()
+        comm16 = self._trunc16(comm)
+
+        if assurance_level < ASSURANCE_HW_KEY:
+            return self._emit_ex(pid, VERDICT_INSUFFICIENT_ASSURANCE,
+                                 assurance_level, comm16, errno=-1)
+
+        tok = CausalToken(
+            timestamp_ns=t, pid=pid, consumed=False,
+            comm=comm16, generation=0,
+            op_class=(OP_WRITE | OP_NET | OP_EXEC),
+            token_type=TOKEN_REMOTE_ATTESTED,
+            assurance_level=assurance_level,
+            attestation_id=attestation_id,
+        )
+        self.token_map[pid] = tok
+
+        tx = TxState(state=TX_LOCKED, lock_time_ns=t, bound_ino=0)
+        self.tx_map[pid] = tx
+
+        return self._emit(pid, VERDICT_SAT, comm16)
+
+    def on_privileged_op(self, pid: int, comm: str,
+                         now_ns: Optional[int] = None) -> OracleResult:
+        """Phase 12: model DCC self-protection check for BPF/axiom-map operations.
+
+        Requires assurance_level >= ASSURANCE_REQUIRED_PRIVILEGED (hw_key or local IRQ).
+        """
+        t = now_ns if now_ns is not None else self._now()
+        comm16 = self._trunc16(comm)
+
+        tok = self.token_map.get(pid)
+        if tok is None:
+            return self._emit_ex(pid, VERDICT_NO_TOKEN, 0, comm16, errno=-1)
+
+        age = t - tok.timestamp_ns
+        if age > CAUSALITY_WINDOW_NS:
+            return self._emit_ex(pid, VERDICT_EXPIRED, age, comm16, errno=-1)
+
+        if tok.consumed:
+            return self._emit_ex(pid, VERDICT_CONSUMED, 0, comm16, errno=-1)
+
+        if tok.assurance_level < ASSURANCE_REQUIRED_PRIVILEGED:
+            return self._emit_ex(pid, VERDICT_INSUFFICIENT_ASSURANCE,
+                                 tok.assurance_level, comm16, errno=-1)
+
+        tok.consumed = True
         return self._emit(pid, VERDICT_SAT, comm16)
 
     def on_fork(self, parent_pid: int, child_pid: int,
@@ -198,6 +276,9 @@ class BioSemanticsOracle:
             comm=ptok.comm,
             generation=ptok.generation + 1,
             op_class=ptok.op_class,
+            token_type=ptok.token_type,
+            assurance_level=ptok.assurance_level,
+            attestation_id=ptok.attestation_id,
         )
         self.token_map[child_pid] = child_tok
         return self._emit_ex(child_pid, VERDICT_TOKEN_INHERITED,

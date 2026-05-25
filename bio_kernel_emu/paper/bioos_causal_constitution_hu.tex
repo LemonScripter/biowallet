@@ -1,6 +1,6 @@
 % ============================================================
 %  BioOS Kauzális Alkotmány — Magyar változat
-%  Szőke László-Ferenc · Citrom Média LTD · 2026-05-24
+%  Szőke László-Ferenc · MetaSpace.bio Logic Engine · 2026-05-25
 %  Motor: XeLaTeX
 % ============================================================
 \documentclass[11pt,a4paper,twoside]{article}
@@ -179,15 +179,14 @@
   {\large\bfseries Formálisan verifikált kernel-szintű kauzalitás-érvényesítési primitív}\\[22pt]
   {\color{bioblue}\rule{\linewidth}{0.5pt}}\\[22pt]
   {\large Szőke László-Ferenc}\\[4pt]
-  {\normalsize Citrom Média LTD\,/\,LemonScript Laboratory}\\[2pt]
-  {\small\texttt{hello@lemonscript.info}}\\[18pt]
+  {\normalsize MetaSpace.bio Logic Engine}\\[2pt]
+  {\small\href{mailto:admin@metaspace.bio}{admin@metaspace.bio}}\\[18pt]
   \begin{tabular}{rl}
-    \textbf{Verzió:}    & Munkaanyag v0.1.0 \\
-    \textbf{Dátum:}     & 2026-05-24 \\
+    \textbf{Verzió:}    & Munkaanyag v0.1.1 \\
+    \textbf{Dátum:}     & 2026-05-25 \\
     \textbf{Prototípus:}& \bioURL \\
     \textbf{Z3 bizonyíték:} & \proofURL \\
     \textbf{Kernel:}    & Linux 6.1.0-48-cloud-amd64 \textbullet\ eBPF/LSM \\
-    \textbf{Szabadalom:}& OSIM 20251221-2230 \\
   \end{tabular}\\[24pt]
   {\color{bioblue}\rule{\linewidth}{2pt}}\\[16pt]
   \begin{minipage}{0.9\linewidth}
@@ -564,6 +563,56 @@ Mihelyt a rendszer (újra)indul egy olyan kernellel, amely helyesen betölti a
 DCCRing0Guardot, minden ezt követő szoftveres támadás, amely eléri a kernel határát,
 ismét ugyanazoknak a kauzális invariánsoknak van alávetve, mint a tiszta esetben.
 
+\subsection{Kiterjesztett kauzális lánc: távoli fizikai igazolás}
+\label{sec:tavoli-igazolas}
+
+A jelenlegi implementáció a kauzális tokeneket kizárólag a szerveren keletkező
+hardveres megszakítás-eseményekhez köti (\texttt{raw\_tp/input\_event}).
+Jogos kérdés merül fel: ha \emph{minden} privilegizált művelet — beleértve
+magát a DCC konfigurálását is — helyi fizikai eseményt igényel, akkor az
+arra jogosult tulajdonos távolról nem tudja kezelni a rendszert.
+
+A megoldás a fizikai eseményhalmaz~$\mathcal{P}$ kiterjesztése:
+\[
+  \mathcal{P} = \mathit{HelyiMegszakítás}(\text{szerver})
+             \;\cup\;
+             \mathit{IgazoltTávoli}(\mathit{tulajdonos})
+\]
+ahol $\mathit{IgazoltTávoli}(\mathit{tulajdonos})$ azokat a műveleteket
+jelöli, amelyek egyidejűleg teljesítik:
+\begin{enumerate}[topsep=2pt,itemsep=1pt]
+  \item \textbf{Fizikai} — hardverkötött eszközön (FIDO2 biztonsági kulcs,
+        TPM-alapú biometria) hajtják végre, amelyből a privátkulcs szoftveresen
+        nem nyerhető ki;
+  \item \textbf{Hitelesített} — a művelet kriptográfiailag kötődik a regisztrált
+        tulajdonos személyazonosságához; a hardverkötött privátkulcs egy
+        visszajátszásvédett, monoton növekvő számlálóval aláírt kihívást alkot;
+  \item \textbf{Célkötött} — az igazolás tartalmazza a szerver azonosítóját
+        (\texttt{rpId}), megakadályozva az átjátszást más gépre.
+\end{enumerate}
+
+Egy FIDO2/WebAuthn hardverkulcs-érintés mindhárom feltételt teljesíti.
+A token-modellt proveniencia és biztosítéki szint hordozására terjesztjük ki:
+
+\begin{center}\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Token típusa} & \textbf{Fizikai eredet} & \textbf{Biztosítéki szint} \\ \midrule
+\texttt{LOCAL\_IRQ}       & Hardvermegszakítás a szerveren & 5 (legmagasabb) \\
+\texttt{REMOTE\_ATTESTED} & FIDO2 / TPM-kötött SSH         & 3--4 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+A DCC-re vonatkozó privilegizált műveletek — BPF-program-kezelés,
+\texttt{file\_axiom\_map} újrakonfigurálás — legalább 3-as biztosítéki
+szintű tokent igényelnek; hagyományos fájlírási műveletek bármilyen
+érvényes tokent elfogadnak a forrástól függetlenül.
+Ez megőrzi az alkotmány alapinvariánsát — \emph{egyetlen művelet sem hajtódik
+végre fizikai emberi szándék nélkül} —, miközben lehetővé teszi a hitelesített
+tulajdonos számára a jogszerű távolsági kezelést.
+A teljes implementáció a 12.\ fázisban valósul meg (lásd: \ref{sec:korlatok}.\ szakasz).
+
 % =============================================================
 \section{A fordítói háttér és az izomorfizmus-tétel}
 % =============================================================
@@ -809,13 +858,22 @@ műveletnek fizikai kauzális elődje?" A modellek ortogonálisak és kompozálh
 (SELinux, AppArmor).
 
 \subsection{Korlátok és jövőbeli munka}
+\label{sec:korlatok}
 
 \begin{enumerate}[topsep=2pt,itemsep=2pt]
   \item Gépesített fordítói korrektség (Isabelle/HOL vagy Lean~4).
   \item Biszimiláció élőség iránya (BPF map frissítési időzítéselemzés).
   \item Comm-névhamisítás elleni védelem: cgroup-alapú fehérlistázás.
-  \item Systemd-szolgáltatás a DCC Ring~0 automatikus betöltésére (11.\ fázis).
+  \item \textit{[Kész --- 11.\ fázis, 2026-05-25]} Perzisztens systemd-szolgáltatás
+        a DCC Ring~0 automatikus betöltéséhez (\path{dcc-ring0.service}),
+        log-only módban, boot-indítással engedélyezve.
   \item Formális \texttt{.bio} szemantika TLA+-ban vagy Coq-ban.
+  \item \textit{[Tervezett --- 12.\ fázis]} Kiterjesztett kauzális lánc
+        távoli fizikai igazolással (\ref{sec:tavoli-igazolas}.\ szakasz):
+        a fizikai eseményhalmaz kiterjesztése FIDO2/TPM-igazolt tulajdonosi
+        műveletekre; LSM-hook-ok bővítése \texttt{security\_bpf\_prog()} és
+        \texttt{security\_bpf\_map()} funkciókkal a DCC önvédelmére;
+        \texttt{dcc\_rat\_daemon} implementálása távolról igazolt token kiadásához.
 \end{enumerate}
 
 \subsection{Összefoglalás}

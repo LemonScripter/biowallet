@@ -1,6 +1,6 @@
 % ============================================================
 %  BioOS Causal Constitution — English
-%  Szőke László-Ferenc · Citrom Média LTD · 2026-05-24
+%  Szőke László-Ferenc · MetaSpace.bio Logic Engine · 2026-05-25
 %  Engine: XeLaTeX
 % ============================================================
 \documentclass[11pt,a4paper,twoside]{article}
@@ -176,15 +176,14 @@
   {\large\bfseries A formally verified kernel-level causality enforcement primitive}\\[22pt]
   {\color{bioblue}\rule{\linewidth}{0.5pt}}\\[22pt]
   {\large Szőke László-Ferenc}\\[4pt]
-  {\normalsize Citrom Média LTD\,/\,LemonScript Laboratory}\\[2pt]
-  {\small\texttt{hello@lemonscript.info}}\\[18pt]
+  {\normalsize MetaSpace.bio Logic Engine}\\[2pt]
+  {\small\href{mailto:admin@metaspace.bio}{admin@metaspace.bio}}\\[18pt]
   \begin{tabular}{rl}
-    \textbf{Version:}   & Working Paper v0.1.0 \\
-    \textbf{Date:}      & 2026-05-24 \\
+    \textbf{Version:}   & Working Paper v0.1.1 \\
+    \textbf{Date:}      & 2026-05-25 \\
     \textbf{Prototype:} & \bioURL \\
     \textbf{Z3 Proof:}  & \proofURL \\
     \textbf{Kernel:}    & Linux 6.1.0-48-cloud-amd64 \textbullet\ eBPF/LSM \\
-    \textbf{Patent:}    & OSIM 20251221-2230 \\
   \end{tabular}\\[24pt]
   {\color{bioblue}\rule{\linewidth}{2pt}}\\[16pt]
   \begin{minipage}{0.9\linewidth}
@@ -534,6 +533,53 @@ universe. Once the system is (re)booted into a kernel that correctly loads
 DCCRing0Guard, any software-level attack that reaches the kernel boundary is again
 constrained by the same causal invariants as in the clean case.
 
+\subsection{Extended causal chain: remote physical attestation}
+\label{sec:remote-attestation}
+
+The current implementation anchors causal tokens exclusively to hardware IRQ events
+on the server (\texttt{raw\_tp/input\_event}).  A legitimate question arises: if
+\emph{every} privileged operation — including DCC reconfiguration itself — requires
+a local physical event, authorized remote administration becomes impossible.
+
+We resolve this by extending the physical event set~$\mathcal{P}$:
+\[
+  \mathcal{P} = \mathit{LocalIRQ}(\text{server})
+             \;\cup\;
+             \mathit{AttestedRemote}(\mathit{owner})
+\]
+where $\mathit{AttestedRemote}(\mathit{owner})$ denotes actions that simultaneously
+satisfy:
+\begin{enumerate}[topsep=2pt,itemsep=1pt]
+  \item \textbf{Physical} — performed on a hardware-bound device (FIDO2 security
+        key, TPM-backed biometric) whose private key cannot be extracted in software;
+  \item \textbf{Authenticated} — cryptographically bound to the registered owner
+        identity; a hardware-resident private key signs a challenge with a
+        monotonically increasing replay-protection counter;
+  \item \textbf{Origin-bound} — the attestation assertion encodes the server
+        identifier (\texttt{rpId}), preventing cross-machine reuse.
+\end{enumerate}
+
+A FIDO2/WebAuthn key tap satisfies all three conditions.  The token model is
+generalized to carry provenance and an assurance level:
+
+\begin{center}\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Token type} & \textbf{Physical origin} & \textbf{Assurance level} \\ \midrule
+\texttt{LOCAL\_IRQ}       & Hardware IRQ on server & 5 (highest) \\
+\texttt{REMOTE\_ATTESTED} & FIDO2 / TPM-bound SSH  & 3--4 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Privileged operations on the DCC itself — BPF program management,
+\texttt{file\_axiom\_map} reconfiguration — require assurance level~$\geq 3$;
+ordinary file-write operations accept any valid token regardless of origin.
+This preserves the constitution's core invariant: \emph{no operation proceeds
+without a physical human intent}, while enabling authorized remote
+administration by the verified owner.  Full implementation is planned for
+Phase~12 (see Section~\ref{sec:limits}).
+
 % =============================================================
 \section{Compiler backend and isomorphism theorem}
 % =============================================================
@@ -767,13 +813,21 @@ MAC answers ``is this principal allowed?''; DCC answers ``does this operation
 have a physical causal ancestor?'' The models are orthogonal and composable.
 
 \subsection{Limitations and future work}
+\label{sec:limits}
 
 \begin{enumerate}[topsep=2pt,itemsep=2pt]
   \item Compiler soundness mechanization (Isabelle/HOL or Lean~4).
   \item Bisimulation liveness direction (BPF map update timing analysis).
   \item Comm-whitelist spoofing via \texttt{prctl}: switch to cgroup-based whitelisting.
-  \item Systemd service for DCC Ring~0 auto-load (Phase~11).
+  \item \textit{[Completed — Phase~11, 2026-05-25]} Persistent systemd service
+        for DCC Ring~0 (\path{dcc-ring0.service}), log-only mode, boot-enabled.
   \item Formal \texttt{.bio} encoding in TLA+ or Coq.
+  \item \textit{[Planned — Phase~12]} Extended causal chain with remote physical
+        attestation (Section~\ref{sec:remote-attestation}): generalize the
+        physical event set to include FIDO2/TPM-attested owner actions; extend
+        LSM hooks to \texttt{security\_bpf\_prog()} and
+        \texttt{security\_bpf\_map()} for DCC self-protection; implement
+        \texttt{dcc\_rat\_daemon} for remote attested token issuance.
 \end{enumerate}
 
 % =============================================================
