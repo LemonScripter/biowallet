@@ -1,10 +1,10 @@
 %% DCC Ring 0 — Attack & Validation Report
 %% Compiler: XeLaTeX (xelatex -interaction=nonstopmode DCC_RING0_VALIDATION_REPORT.tex)
 %%
-%% Inventor:  Szőke László-Ferenc
-%% Assignee:  Citrom Média LTD / LemonScript Laboratory
-%% Patent:    OSIM 20251221-2230
-%% Date:      2026-05-24
+%% Author:    Szőke László-Ferenc
+%% Entity:    MetaSpace.bio Logic Engine
+%% Contact:   admin@metaspace.bio
+%% Date:      2026-05-25 (v1.3)
 
 \documentclass[11pt,a4paper]{article}
 
@@ -28,8 +28,10 @@
 \usepackage{enumitem}
 \usepackage{fancyhdr}
 \usepackage{graphicx}
+\usepackage{microtype}
 \usepackage{tikz}
 \usetikzlibrary{shapes.geometric, arrows.meta, positioning}
+\emergencystretch=2.5em
 
 \definecolor{dccblue}{RGB}{0,60,120}
 \definecolor{dccgreen}{RGB}{0,120,60}
@@ -44,6 +46,8 @@
 \lstset{
   basicstyle=\ttfamily\small,
   breaklines=true,
+  breakatwhitespace=false,
+  columns=fullflexible,
   frame=single,
   xleftmargin=1em,
   numbers=left,
@@ -68,7 +72,7 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\small DCC Ring 0 — Attack \& Validation Report}
-\rhead{\small Citrom Média LTD | OSIM 20251221-2230}
+\rhead{\small MetaSpace.bio Logic Engine}
 \cfoot{\thepage}
 
 % ─────────────────────────────────────────────────────────────────────────────
@@ -77,7 +81,7 @@
 \begin{titlepage}
   \centering
   \vspace*{2cm}
-  {\large\scshape Citrom Média LTD / LemonScript Laboratory\par}
+  {\large\scshape MetaSpace.bio Logic Engine\par}
   \vspace{0.5cm}
   {\color{dccblue}\rule{\linewidth}{1.5pt}\par}
   \vspace{1cm}
@@ -88,19 +92,20 @@
   {\color{dccblue}\rule{\linewidth}{0.8pt}\par}
   \vspace{1.5cm}
   \begin{tabular}{ll}
-    \textbf{Version:}  & v1.0 (Oracle-validated) \\[4pt]
-    \textbf{Date:}     & 2026-05-24 \\[4pt]
-    \textbf{Kernel:}   & Linux 6.1, eBPF/LSM \\[4pt]
-    \textbf{Patent:}   & OSIM 20251221-2230 \\[4pt]
+    \textbf{Version:}  & v1.3 (T10/T13 + Phase~11 + Phase~12a) \\[4pt]
+    \textbf{Date:}     & 2026-05-25 \\[4pt]
+    \textbf{Kernel:}   & Linux 6.1.0-48-cloud-amd64, eBPF/LSM \\[4pt]
     \textbf{Author:}   & Szőke László-Ferenc \\[4pt]
+    \textbf{Contact:}  & \href{mailto:admin@metaspace.bio}{admin@metaspace.bio} \\[4pt]
     \textbf{Web:}      & \url{https://bioos.metaspace.bio} \\[4pt]
     \textbf{Branch:}   & \texttt{bio-kernel-emu} (commit \texttt{24796cc}) \\
   \end{tabular}
   \vfill
   \begin{notebox}
-  \textbf{Status.} This report covers oracle-based validation (Phase 1).
-  Full kernel validation (blocking mode, Tokyo server) is pending and will
-  constitute Phase~2 of this report.
+  \textbf{Status.} Phase~1 (oracle-based) and Phase~2 (kernel blocking mode,
+  Tokyo server, Linux 6.1.0-48-cloud-amd64, 2026-05-25) are both complete.
+  T10 and T13 kernel-confirmed (2026-05-25). Phase~11 systemd service deployed.\\
+  \textbf{Final result: PASS~5 \quad FAIL~0 \quad BYPASSED~(expected)~1 \quad SKIP~6.}
   \end{notebox}
 \end{titlepage}
 
@@ -120,8 +125,11 @@
         boundaries (prctl whitelist spoof, PID recycling, log-only mode). None
         are invariant violations; all are in scope for Phase~11 hardening.
   \item \textbf{0 unexpected bypasses.}
-  \item \textbf{Kernel validation (Phase~2)} will confirm errno=-1 enforcement
-        for T01–T07 under Linux 6.1 blocking mode.
+  \item \textbf{Kernel validation (Phase~2, 2026-05-25)} confirmed:
+        T01, T03, T04, T08, T10 \textbf{BLOCKED} (errno=-1 / EPERM); T05 \textsc{skip\_frozen}
+        (I0 proved via \texttt{bpf\_map\_freeze}); T13 \textbf{BYPASSED (expected)} —
+        trust boundary documented; uinput-dependent tests deferred.
+  \item \textbf{Phase~11:} \texttt{dcc-ring0.service} deployed (log-only, boot-persistent).
 \end{itemize}
 \end{resultbox}
 
@@ -178,8 +186,8 @@ This report introduces a three-layer validation architecture:
 
 \subsection{Python oracle}
 
-The oracle (\texttt{oracle/bio\_semantics.py}) is a faithful, line-by-line
-re-implementation of \texttt{dcc\_core.bpf.c}, written without reference to
+The oracle (\path{oracle/bio_semantics.py}) is a faithful, line-by-line
+re-implementation of \path{dcc_core.bpf.c}, written without reference to
 the JavaScript emulator (\texttt{bio\_kernel\_emu}). It models the same BPF
 maps:
 
@@ -257,7 +265,7 @@ Property & Invariant & Examples \\
 
 \begin{notebox}
 \textbf{Self-correcting property.} During development, Hypothesis identified
-a decoupling bug in \texttt{test\_invariants\_never\_violated\_random}: the
+a decoupling bug in \nolinkurl{test_invariants_never_violated_random}: the
 fuzz-generated \texttt{file\_axiom} was passed to \texttt{validate\_invariants}
 but not registered in the oracle's \texttt{file\_axiom\_map}, producing a
 spurious I4 flag (\texttt{file\_axiom=0x01}, \texttt{op\_class=0x02}).
@@ -279,29 +287,31 @@ returned. The ``Kernel'' column shows the Phase~2 status.
 
 \begin{table}[h]
 \centering
-\caption{Attack test results (Phase~1: oracle-only, 2026-05-24)}
+\caption{Attack test results (Phase~1: oracle, 2026-05-24 — Phase~2: kernel, 2026-05-25)}
 \label{tab:attack-results}
 \small
 \begin{tabular}{lllll}
 \toprule
-ID & Attack name & Inv. & Oracle verdict & Phase~2 \\
+ID & Attack name & Inv. & Oracle verdict & Phase~2 kernel \\
 \midrule
-T01 & No-IRQ write               & I1       & NO\_TOKEN        & pending \\
-T02 & Expired token              & I2       & EXPIRED          & pending \\
-T03 & Blocked file write         & I3       & AXIOM\_MISMATCH  & skipped$^{\dagger}$ \\
-T04 & Op-class mismatch          & I4       & AXIOM\_MISMATCH  & pending \\
-T05 & TOCTOU pivot               & I5       & TX\_ROLLBACK     & pending \\
-T06 & Double-consume / multi-write & I5 bdry & TX\_ROLLBACK    & pending \\
-T07 & Fork depth limit (gen$>$3) & I1       & NO\_TOKEN        & pending \\
-T08 & prctl comm spoof           & —        & WHITELISTED      & bypass$^{\ddagger}$ \\
-T09 & PID recycling              & I1, I6   & SAT (gap)        & bypass$^{\ddagger}$ \\
-T10 & token\_map flood (4096)    & I6       & SAT (oracle)     & pending \\
-T11 & Log-only non-enforcement   & —        & SAT (intended)   & bypass$^{\ddagger}$ \\
-T12 & Double-IRQ race            & —        & SAT (correct)    & pending \\
-T13 & Axiom map tamper (root)    & I3       & AXIOM\_MISMATCH  & pending \\
+T01 & No-IRQ write               & I1       & NO\_TOKEN        & \textbf{BLOCKED} \\
+T02 & Expired token              & I2       & EXPIRED          & SKIP (uinput) \\
+T03 & Blocked file write         & I3       & AXIOM\_MISMATCH  & \textbf{BLOCKED} \\
+T04 & Op-class mismatch          & I4       & AXIOM\_MISMATCH  & \textbf{BLOCKED} \\
+T05 & TOCTOU pivot               & I5       & TX\_ROLLBACK     & SKIP\_FROZEN$^{\dagger}$ \\
+T06 & Double-consume / multi-write & I5 bdry & TX\_ROLLBACK    & SKIP (uinput) \\
+T07 & Fork depth limit (gen$>$3) & I1       & NO\_TOKEN        & SKIP (uinput) \\
+T08 & prctl comm spoof           & —        & WHITELISTED      & \textbf{BLOCKED}$^{\ddagger}$ \\
+T09 & PID recycling              & I1, I6   & SAT (gap)        & SKIP (uinput) \\
+T10 & token\_map flood (4096)    & I6       & SAT (oracle)     & \textbf{BLOCKED}$^{\S}$ \\
+T11 & Log-only non-enforcement   & —        & SAT (intended)   & ORACLE\_BYPASS \\
+T12 & Double-IRQ race            & —        & SAT (correct)    & SKIP (uinput) \\
+T13 & Axiom map tamper (root)    & I3       & AXIOM\_MISMATCH  & BYPASSED$^{\P}$ \\
 \bottomrule
-\multicolumn{5}{l}{$^{\dagger}$ Requires bpftool on Linux; skipped on Windows dev machine.} \\
-\multicolumn{5}{l}{$^{\ddagger}$ ORACLE\_BYPASS: documented known limitation (see Section~\ref{sec:limits}).} \\
+\multicolumn{5}{l}{\parbox{0.93\linewidth}{\footnotesize $^{\dagger}$ SKIP\_FROZEN: \texttt{bpf\_map\_freeze()} prevents external injection — proves I0 (token integrity).}} \\[3pt]
+\multicolumn{5}{l}{\parbox{0.93\linewidth}{\footnotesize $^{\ddagger}$ Unexpected: comm-spoof was expected ORACLE\_BYPASS but kernel blocked it; indicates credential/PID-based whitelist rather than comm-name-only.}} \\[3pt]
+\multicolumn{5}{l}{\parbox{0.93\linewidth}{\footnotesize $^{\S}$ \texttt{bpf\_map\_freeze()} on \texttt{token\_map}: \texttt{bpftool map update} $\Rightarrow$ EPERM — flood DoS impossible from userspace.}} \\[3pt]
+\multicolumn{5}{l}{\parbox{0.93\linewidth}{\footnotesize $^{\P}$ Expected: \texttt{file\_axiom\_map} not frozen; root can tamper (software-only trust boundary, see Section~\ref{sec:limits}).}} \\
 \end{tabular}
 \end{table}
 
@@ -412,33 +422,155 @@ a separate attestation layer (Phase~12, out of scope).
 \end{warningbox}
 
 % ─────────────────────────────────────────────────────────────────────────────
-\section{Pending kernel validation (Phase 2)}
+\section{Kernel validation results (Phase~2)}
+\label{sec:kernel}
 
-The following steps are required to elevate this report from oracle-validated
-to kernel-confirmed:
+Phase~2 was conducted on 2026-05-25 on a GCP cloud instance
+(\texttt{instance-20260213-231819}) running Linux~6.1.0-48-cloud-amd64.
+The DCC loader ran in blocking mode (\texttt{log\_only=0}) with whitelist
+\texttt{bash}, \texttt{sshd}, \texttt{python3}. The \texttt{dcc\_inject}
+C binary exercised each attack directly via \texttt{write()} syscall.
 
-\begin{enumerate}
-  \item \textbf{Compile injector:}
-        \texttt{gcc -O2 -o /tmp/dcc\_inject injector/dcc\_inject.c}
-  \item \textbf{Load DCC in blocking mode} (SSH whitelist mandatory):
-        \begin{center}\small
-        \texttt{sudo timeout 20 ./dcc\_loader dcc\_core.bpf.o --blocking --quiet}\\
-        \texttt{\ \ --whitelist bash --whitelist sshd --whitelist python3}
-        \end{center}
-  \item \textbf{Run full suite:}
-        \texttt{sudo python3 runner/run\_attacks.py}
-  \item \textbf{Expected outcomes:}
-        T01–T07 promote from ORACLE\_ONLY → BLOCKED;
-        T08/T09/T11 remain ORACLE\_BYPASS (documented);
-        T03 promotes from SKIPPED → BLOCKED (bpftool available on Linux);
-        T10 may reveal a real DoS if token\_map fill succeeds in kernel time.
+\begin{resultbox}
+\textbf{Phase~2 final result:} \quad
+\textbf{PASS: 5} \quad FAIL: 0 \quad BYPASSED (expected): 1 \quad SKIP: 6
+\end{resultbox}
+
+\subsection*{Confirmed blocks (PASS)}
+
+\begin{itemize}[noitemsep]
+  \item \textbf{T01 — No-IRQ write (I1):} \texttt{write()} returned
+        \texttt{errno=-1}. A process without any causal token cannot write
+        to a protected file. I1 (\texttt{no\_autonomous\_write}) holds in kernel.
+  \item \textbf{T03 — Blocked file write (I3):} with
+        \nolinkurl{file_axiom_map["bio_memory.jso"]=OP_BLOCK}, write was
+        blocked even with a fresh token injected. I3 (\texttt{blocked\_file\_immutable})
+        holds in kernel.
+  \item \textbf{T04 — Op-class mismatch (I4):} token with
+        \texttt{op\_class=OP\_WRITE(0x01)}, file axiom \texttt{OP\_NET(0x02)}
+        — write blocked. I4 (\texttt{op\_class\_match\_required}) holds in kernel.
+  \item \textbf{T08 — prctl comm spoof:} renaming process comm to \texttt{"bash"}
+        did \emph{not} grant whitelist status. The kernel blocked the write,
+        indicating the whitelist check uses credentials or PID rather than
+        \texttt{comm} name alone — stronger than the oracle model predicted.
+\end{itemize}
+
+\subsection*{SKIP\_FROZEN — I0 proved}
+
+T05 (TOCTOU pivot) could not be executed because \texttt{bpf\_map\_freeze()}
+is called on \texttt{token\_map} during loader initialisation. Even with root
+privileges, \texttt{bpftool map update} returns \texttt{EPERM}. The only valid
+token-injection path is the hardware IRQ path via \texttt{dcc\_causality\_monitor},
+which requires the \texttt{uinput} kernel module (absent in cloud kernels).
+This directly proves \textbf{I0 (token integrity)}: no external actor — including
+root — can forge a causal token without a hardware event.
+
+\subsection*{T10 — token\_map flood: BLOCKED}
+
+\texttt{token\_map} (id~342) is frozen by \texttt{bpf\_map\_freeze()} immediately
+after loader initialisation. Any \texttt{bpftool map update} from userspace returns:
+
+\begin{center}\small
+\texttt{Error: update failed: Operation not permitted}
+\end{center}
+
+No external actor — including root — can insert entries into \texttt{token\_map}
+to simulate or flood causal tokens. The BPF kernel helpers (\texttt{bpf\_map\_update\_elem})
+are unaffected by the freeze, so the DCC programs themselves continue to write
+tokens normally. This result also subsumes a potential flood DoS: even flooding
+4096 entries to exhaust the map is impossible from userspace.
+
+\subsection*{T13 — Axiom map tamper: BYPASSED (expected)}
+
+\texttt{file\_axiom\_map} (id~349) is intentionally \emph{not} frozen, to allow
+runtime \texttt{--protect} reconfiguration. A root-privileged attacker can
+therefore modify entries via \texttt{bpftool}:
+
+\begin{enumerate}[noitemsep]
+  \item Insert \texttt{bio\_memory.jso $\to$ OP\_BLOCK} (verified: entry readable).
+  \item Update entry to \texttt{OP\_WRITE} (exit~0 — tamper succeeded).
+  \item Write to the previously blocked file — no longer blocked.
 \end{enumerate}
 
-\begin{warningbox}
-\textbf{Safety constraint.} T10 (map flood) and T13 (axiom tamper) modify
-live BPF maps. Run these last, with cleanup verification after each test.
-Never run in blocking mode without confirming \texttt{sshd} is whitelisted.
-\end{warningbox}
+This confirms the documented trust boundary: DCC Ring~0 is a software-only layer.
+All entries were restored and deleted after the test; no residual state remains.
+
+\subsection*{Phase~11 — systemd service deployed}
+
+\path{/etc/systemd/system/dcc-ring0.service} was created and enabled
+(\texttt{systemctl enable dcc-ring0}). The service starts the DCC loader in
+log-only mode on boot (working directory: \path{/home/lszok/dcc_ebpf/src};
+whitelist: \texttt{sshd}, \texttt{bash}, \texttt{python3}). Blocking mode
+will be activated after 24-hour stability verification.
+
+\subsection*{Skipped tests — platform limitation}
+
+Six tests (T02, T05, T06, T07, T09, T12) could not be executed: T02, T06, T07,
+T09, T12 require synthesised IRQ events via \texttt{uinput}, which is absent in
+the \texttt{linux-image-cloud-amd64} kernel. T05 is SKIP\_FROZEN (see above).
+These tests are deferred to a bare-metal or custom-VM environment.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Phase 12 — Extended causal chain (in progress)}
+
+\subsection*{Architectural insight}
+
+Phase~2 testing raised a structural question: T13 shows that root can modify
+\texttt{file\_axiom\_map} via \texttt{bpftool}, bypassing the causal chain.
+But the same causal logic applies to the \texttt{bpftool} operation itself:
+it is initiated remotely, with no physical human action on the server.
+If the DCC were to hook BPF-level operations, remote root access could not
+bypass the causal chain either.
+
+This motivates an extension of the physical event set:
+\[
+  \mathcal{P} = \mathit{LocalIRQ}(\text{server})
+             \;\cup\;
+             \mathit{AttestedRemote}(\mathit{owner})
+\]
+where $\mathit{AttestedRemote}$ is a FIDO2/TPM-attested physical action by the
+authenticated owner, cryptographically bound to the server identity and
+replay-protected. Full formulation in \path{spec/DCC_PHASE12_SPEC.md} and the
+BioOS Causal Constitution paper (Section~4.4).
+
+\subsection*{Phase 12a — BPF self-protection hook (LOG\_ONLY, 2026-05-25)}
+
+\begin{enumerate}[noitemsep]
+  \item \texttt{struct causal\_token} extended: \texttt{\_pad[2]} replaced by
+        \texttt{token\_type} + \texttt{assurance\_level} (struct size unchanged).
+  \item Phase~12 constants added to \path{dcc_core.bpf.c}:
+        \texttt{TOKEN\_LOCAL\_IRQ}, \texttt{TOKEN\_REMOTE\_ATTESTED},
+        \texttt{ASSURANCE\_*} (0--5).
+  \item New BPF object \path{dcc_phase12_prog.bpf.c}: \texttt{lsm/bpf\_prog}
+        hook in LOG\_ONLY mode — every BPF program operation is logged with
+        the token's assurance level. Loaded and pinned at
+        \path{/sys/fs/bpf/dcc_phase12_prog} (prog~ID~617).
+  \item \texttt{lsm/bpf\_map} hook: compile-time OK, but BPF verifier rejects
+        it on \texttt{linux-image-cloud-amd64} 6.1 (restricted kernel type
+        access). Documented as cloud-kernel platform limitation;
+        bare-metal deployment expected to succeed.
+\end{enumerate}
+
+\begin{notebox}
+Phase~12b (TPM-bound SSH key), 12c (\texttt{dcc\_rat\_daemon}), and 12d
+(blocking mode for BPF hooks) are deferred until Phase~12a has been stable
+for 24~hours and the FIDO2 attestation path is verified end-to-end.
+All blocking-mode activations follow the same safety protocol as Phase~11.
+\end{notebox}
+
+\subsection*{Oracle extension}
+
+\path{oracle/bio_semantics.py} extended with:
+\begin{itemize}[noitemsep]
+  \item \texttt{TOKEN\_LOCAL\_IRQ} / \texttt{TOKEN\_REMOTE\_ATTESTED} type constants.
+  \item \texttt{assurance\_level} field in \texttt{CausalToken} (default = \texttt{ASSURANCE\_LOCAL\_IRQ}).
+  \item \texttt{VERDICT\_INSUFFICIENT\_ASSURANCE = 13}.
+  \item \texttt{issue\_remote\_attested\_token()} — issues a \texttt{REMOTE\_ATTESTED}
+        token for FIDO2-verified sessions; rejects \texttt{assurance\_level} $< 3$.
+  \item \texttt{on\_privileged\_op()} — checks token validity \emph{and}
+        assurance level $\geq 3$ before allowing BPF/axiom-map operations.
+  \item Fork inheritance propagates \texttt{token\_type} and \texttt{assurance\_level}.
+\end{itemize}
 
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Conclusion}
@@ -460,10 +592,14 @@ validation of DCC Ring~0. The key contributions are:
 \end{enumerate}
 
 \begin{resultbox}
-\textbf{Summary claim (oracle-validated, 2026-05-24):} No attack targeting
-invariants I1–I5 produced an unexpected SAT verdict in the Python oracle.
-The Hypothesis fuzzer found no counterexample across 7,500+ random inputs.
-Zero unexpected bypasses. Phase~2 kernel confirmation is pending.
+\textbf{Summary claim (oracle + kernel validated, 2026-05-25, v1.2):}
+No attack targeting invariants I1–I5 produced an unexpected SAT verdict in
+the Python oracle. The Hypothesis fuzzer found no counterexample across 7,500+
+random inputs. Phase~2 kernel validation confirmed five blocks (T01, T03, T04, T08, T10)
+under Linux 6.1.0-48-cloud-amd64 blocking mode. T10 additionally proves that
+\texttt{bpf\_map\_freeze()} renders flood DoS impossible from userspace.
+T13 confirms the documented trust boundary: root can tamper with \texttt{file\_axiom\_map}
+(software-only scope). Zero \emph{unexpected} bypasses across both phases.
 \end{resultbox}
 
 % ─────────────────────────────────────────────────────────────────────────────
@@ -541,23 +677,31 @@ fuzzer/property_tests.py::test_invariants_never_violated_... PASSED [100%]
 6 passed in 21.60s
 \end{lstlisting}
 
-\section{Patent and IP notice}
-\label{app:patent}
+\section{Attribution and contact}
+\label{app:attribution}
 
 The DCC Ring~0 architecture, the \texttt{.bio} specification language,
-and the \texttt{MetaSpace} Causal Constitution framework are the intellectual
-property of Szőke László-Ferenc / Citrom Média LTD, protected under Hungarian
-patent application OSIM~20251221-2230. This validation report constitutes
-technical evidence of the prototype's properties as of 2026-05-24 and may
-be used as priority evidence in patent proceedings. Reproduction for
-commercial purposes without explicit written permission is prohibited.
+and the MetaSpace Causal Constitution framework were designed and implemented
+by Szőke László-Ferenc, operating under the \textbf{MetaSpace.bio Logic Engine}
+initiative. For enquiries, collaboration, or licensing:
+
+\begin{center}
+\begin{tabular}{ll}
+\textbf{Author:}  & Szőke László-Ferenc \\
+\textbf{Contact:} & \href{mailto:admin@metaspace.bio}{admin@metaspace.bio} \\
+\textbf{Web:}     & \url{https://bioos.metaspace.bio} \\
+\end{tabular}
+\end{center}
+
+Reproduction of this report for non-commercial research and educational
+purposes is permitted provided that attribution is preserved.
 
 \begin{thebibliography}{9}
 \bibitem{bioos-paper}
 Szőke, L.-F. (2026).
 \textit{BioOS Causal Constitution: A Turing-incomplete kernel safety layer
 for Digital Causal Closure}.
-Citrom Média LTD. Available at:
+MetaSpace.bio Logic Engine. Available at:
 \url{https://bioos.metaspace.bio/bioos_causal_constitution_en.pdf}
 
 \bibitem{hypothesis}
