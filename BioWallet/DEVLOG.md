@@ -2,6 +2,52 @@
 
 ---
 
+## 2026-05-27 (este) — Phase 6 KÉSZ: face-api.js lokalizálva
+
+**Verzió:** v0.6  
+**Deploy:** https://biowallet.metaspace.bio  
+
+### Probléma
+
+Firefox hibaüzenet: `Model hiba: face-api.js CDN betöltése sikertelen`  
+Oka: `bio_capture.js` dinamikusan injektált CDN `<script>` taget, amit a CSP `script-src 'self'` blokkolt.  
+A modell súlyok is CDN-ről töltődtek — szintén blokkolva.
+
+### Megoldás
+
+#### 1. face-api.js lokális bundle
+- `src/vendor/face-api.min.js` (649KB UMD) — jsdelivr CDN-ről letöltve, lokálisan bundlezve
+- `index.html`: `<script src="../vendor/face-api.min.js"></script>` az ethers script előtt
+
+#### 2. Modell súlyok lokálisan (src/models/, ~6.8MB)
+| Fájl | Méret |
+|------|-------|
+| tiny_face_detector_model-weights_manifest.json | 2.9KB |
+| tiny_face_detector_model-shard1 | 189KB |
+| face_landmark_68_model-weights_manifest.json | 7.8KB |
+| face_landmark_68_model-shard1 | 349KB |
+| face_recognition_model-weights_manifest.json | 18KB |
+| face_recognition_model-shard1 | 4.0MB |
+| face_recognition_model-shard2 | 2.2MB |
+
+#### 3. bio_capture.js refaktor
+- Eltávolítva: `FACE_API_URL` konstans + dinamikus CDN script injekció
+- `MODELS_URL = '/models'` — abszolút lokális útvonal
+- `getFaceApi()`: egyszerűsítve — ha `window.faceapi` nincs, hibaüzenet (nem CDN fallback)
+
+### Deploy
+- Szerver: Tokyo GCP `34.146.249.102`
+- `vendor/face-api.min.js`, `models/*` → `/var/www/biowallet/`
+- `sudo chown -R www-data:www-data` + nginx reload
+- HTTP 200 ellenőrzés: minden fájl elérhető ✅
+
+### Eredmény
+- Firefox: CDN hiba megszűnt ✅
+- Teljes CDN-mentesség: `script-src 'self'` + `connect-src` whitelist valóban érvényes
+- Supply chain attack vektor: **NULLA** (face-api.js + ethers.js + modellek = mind lokális)
+
+---
+
 ## 2026-05-27 (délután) — Phase 5 KÉSZ: biztonsági rések lezárva
 
 **Verzió:** v0.5

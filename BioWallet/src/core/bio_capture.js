@@ -4,10 +4,11 @@
  * face-api.js TinyFaceDetector + FaceRecognitionNet
  * Output: 128-dim L2-normalized Float32Array (stabil munkamenetek között)
  * Várható bit-hiba: 5–15/256 (vs. Phase 1: 30–50/256)
+ *
+ * Phase 6: face-api.js + modell súlyok lokálisan (CDN-mentes, CSP 'self')
  */
 
-const FACE_API_URL = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
-const MODELS_URL   = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
+const MODELS_URL = '/models';   // lokális: /var/www/biowallet/models/
 
 const ENROLL_SCANS = 5;
 const AUTH_SCANS   = 3;
@@ -20,16 +21,8 @@ let _modelPromise = null;   // singleton load promise
 
 async function getFaceApi() {
   if (_fa) return _fa;
-  if (!window.faceapi) {
-    await new Promise((resolve, reject) => {
-      const s = Object.assign(document.createElement('script'), {
-        src:    FACE_API_URL,
-        onload: resolve,
-        onerror: () => reject(new Error('face-api.js CDN betöltése sikertelen')),
-      });
-      document.head.appendChild(s);
-    });
-  }
+  if (!window.faceapi)
+    throw new Error('face-api.js nincs betöltve (vendor/face-api.min.js hiányzik)');
   _fa = window.faceapi;
   return _fa;
 }
