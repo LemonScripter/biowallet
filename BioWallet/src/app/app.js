@@ -153,6 +153,47 @@ btnEnroll.addEventListener('click', async () => {
   }
 });
 
+// ── Seed megjelenítő modal (alert helyett — scrollable) ───────────────────
+function showSeedModal(words) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:2000;
+      display:flex;align-items:flex-start;justify-content:center;
+      padding:1rem;overflow-y:auto;
+    `;
+
+    const grid = words.map((w, i) =>
+      `<div style="display:flex;gap:0.5rem;align-items:baseline;padding:0.25rem 0;border-bottom:1px solid #1e1e24;">
+        <span style="color:#6b6b80;font-size:0.72rem;width:1.8rem;text-align:right;flex-shrink:0;">${i+1}.</span>
+        <span style="color:#e8e8f0;font-family:monospace;font-size:0.88rem;">${w}</span>
+       </div>`
+    ).join('');
+
+    overlay.innerHTML = `
+      <div style="background:#16161a;border:1px solid #ff4757;border-radius:16px;
+                  width:100%;max-width:400px;margin:auto;padding:1.5rem;">
+        <div style="color:#ff4757;font-size:0.72rem;font-weight:700;letter-spacing:0.08em;
+                    text-transform:uppercase;margin-bottom:0.3rem;">BIZALMASAN</div>
+        <div style="font-size:1rem;font-weight:700;color:#e8e8f0;margin-bottom:0.3rem;">
+          BIP39 Seed Phrase (${words.length} szó)
+        </div>
+        <div style="font-size:0.78rem;color:#6b6b80;margin-bottom:1rem;">
+          MetaMaskba importálható · Soha ne ossza meg senkivel
+        </div>
+        <div style="margin-bottom:1.2rem;">${grid}</div>
+        <button id="_seed_close" style="width:100%;padding:0.75rem;border-radius:10px;
+          border:1px solid #ff4757;background:#2b0a0a;color:#ff4757;
+          font-size:0.9rem;font-weight:600;cursor:pointer;">
+          Bezárás (a kulcs törlődik a memóriából)
+        </button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#_seed_close').onclick = () => { overlay.remove(); resolve(); };
+  });
+}
+
 // ── Wallet váltás (lock panelről → setup) ────────────────────────────────
 btnSwitchWallet.addEventListener('click', () => {
   if (!confirm('A jelenlegi wallet törlődik ebből a böngészőből.\nA .biowallet fájl megmarad — bármikor újra betölthető.\n\nFolytatja?')) return;
@@ -168,6 +209,8 @@ btnImport.addEventListener('click', () => {
   importPhrase.value = '';
   showPanel('import');
   setMsg('Adja meg a 24 szavas seed phrase-t.', '');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  setTimeout(() => importPhrase.focus(), 300);
 });
 
 btnImportCancel.addEventListener('click', () => {
@@ -368,10 +411,9 @@ btnExport.addEventListener('click', async () => {
 
     const { phrase } = await callWorker('EXPORT');
     const words = phrase.split(' ');
-    const fmt   = words.map((w, i) => `${String(i+1).padStart(2,' ')}. ${w}`).join('\n');
 
     setScanning(false);
-    alert(`BIP39 Seed Phrase — BIZALMASAN\n\nEz a 24 szó MetaMaskba importálható.\nSoha ne ossza meg senkivel!\n\n${fmt}`);
+    await showSeedModal(words);
     setMsg('Seed megjelenítve. Vault zárolva.', 'ok');
     showPanel('lock');
   } catch (e) {
