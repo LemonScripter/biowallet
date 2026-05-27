@@ -1,0 +1,168 @@
+CELL BioWallet {
+
+  // ────────────────────────────────────────────────────────────────
+  // INTERFACE — bemenetek és kimenetek típusdefiníciói
+  // ────────────────────────────────────────────────────────────────
+
+  INTERFACE {
+    // Kauzális bemenetek
+    INPUT  bio_event:      BINARY;      // fizikai arc-scan megtörtént
+    INPUT  bio_match:      BINARY;      // fuzzy extractor sikeresen visszafejtette R-t
+    INPUT  token_age_ms:   INTEGER;     // token kora milliszekundumban
+    INPUT  token_consumed: BINARY;      // token felhasznált-e (TOCTOU zárás)
+    INPUT  vault_id_match: BINARY;      // token ugyanahhoz a vaulthoz köthető-e
+    INPUT  operation:      ENUM { OPEN, SIGN, EXPORT, LOCK };
+    INPUT  user_confirm:   BINARY;      // explicit felhasználói jóváhagyás
+
+    // Érzékeny adat osztályok
+    SENSITIVE seed:        BYTES[32];   // soha nem hagyja el a sandbox-ot
+    SENSITIVE R:           BYTES[32];   // fuzzy extractor kimenet
+    SENSITIVE private_key: BYTES[32];   // BIP32 derivált privát kulcs
+
+    // Publikus adatok
+    PUBLIC address:        STRING;      // Ethereum cím (publikus)
+    PUBLIC signed_tx:      HEX;        // aláírt tranzakció (broadcastolható)
+    PUBLIC mnemonic:       STRING;      // 24 szavas seed phrase (felhasználónak)
+
+    // Rendszer kimenetek
+    OUTPUT vault_state:    ENUM { LOCKED, OPEN };
+    OUTPUT verdict:        ENUM { SAT, UNSAT, NO_TOKEN, EXPIRED, CONSUMED, ID_MISMATCH };
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // DCC INVARIÁNSOK — mikor történhet művelet (temporális dimenzió)
+  // Z3 VERIFIED: 7/7 PASS (tests/verify_biowallet.py)
+  // ────────────────────────────────────────────────────────────────
+
+  INVARIANTS {
+    // P1: fizikai esemény nélkül nincs token
+    RULE bio_gate:
+      (verdict == SAT) IMPLIES (bio_event == TRUE AND bio_match == TRUE);
+
+    // P2: token időkorlát
+    RULE token_freshness:
+      (verdict == SAT) IMPLIES (token_age_ms < 30000);
+
+    // P3: egyszeri felhasználás (TOCTOU zárás)
+    RULE token_single_use:
+      (verdict == SAT) IMPLIES (token_consumed == FALSE);
+
+    // P4: vault-kötöttség (token nem vihető át másik vaulthoz)
+    RULE vault_binding:
+      (verdict == SAT) IMPLIES (vault_id_match == TRUE);
+
+    // P5: aláírás szigorúbb TTL
+    RULE sign_freshness:
+      (operation == SIGN AND verdict == SAT) IMPLIES (token_age_ms < 10000);
+
+    // P6: export legszigorúbb
+    RULE export_gate:
+      (operation == EXPORT AND verdict == SAT) IMPLIES (token_age_ms < 5000);
+
+    // P7: auto-lock minden érzékeny művelet után
+    RULE auto_lock:
+      (operation == SIGN OR operation == EXPORT) IMPLIES
+      (vault_state TRANSITIONS_TO LOCKED AFTER verdict == SAT);
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // DATA_FLOW INVARIÁNSOK — hova mehet az adat (térbeli dimenzió)
+  // Új réteg: kiegészíti a DCC temporális kontrolját
+  // Z3 VERIFIED: tests/verify_biowallet.py (data_flow szekció)
+  // ────────────────────────────────────────────────────────────────
+
+  DATA_FLOW_INVARIANTS {
+
+    // ── Érzékeny adatok zárolása ──────────────────────────────────
+
+    // DF1: seed kizárólag engedélyezett belső függvényeknek adható át
+    RULE seed_confinement:
+      seed FLOWS_TO {
+        signEthTx,       // → signed_tx (publikus kimenet)
+        seedToAddress,   // → address (publikus kimenet)
+        seedToMnemonic,  // → mnemonic (felhasználónak)
+        memory_zero      // → seed.fill(0), kötelező minden use után
+      };
+
+    // DF2: seed soha nem kerülhet tiltott csatornákra
+    RULE seed_no_exfil:
+      seed NOT_FLOWS_TO {
+        network,         // fetch, XHR, WebSocket, WebRTC
+        localStorage,    // perzisztens böngésző tár
+        sessionStorage,
+        console,         // log, warn, error, debug
+        clipboard,       // navigator.clipboard
+        postMessage,     // cross-origin üzenetek
+        worker_transfer  // Worker.postMessage transferable
+      };
+
+    // DF3: privát kulcs ugyanolyan korlátozott mint a seed
+    RULE private_key_confinement:
+      private_key FLOWS_TO { signEthTx, memory_zero };
+      private_key NOT_FLOWS_TO {
+        network, localStorage, sessionStorage,
+        console, clipboard, postMessage, worker_transfer
+      };
+
+    // DF4: R (fuzzy extractor kimenet) csak a KDF-be mehet
+    RULE R_confinement:
+      R FLOWS_TO { deriveKey, memory_zero };
+      R NOT_FLOWS_TO {
+        network, localStorage, sessionStorage,
+        console, clipboard, postMessage
+      };
+
+    // ── Publikus adatok korlátozott engedélyei ────────────────────
+
+    // DF5: address clipboard-ra csak explicit felhasználói gesztussal kerülhet
+    RULE address_clipboard_gate:
+      (address FLOWS_TO clipboard) REQUIRES user_gesture;
+
+    // DF6: signed_tx hálózatra csak bio_gate + user_confirm után
+    RULE tx_broadcast_gate:
+      (signed_tx FLOWS_TO network) REQUIRES
+        (bio_gate == SAT AND user_confirm == TRUE);
+
+    // DF7: mnemonic kizárólag lokális megjelenítésbe (alert)
+    //      nem kerülhet hálózatra, vágólapra, tárolóba
+    RULE mnemonic_display_only:
+      mnemonic FLOWS_TO { local_display };
+      mnemonic NOT_FLOWS_TO {
+        network, localStorage, sessionStorage,
+        clipboard, postMessage, console
+      };
+
+    // ── Kötelező törlések ─────────────────────────────────────────
+
+    // DF8: minden SENSITIVE adat felhasználás után nullázandó
+    RULE mandatory_zero_after_use:
+      AFTER_USE(seed)        IMPLIES memory_zero(seed);
+      AFTER_USE(private_key) IMPLIES memory_zero(private_key);
+      AFTER_USE(R)           IMPLIES memory_zero(R);
+
+    // DF9: auto-lock = SENSITIVE memória törlése
+    RULE lock_clears_sensitive:
+      (vault_state == LOCKED) IMPLIES
+        (seed == ZEROED AND private_key == ZEROED AND R == ZEROED);
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // STATES
+  // ────────────────────────────────────────────────────────────────
+
+  STATES {
+    STATE Locked {
+      verdict = NO_TOKEN;
+      TRANSITION TO Open IF bio_event == TRUE AND bio_match == TRUE
+                           AND verdict == SAT;
+    }
+
+    STATE Open {
+      TRANSITION TO Locked IF token_age_ms >= 30000;
+      TRANSITION TO Locked IF token_consumed == TRUE;
+      TRANSITION TO Locked AFTER (operation == SIGN  AND verdict == SAT);
+      TRANSITION TO Locked AFTER (operation == EXPORT AND verdict == SAT);
+    }
+  }
+
+}

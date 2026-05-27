@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BioWallet</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    :root {
+      --bg:        #0d0d0f;
+      --surface:   #16161a;
+      --surface2:  #1e1e24;
+      --border:    #2a2a35;
+      --accent:    #6c63ff;
+      --accent2:   #4CAF50;
+      --danger:    #ff4757;
+      --warn:      #ffa502;
+      --text:      #e8e8f0;
+      --muted:     #6b6b80;
+      --radius:    16px;
+      --radius-sm: 10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Header ── */
+    header {
+      width: 100%;
+      max-width: 440px;
+      padding: 1.2rem 1.5rem 0.8rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #6c63ff, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .token-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.3rem 0.7rem;
+      border-radius: 99px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      transition: all 0.4s ease;
+      letter-spacing: 0.04em;
+    }
+    .token-badge .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.4s;
+    }
+    .token-badge.active  { color: var(--accent2); border-color: #2d5a30; background: #0d2b12; }
+    .token-badge.active .dot  { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
+    .token-badge.warning { color: var(--warn);    border-color: #5a3d00; background: #2b1d00; }
+    .token-badge.warning .dot { background: var(--warn); }
+    .token-badge.expired { color: var(--danger);  border-color: #5a1a1a; background: #2b0a0a; }
+    .token-badge.expired .dot { background: var(--danger); }
+
+    /* ── Main ── */
+    main {
+      width: 100%;
+      max-width: 440px;
+      padding: 0.8rem 1.2rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    /* ── Kamera ── */
+    .camera-wrap {
+      position: relative;
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: #08080a;
+      aspect-ratio: 4/3;
+      border: 1px solid var(--border);
+    }
+
+    #video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+
+    /* Arc vezető keret */
+    .face-guide {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -58%);
+      width: 52%; aspect-ratio: 3/4;
+      border: 2px solid rgba(255,255,255,0.15);
+      border-radius: 50%;
+      pointer-events: none;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .face-guide.detected {
+      border-color: var(--accent2);
+      box-shadow: 0 0 0 4px rgba(76,175,80,0.15);
+    }
+    .face-guide.scanning {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(108,99,255,0.15);
+      animation: pulse-ring 1.2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-ring {
+      0%, 100% { box-shadow: 0 0 0 4px rgba(108,99,255,0.15); }
+      50%       { box-shadow: 0 0 0 10px rgba(108,99,255,0.05); }
+    }
+
+    .camera-footer {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      padding: 1.5rem 1rem 1rem;
+      background: linear-gradient(to top, rgba(0,0,0,0.85), transparent);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .scan-hint {
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.6);
+      text-align: center;
+    }
+
+    /* Enrollment progress dots */
+    .enroll-dots {
+      display: flex;
+      gap: 6px;
+    }
+    .enroll-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      transition: background 0.3s, transform 0.3s;
+    }
+    .enroll-dot.done {
+      background: var(--accent2);
+      transform: scale(1.2);
+    }
+
+    /* ── Üzenet ── */
+    .msg-bar {
+      font-size: 0.82rem;
+      color: var(--muted);
+      text-align: center;
+      min-height: 1.1em;
+      padding: 0 0.5rem;
+      transition: color 0.3s;
+    }
+    .msg-bar.error { color: var(--danger); }
+    .msg-bar.ok    { color: var(--accent2); }
+
+    /* ── TTL csíkok ── */
+    .ttl-bars {
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .ttl-bars.visible { display: flex; }
+
+    .ttl-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.68rem;
+      color: var(--muted);
+    }
+    .ttl-label { width: 46px; text-align: right; }
+    .ttl-track {
+      flex: 1;
+      height: 3px;
+      background: var(--surface2);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .ttl-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.1s linear, background 0.5s;
+    }
+    .ttl-time { width: 28px; }
+
+    /* ── Kártyák ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.1rem 1.2rem;
+    }
+
+    .card-label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .card-value {
+      font-size: 0.82rem;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      color: var(--text);
+      word-break: break-all;
+      line-height: 1.5;
+    }
+
+    .copy-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 0.6rem;
+      font-size: 0.72rem;
+      color: var(--accent);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      opacity: 0.8;
+      transition: opacity 0.2s;
+    }
+    .copy-btn:hover { opacity: 1; }
+
+    /* ── Gombok ── */
+    .btn {
+      width: 100%;
+      padding: 0.85rem 1rem;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s, background 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+    .btn:active   { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    .btn small {
+      font-size: 0.68rem;
+      font-weight: 400;
+      opacity: 0.7;
+    }
+
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: #7c74ff; }
+
+    .btn-success { background: #1a3d1e; color: var(--accent2); border: 1px solid #2d5a30; }
+    .btn-success:hover:not(:disabled) { background: #1e4a22; }
+
+    .btn-ghost {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover:not(:disabled) { background: #25252f; }
+
+    .btn-danger { background: #3d1a1a; color: var(--danger); border: 1px solid #5a2020; }
+    .btn-danger:hover:not(:disabled) { background: #4a1f1f; }
+
+    /* ── Panelok ── */
+    .panel { display: none; flex-direction: column; gap: 0.75rem; }
+    .panel.visible { display: flex; }
+
+    /* Info tooltip szöveg */
+    .info-text {
+      font-size: 0.72rem;
+      color: var(--muted);
+      line-height: 1.5;
+      padding: 0.6rem 0.8rem;
+      background: var(--surface2);
+      border-radius: var(--radius-sm);
+      border-left: 2px solid var(--accent);
+    }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: auto;
+      padding: 1rem;
+      font-size: 0.65rem;
+      color: var(--muted);
+      text-align: center;
+      opacity: 0.5;
+    }
+
+    /* ── Súgó gomb ── */
+    .help-btn {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.2s, color 0.2s;
+      flex-shrink: 0;
+    }
+    .help-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Modal overlay ── */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 1000;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 1rem;
+      overflow-y: auto;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 480px;
+      margin: auto;
+      padding: 1.5rem;
+      position: relative;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.2rem;
+      padding-bottom: 0.8rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-title {
+      font-size: 1rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #6c63ff, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 0.2rem 0.4rem;
+      border-radius: 6px;
+      transition: color 0.2s, background 0.2s;
+    }
+    .modal-close:hover { color: var(--text); background: var(--surface2); }
+
+    /* Szekciók */
+    .guide-section {
+      margin-bottom: 1.3rem;
+    }
+    .guide-section:last-child { margin-bottom: 0; }
+
+    .guide-h2 {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.55rem;
+    }
+
+    .guide-p {
+      font-size: 0.82rem;
+      color: var(--text);
+      line-height: 1.6;
+      margin-bottom: 0.4rem;
+    }
+    .guide-p:last-child { margin-bottom: 0; }
+
+    .guide-ol, .guide-ul {
+      font-size: 0.82rem;
+      color: var(--text);
+      line-height: 1.7;
+      padding-left: 1.3rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .guide-note {
+      font-size: 0.78rem;
+      color: var(--warn);
+      background: rgba(255,165,2,0.07);
+      border-left: 2px solid var(--warn);
+      border-radius: 0 6px 6px 0;
+      padding: 0.5rem 0.7rem;
+      margin-top: 0.5rem;
+    }
+
+    .guide-ok {
+      font-size: 0.78rem;
+      color: var(--accent2);
+      background: rgba(76,175,80,0.07);
+      border-left: 2px solid var(--accent2);
+      border-radius: 0 6px 6px 0;
+      padding: 0.5rem 0.7rem;
+      margin-top: 0.5rem;
+    }
+
+    .guide-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+      margin-top: 0.5rem;
+    }
+    .guide-table th {
+      text-align: left;
+      padding: 0.35rem 0.5rem;
+      color: var(--muted);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+    }
+    .guide-table td {
+      padding: 0.35rem 0.5rem;
+      border-bottom: 1px solid #1e1e24;
+      color: var(--text);
+    }
+    .guide-table tr:last-child td { border-bottom: none; }
+
+    .guide-sep {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 1rem 0;
+    }
+
+    .guide-badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 0.15rem 0.5rem;
+      border-radius: 99px;
+      margin-right: 0.3rem;
+    }
+    .badge-ok  { background: #0d2b12; color: var(--accent2); border: 1px solid #2d5a30; }
+    .badge-err { background: #2b0a0a; color: var(--danger);  border: 1px solid #5a1a1a; }
+
+    /* ── Hálózat selector ── */
+    .network-badge {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 0.2rem 0.65rem;
+      border-radius: 99px;
+      background: #1a1a2e;
+      color: #a78bfa;
+      border: 1px solid #3a3a5c;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+      white-space: nowrap;
+    }
+    .network-badge:hover { background: #22223a; }
+    .network-badge.mainnet { color: var(--warn); border-color: #5a3d00; background: #2b1d00; }
+
+    /* ── Egyenleg ── */
+    .balance-row {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-top: 0.5rem;
+      font-size: 0.78rem;
+    }
+    .balance-label { color: var(--muted); }
+    .balance-value {
+      color: var(--accent2);
+      font-weight: 600;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      flex: 1;
+    }
+    .refresh-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 0;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+    .refresh-btn:hover { color: var(--accent); }
+
+    /* ── Küldő form ── */
+    .tx-input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.55rem 0.7rem;
+      color: var(--text);
+      font-size: 0.82rem;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      margin-top: 0.5rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .tx-input::placeholder { color: var(--muted); font-style: italic; }
+    .tx-input:focus { border-color: var(--accent); }
+    .tx-input.error { border-color: var(--danger); }
+
+    .amount-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .amount-row .tx-input { margin-top: 0; flex: 1; }
+    .amount-unit {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--muted);
+      white-space: nowrap;
+      padding-right: 0.2rem;
+    }
+
+    /* ── TX eredmény ── */
+    .tx-result {
+      margin-top: 0.7rem;
+      padding: 0.55rem 0.75rem;
+      background: var(--surface2);
+      border-radius: var(--radius-sm);
+      border-left: 2px solid var(--accent2);
+    }
+    .tx-result-label {
+      display: block;
+      font-size: 0.65rem;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      font-weight: 600;
+    }
+    .tx-result-link {
+      font-size: 0.7rem;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      color: var(--accent);
+      word-break: break-all;
+      text-decoration: none;
+      line-height: 1.5;
+    }
+    .tx-result-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="logo">BioWallet</span>
+  <div style="display:flex;align-items:center;gap:0.5rem">
+    <div class="token-badge" id="token-badge">
+      <span class="dot"></span>
+      <span id="token-text">ZÁROLT</span>
+    </div>
+    <button class="help-btn" id="btn-help" title="Használati útmutató">?</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- Kamera -->
+  <div class="camera-wrap">
+    <video id="video" autoplay muted playsinline></video>
+    <div class="face-guide" id="face-guide"></div>
+    <div class="camera-footer">
+      <div class="enroll-dots" id="enroll-dots" style="display:none">
+        <div class="enroll-dot" id="dot-0"></div>
+        <div class="enroll-dot" id="dot-1"></div>
+        <div class="enroll-dot" id="dot-2"></div>
+        <div class="enroll-dot" id="dot-3"></div>
+        <div class="enroll-dot" id="dot-4"></div>
+      </div>
+      <p class="scan-hint" id="scan-hint">Nézzen egyenesen a kamerába</p>
+    </div>
+  </div>
+
+  <!-- Üzenet -->
+  <p class="msg-bar" id="msg"></p>
+
+  <!-- Token TTL csíkok (csak vault nyitva) -->
+  <div class="ttl-bars" id="ttl-bars">
+    <div class="ttl-row">
+      <span class="ttl-label">NYITVA</span>
+      <div class="ttl-track"><div class="ttl-fill" id="ttl-open"></div></div>
+      <span class="ttl-time" id="ttl-open-t"></span>
+    </div>
+    <div class="ttl-row">
+      <span class="ttl-label">ALÁÍRÁS</span>
+      <div class="ttl-track"><div class="ttl-fill" id="ttl-sign"></div></div>
+      <span class="ttl-time" id="ttl-sign-t"></span>
+    </div>
+  </div>
+
+  <!-- ── Setup panel ── -->
+  <div class="panel" id="panel-setup">
+    <div class="info-text">
+      Az arc-adatokból egyedi titkosítókulcs keletkezik a vaulton belül.
+      Az arc-adatok soha nem hagyják el az eszközt.
+    </div>
+    <button class="btn btn-primary" id="btn-enroll">
+      Wallet létrehozása
+      <small>5 arc-scan → BIP39 seed generálás</small>
+    </button>
+  </div>
+
+  <!-- ── Zárolt panel ── -->
+  <div class="panel" id="panel-lock">
+    <div class="info-text">
+      A privát kulcs titkosítva tárolódik. Kizárólag az Ön arca tudja megnyitni.
+    </div>
+    <button class="btn btn-primary" id="btn-scan">
+      Megnyitás arc-scannel
+      <small>Token érvényessége: 30 mp</small>
+    </button>
+  </div>
+
+  <!-- ── Nyitott vault panel ── -->
+  <div class="panel" id="panel-vault">
+
+    <!-- Cím + egyenleg kártya -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+        <div class="card-label" style="margin-bottom:0">Ethereum cím (m/44'/60'/0'/0/0)</div>
+        <button class="network-badge" id="btn-network">Sepolia</button>
+      </div>
+      <div class="card-value" id="eth-address">—</div>
+      <div class="balance-row">
+        <span class="balance-label">Egyenleg:</span>
+        <span class="balance-value" id="eth-balance">—</span>
+        <button class="refresh-btn" id="btn-refresh" title="Egyenleg frissítése">↻</button>
+      </div>
+      <button class="copy-btn" id="btn-copy">
+        ⎘ Cím másolása
+      </button>
+    </div>
+
+    <!-- ETH küldő form -->
+    <div class="card">
+      <div class="card-label">ETH küldése</div>
+      <input class="tx-input" id="send-to" type="text"
+             placeholder="0x… fogadó cím"
+             autocomplete="off" spellcheck="false">
+      <div class="amount-row">
+        <input class="tx-input" id="send-amount" type="text"
+               placeholder="0.001" autocomplete="off">
+        <span class="amount-unit">ETH</span>
+      </div>
+      <div class="tx-result" id="tx-result" style="display:none">
+        <span class="tx-result-label">TX hash</span>
+        <a class="tx-result-link" id="tx-link" href="#" target="_blank" rel="noopener noreferrer">—</a>
+      </div>
+    </div>
+
+    <button class="btn btn-success" id="btn-sign">
+      ETH küldése
+      <small>Fogadó cím + összeg megadása · arc-scan · auto-zárolás</small>
+    </button>
+
+    <button class="btn btn-ghost" id="btn-export">
+      Seed phrase megjelenítése
+      <small>24 szó · 5 mp token · auto-zárolás · BIZALMASAN</small>
+    </button>
+
+    <button class="btn btn-danger" id="btn-lock">
+      Azonnali zárolás
+      <small>Privát kulcs törlése a memóriából</small>
+    </button>
+
+  </div>
+
+
+</main>
+
+<footer>BioWallet · DCC kauzális lánc · BCH-255 · AES-256-GCM · secp256k1</footer>
+
+<!-- ── Használati útmutató modal ── -->
+<div class="modal-overlay" id="guide-modal" role="dialog" aria-modal="true" aria-label="Használati útmutató">
+  <div class="modal-box">
+
+    <div class="modal-header">
+      <span class="modal-title">BioWallet — Használati útmutató</span>
+      <button class="modal-close" id="btn-modal-close" aria-label="Bezárás">✕</button>
+    </div>
+
+    <!-- 1. Mi ez? -->
+    <div class="guide-section">
+      <div class="guide-h2">Mi a BioWallet?</div>
+      <p class="guide-p">
+        A BioWallet egy biometrikailag védett Ethereum-tárca. A privát kulcsát
+        <strong>nem jelszó, hanem az Ön arca</strong> védi — a titkosítókulcs
+        kizárólag az Ön arcából keletkezik, és soha nem tárolódik lemezen.
+      </p>
+      <p class="guide-p">
+        Technológia: BCH(255,55,25) hibajavító kód + DCC kauzális lánc + AES-256-GCM +
+        Web Worker kripto-sandbox (a privát kulcs soha nem kerül a főablakba).
+        Formálisan bizonyított: Z3 SMT solver, <strong>33/33 invariáns PASS</strong>.
+      </p>
+    </div>
+
+    <hr class="guide-sep">
+
+    <!-- 2. Első indítás -->
+    <div class="guide-section">
+      <div class="guide-h2">1. Wallet létrehozása (első indítás)</div>
+      <ol class="guide-ol">
+        <li>Kattintson a <strong>Wallet létrehozása</strong> gombra.</li>
+        <li>Nézzen egyenesen a kamerába, tartsa stabilan a fejét.</li>
+        <li>A rendszer 5 arc-scant végez (~10 másodperc).</li>
+        <li>A böngésző automatikusan letölt két fájlt:</li>
+      </ol>
+      <table class="guide-table" style="margin-top:0.6rem">
+        <thead><tr><th>Fájl</th><th>Tartalom</th><th>Tárolás</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code style="font-size:0.75rem">*.biowallet</code></td>
+            <td>Titkosított kulcstartó (AES-256-GCM)</td>
+            <td>Kötelező</td>
+          </tr>
+          <tr>
+            <td><code style="font-size:0.75rem">*.P.json</code></td>
+            <td>Biometriai segédadat — BCH szindróma, NEM arc-kép</td>
+            <td>Kötelező</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="guide-note">
+        ⚠ Mentse mindkét fájlt biztonságos helyre (pendrive, titkosított felhő).
+        Ha elveszíti őket és nincs seed phrase backup, a wallet visszaállíthatatlan.
+      </div>
+    </div>
+
+    <hr class="guide-sep">
+
+    <!-- 3. Vault megnyitása -->
+    <div class="guide-section">
+      <div class="guide-h2">2. Vault megnyitása</div>
+      <ol class="guide-ol">
+        <li>Kattintson a <strong>Megnyitás arc-scannel</strong> gombra.</li>
+        <li>Válassza ki a <code style="font-size:0.75rem">*.biowallet</code> fájlt.</li>
+        <li>Nézzen a kamerába — 3 scan (~5 másodperc).</li>
+        <li>Sikeres egyezés esetén <strong>30 másodperces időablak</strong> nyílik.</li>
+      </ol>
+      <div class="guide-ok">
+        ✓ Az időablakot a TTL-csíkok mutatják valós időben.
+      </div>
+    </div>
+
+    <hr class="guide-sep">
+
+    <!-- 3. ETH küldése -->
+    <div class="guide-section">
+      <div class="guide-h2">3. ETH küldése</div>
+      <ol class="guide-ol">
+        <li>Válassza ki a hálózatot (<strong>Sepolia</strong> = testnet, <strong>Mainnet</strong> = éles).</li>
+        <li>Adja meg a fogadó Ethereum-cím (0x…).</li>
+        <li>Adja meg az összeget ETH-ben (pl. <code style="font-size:0.75rem">0.001</code>).</li>
+        <li>Kattintson az <strong>ETH küldése</strong> gombra — a rendszer lekérdezi a hálózati díjat és ellenőrzi az egyenleget.</li>
+        <li>Egy <strong>megerősítő ablak</strong> jelenik meg: fogadó cím, összeg és max. gas díj. Ellenőrizze, majd kattintson a <strong>Küldés</strong> gombra.</li>
+        <li>Végezzen el egy újabb arc-scant — ez <strong>10 másodperces</strong> aláírási ablakot ad.</li>
+        <li>A tranzakció aláíródik (Worker sandbox) és a hálózatra kerül. A TX hash az Etherscan-en ellenőrizhető.</li>
+        <li>A vault automatikusan <strong>zárolódik</strong>.</li>
+      </ol>
+      <div class="guide-note" style="margin-top:0.5rem">
+        ⚠ Sepolia = ingyenes tesztnet (faucet.sepolia.dev). Mainnet használatához valódi ETH szükséges.
+      </div>
+      <p class="guide-p" style="margin-top:0.5rem;font-size:0.78rem;color:var(--muted)">
+        Minden aláíráshoz önálló biometriai megerősítés szükséges — DCC kauzális
+        lánc P5 invariánsa (token újrahasználat nem lehetséges).
+      </p>
+    </div>
+
+    <hr class="guide-sep">
+
+    <!-- 5. Seed phrase -->
+    <div class="guide-section">
+      <div class="guide-h2">4. Seed phrase megtekintése (24 szó)</div>
+      <ol class="guide-ol">
+        <li>Kattintson a <strong>Seed phrase megjelenítése</strong> gombra.</li>
+        <li>Arc-scan után <strong>5 másodperces</strong> időablak nyílik.</li>
+        <li>A 24 szó párbeszédablakban jelenik meg.</li>
+        <li>Írja le papírra — ne fényképezze le, ne mentse digitálisan.</li>
+      </ol>
+      <div class="guide-note">
+        ⚠ A seed phrase bárki számára teljes hozzáférést biztosít a wallethez.
+        Soha ne ossza meg senkivel, ne gépelje be ismeretlen oldalakra.
+      </div>
+    </div>
+
+    <hr class="guide-sep">
+
+    <!-- 6. Biztonsági tanácsok -->
+    <div class="guide-section">
+      <div class="guide-h2">5. Biztonsági útmutató</div>
+      <table class="guide-table">
+        <thead><tr><th>Adat</th><th>Hol tárolja?</th><th>Nyilvános?</th></tr></thead>
+        <tbody>
+          <tr><td><code style="font-size:0.75rem">*.biowallet</code></td><td>Pendrive / titkosított felhő</td><td>NEM</td></tr>
+          <tr><td><code style="font-size:0.75rem">*.P.json</code></td><td>Pendrive / titkosított felhő</td><td>NEM</td></tr>
+          <tr><td>Seed phrase (24 szó)</td><td>Papír, páncélszekrény</td><td>SOHA</td></tr>
+          <tr><td>Ethereum cím</td><td>Bárhol</td><td>Igen</td></tr>
+        </tbody>
+      </table>
+      <p class="guide-p" style="margin-top:0.7rem">
+        A <code style="font-size:0.75rem">P.json</code> fájl nem tartalmaz arc-képet,
+        csak BCH hibajavító szindrómát. Egyedül nem elegendő a vault megnyitásához —
+        friss arc-scan mindig szükséges.
+      </p>
+    </div>
+
+    <hr class="guide-sep">
+
+    <!-- 7. Hibaelhárítás -->
+    <div class="guide-section">
+      <div class="guide-h2">6. Hibaelhárítás</div>
+      <table class="guide-table">
+        <thead><tr><th>Hibaüzenet</th><th>Teendő</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="guide-badge badge-err">FE_DECODE_FAIL</span></td>
+            <td>Jobb megvilágítás, egyenes tartás, próbálja újra</td>
+          </tr>
+          <tr>
+            <td><span class="guide-badge badge-err">EXPIRED</span></td>
+            <td>Az időablak lejárt — indítson új arc-scant</td>
+          </tr>
+          <tr>
+            <td><span class="guide-badge badge-err">BIO_MISMATCH</span></td>
+            <td>Az arc nem egyezik — különböző kulcs keletkezett</td>
+          </tr>
+          <tr>
+            <td><span class="guide-badge badge-err">Kamera hiba</span></td>
+            <td>HTTPS szükséges; helyi tesztnél: <code style="font-size:0.72rem">http://localhost:3333</code></td>
+          </tr>
+          <tr>
+            <td><span class="guide-badge badge-err">Elavult vault</span></td>
+            <td>Hozzon létre új walletot (p1 formátum nem támogatott)</td>
+          </tr>
+          <tr>
+            <td><span class="guide-badge badge-err">Elégtelen egyenleg</span></td>
+            <td>Az összeg + gas díj meghaladja az egyenleget — csökkentse az összeget</td>
+          </tr>
+          <tr>
+            <td><span class="guide-badge badge-err">Hálózati hiba</span></td>
+            <td>RPC végpont nem elérhető — ellenőrizze az internetkapcsolatot, próbálja újra</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="guide-ok" style="margin-top:0.7rem">
+        ✓ Arc-scan tipp: egyenes tartás, közvetlen fényforrás szemből,
+        kerülje az erős háttérvilágítást.
+      </div>
+    </div>
+
+    <hr class="guide-sep">
+
+    <p style="font-size:0.68rem;color:var(--muted);text-align:center;line-height:1.6">
+      BioWallet v0.5 · Feltaláló: Szőke László-Ferenc / Citrom Média LTD<br>
+      MetaSpace IP · OSIM szabadalom: 20251221-2230
+    </p>
+
+  </div>
+</div>
+
+<script>
+  (function() {
+    const overlay = document.getElementById('guide-modal');
+    const btnOpen = document.getElementById('btn-help');
+    const btnClose = document.getElementById('btn-modal-close');
+
+    btnOpen.addEventListener('click', () => overlay.classList.add('open'));
+    btnClose.addEventListener('click', () => overlay.classList.remove('open'));
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.classList.remove('open');
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') overlay.classList.remove('open');
+    });
+  })();
+</script>
+
+<script src="../vendor/ethers.umd.min.js"></script>
+<script type="module" src="app.js?v=5"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "name": "BioWallet",
+  "short_name": "BioWallet",
+  "description": "Biometrikusan kötött, kauzális lánc védett crypto wallet",
+  "start_url": "/app/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#1976d2",
+  "icons": []
+}

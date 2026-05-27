@@ -1,0 +1,112 @@
+/**
+ * BioWallet — RPC réteg (Phase 5 / EIP-1559)
+ *
+ * Raw JSON-RPC 2.0 — nincs CDN függőség.
+ * Támogatott: Ethereum Mainnet + Sepolia testnet.
+ * EIP-1559: eth_feeHistory alapú maxFeePerGas / maxPriorityFeePerGas.
+ */
+
+export const NETWORKS = {
+  sepolia: {
+    name:     'Sepolia',
+    chainId:  11155111,
+    rpc:      'https://ethereum-sepolia-rpc.publicnode.com',
+    explorer: 'https://sepolia.etherscan.io/tx/',
+  },
+  mainnet: {
+    name:     'Mainnet',
+    chainId:  1,
+    rpc:      'https://eth.llamarpc.com',
+    explorer: 'https://etherscan.io/tx/',
+  },
+};
+
+// ── JSON-RPC alap ─────────────────────────────────────────────────────────
+
+async function rpcCall(rpcUrl, method, params = []) {
+  const res = await fetch(rpcUrl, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method, params }),
+  });
+  if (!res.ok) throw new Error(`RPC HTTP ${res.status}`);
+  const { result, error } = await res.json();
+  if (error) throw new Error(error.message ?? 'RPC hiba');
+  return result;
+}
+
+// ── Lekérdezések ──────────────────────────────────────────────────────────
+
+/** Cím egyenlege ETH-ben (6 tizedesjegy). */
+export async function getBalance(address, rpcUrl) {
+  const hex = await rpcCall(rpcUrl, 'eth_getBalance', [address, 'latest']);
+  const wei = BigInt(hex);
+  const eth = Number(wei * 10000n / BigInt(1e18)) / 10000;
+  return eth.toFixed(6);
+}
+
+/** Következő nonce. */
+export async function getNonce(address, rpcUrl) {
+  const hex = await rpcCall(rpcUrl, 'eth_getTransactionCount', [address, 'latest']);
+  return parseInt(hex, 16);
+}
+
+/**
+ * EIP-1559 gasbecslés — eth_feeHistory + eth_maxPriorityFeePerGas.
+ * Visszaad: { maxFeePerGas: BigInt, maxPriorityFeePerGas: BigInt }
+ */
+export async function getFeeData(rpcUrl) {
+  const [feeHistory, priorityHex] = await Promise.all([
+    rpcCall(rpcUrl, 'eth_feeHistory', [5, 'latest', [50]]),
+    rpcCall(rpcUrl, 'eth_maxPriorityFeePerGas', []).catch(() => null),
+  ]);
+
+  const baseFees = feeHistory.baseFeePerGas ?? [];
+  const lastBase = baseFees.length > 0 ? BigInt(baseFees[baseFees.length - 1]) : 1000000000n;
+  const baseNext = lastBase * 5n / 4n;   // +25% puffer következő blokkhoz
+
+  const maxPrio = priorityHex ? BigInt(priorityHex) : 1500000000n;  // 1.5 Gwei fallback
+
+  return { maxFeePerGas: baseNext + maxPrio, maxPriorityFeePerGas: maxPrio };
+}
+
+/** Gáz limit becslése — eth_estimateGas + 20% puffer. Fallback: 21000. */
+export async function estimateGas(tx, rpcUrl) {
+  try {
+    const hex = await rpcCall(rpcUrl, 'eth_estimateGas', [{
+      from:  tx.from,
+      to:    tx.to,
+      value: '0x' + (tx.value ?? 0n).toString(16),
+      data:  tx.data ?? '0x',
+    }]);
+    return BigInt(hex) * 12n / 10n;
+  } catch {
+    return 21000n;
+  }
+}
+
+/** Aláírt tranzakció broadcast — visszaad egy tx hash-t. */
+export async function broadcastTx(signedHex, rpcUrl) {
+  return await rpcCall(rpcUrl, 'eth_sendRawTransaction', [signedHex]);
+}
+
+// ── Konverzió ─────────────────────────────────────────────────────────────
+
+/** "0.001" ETH string → wei BigInt. Lebegőpontos hiba nélkül. */
+export function ethToWei(ethStr) {
+  const clean = ethStr.trim().replace(',', '.');
+  const [whole = '0', frac = ''] = clean.split('.');
+  const fracPadded = frac.padEnd(18, '0').slice(0, 18);
+  return BigInt(whole) * BigInt('1000000000000000000') + BigInt(fracPadded);
+}
+
+/** wei BigInt → ETH string (6 tizedesjegy). */
+export function weiToEth(wei) {
+  const eth = Number(BigInt(wei) * 10000n / BigInt(1e18)) / 10000;
+  return eth.toFixed(6);
+}
+
+/** Cím validáció. */
+export function isValidAddress(addr) {
+  return /^0x[0-9a-fA-F]{40}$/.test(addr);
+}
