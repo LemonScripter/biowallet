@@ -40,15 +40,34 @@ function loadModels() {
 // ── Kamera ────────────────────────────────────────────────────────────────
 
 export async function openCamera(videoEl, onStatus) {
+  // Régi stream leállítása — Firefox néha bent tartja a kamerát újratöltéskor
+  if (videoEl.srcObject) {
+    videoEl.srcObject.getTracks().forEach(t => t.stop());
+    videoEl.srcObject = null;
+  }
+
   const stream = await navigator.mediaDevices.getUserMedia({
     video: { width: 640, height: 480, facingMode: 'user' },
     audio: false,
   });
   videoEl.srcObject = stream;
-  await new Promise(r => { videoEl.onloadedmetadata = r; });
-  await videoEl.play();
 
-  onStatus?.('FaceNet modellek letöltése (~8 MB)…');
+  // loadedmetadata + 2s fallback timeout (Firefox race condition)
+  await new Promise(r => {
+    if (videoEl.readyState >= 1) { r(); return; }
+    videoEl.onloadedmetadata = r;
+    setTimeout(r, 2000);
+  });
+
+  try {
+    await videoEl.play();
+  } catch {
+    // Firefox: "play() interrupted" — 200ms késleltetés után retry
+    await delay(200);
+    await videoEl.play();
+  }
+
+  onStatus?.('FaceNet modellek betöltése (~8 MB)…');
   loadModels().catch(e => onStatus?.(`Model hiba: ${e.message}`));
 
   return stream;

@@ -73,10 +73,10 @@ async function handle(type, p) {
       return { signed: res.signed, from: res.from };
     }
 
-    case 'EXPORT': {
+    case 'RECOVERY_FORMULA': {
       if (!vault) throw new Error('Nincs vault inicializálva');
-      const phrase = await vault.exportSeed();
-      return { phrase };
+      const { c, r } = await vault.makeRecoveryFormula(p.personalNumber);
+      return { c, r };
     }
 
     case 'LOCK': {

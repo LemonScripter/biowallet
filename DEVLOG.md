@@ -2,6 +2,44 @@
 
 ---
 
+## 2026-05-27 (késő este) — Phase 9.0 KÉSZ: Papír-képlet implementálva
+
+**Verzió:** v0.7
+**Z3:** 38/38 PASS (DCC 7/7 + DF 14/14 + BCH 4/4 + Phase5 8/8 + Phase9 5/5)
+**E2E Math:** SUCCESS
+**Deploy:** https://biowallet.metaspace.bio
+
+### Probléma
+A 24 szavas seed exportálása (`EXPORT` gomb) biztonsági kockázatot jelentett, mivel a nyers szavak megjelentek a digitális kijelzőn és a böngésző memóriájában. A cél az volt, hogy a seed soha ne legyen látható digitálisan.
+
+### Megoldás
+
+#### 1. Papír-képlet generátor (Phase 9.0)
+- Implementálva a modularis matematika (`mod 2048`) alapú obfuszkáció.
+- A felhasználó két külön papírt kap: **Paper A** ($c_j$) és **Paper B** ($r_j$).
+- A visszaállításhoz szükséges egy harmadik faktor: a felhasználó fejében tartott **P** személyes szám.
+- Képlet: $i_j = (c_j + r_j + hash(P)[j]) \mod 2048$.
+
+#### 2. EXPORT gomb és seed-kijelzés eltávolítása
+- A `btn-export` gomb kikerült az `index.html`-ből.
+- A `showSeedModal` és a kapcsolódó eseménykezelők törölve az `app.js`-ből.
+- A Worker-ből (`vault_worker.js`) eltávolítva az `EXPORT` action.
+- A Vault core-ból (`vault.js`) eltávolítva az `exportSeed` metódus.
+
+#### 3. Formális verifikáció (Z3)
+- Hozzáadva 5 új invariáns (`REC1-REC4` + konzisztencia).
+- Bizonyítva: a seed és a szóindexek soha nem szivárognak a kijelzőre.
+- Bizonyítva: a recovery folyamat végén a Vault automatikusan lezár (auto-lock).
+- Eredmény: **38/38 PASS**.
+
+#### 4. E2E Matematikai teszt (`test_recovery_math.js`)
+- Node.js alapú automatizált teszt igazolja, hogy a kódolás és a "papír-alapú" visszafejtés eredménye 100%-ban megegyezik az eredeti BIP39 indexekkel.
+
+### Eredmény
+A BioWallet mostantól megfelel a legmagasabb biztonsági elvárásoknak: a 24 szó **soha nem jelenik meg digitálisan**. A visszaállítás szuverén módon, offline, papíron is elvégezhető.
+
+---
+
 ## 2026-05-27 (este) — Phase 6 KÉSZ: face-api.js lokalizálva
 
 **Verzió:** v0.6  

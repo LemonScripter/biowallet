@@ -10,7 +10,10 @@
 
 import { CausalChain, DCCError } from './causal_chain.js?v=11';
 import { fuzzyExtract, fuzzyCommit } from './fuzzy_extractor.js?v=11';
-import { seedToMnemonic, seedToAddress, signEthTx, mnemonicToSeed } from './wallet.js?v=11';
+import { seedToAddress, signEthTx, mnemonicToSeed } from './wallet.js?v=11';
+import {
+  entropyToIndices, personalHashOffsets, fetchRandomOffsets, computeCodes,
+} from './recovery_formula.js?v=11';
 
 // KDF: PBKDF2-SHA256 300k iteráció (WebCrypto natív).
 // Argon2 (mem-hard) erősebb lenne — WASM bundler nélkül nem implementálható (Phase 6+).
@@ -143,22 +146,38 @@ class BioVault {
     return signed;
   }
 
-  // ── EXPORT ───────────────────────────────────────────────────────────────
+  // ── Papírképlet (Phase 9.0 — browser only) ──────────────────────────────
 
   /**
-   * Seed phrase export — legszigorúbb TTL (5s).
+   * Visszanyerési képlet generálása:
+   *   c_j = (i_j - r_j - hash(P)[j]) mod 2048
+   *
+   * A 24 szó SOHA nem hagyja el ezt a függvényt — csak c_j és r_j tér vissza.
+   * EXPORT gate (5s TTL) szükséges, auto-lock után.
+   *
+   * @param {string} personalNumber — felhasználó által megadott P
+   * @returns {Promise<{ c: number[], r: number[] }>}
    */
-  async exportSeed() {
+  async makeRecoveryFormula(personalNumber) {
     if (!this.#vaultData) throw new DCCError('VAULT_LOCKED', 'EXPORT');
+    if (!personalNumber || personalNumber.length < 4) {
+      throw new Error('A személyes szám legalább 4 karakter legyen.');
+    }
     this.#chain.gate('EXPORT', this.#vaultId);
 
-    const seed   = fromHex(this.#vaultData.seed);
-    const phrase = await seedToMnemonic(seed);
+    const entropy = fromHex(this.#vaultData.seed);
+    try {
+      const indices = await entropyToIndices(entropy);          // i_j
+      const r       = await fetchRandomOffsets(24, false);      // r_j (Phase 9.0: helyi)
+      const p       = await personalHashOffsets(personalNumber, 24);
+      const c       = computeCodes(indices, r, p);
 
-    seed.fill(0);
-    this.lock();   // P7: auto-lock
-
-    return phrase;
+      // indices és p tömbök tartalma még RAM-ban van, de nincs export-csatorna
+      return { c, r };
+    } finally {
+      entropy.fill(0);
+      this.lock();   // P7: auto-lock
+    }
   }
 
   // ── LOCK ─────────────────────────────────────────────────────────────────
