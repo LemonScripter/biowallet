@@ -631,6 +631,30 @@
       Wallet létrehozása
       <small>5 arc-scan → BIP39 seed generálás</small>
     </button>
+    <button class="btn btn-ghost" id="btn-import">
+      Wallet importálása
+      <small>24 szavas seed phrase → biometriai titkosítás</small>
+    </button>
+  </div>
+
+  <!-- ── Import panel ── -->
+  <div class="panel" id="panel-import">
+    <div class="info-text">
+      Adja meg a 24 szavas BIP39 seed phrase-t (szóközzel elválasztva).
+      A biometriai scan után az Ön arcával titkosítva kerül tárolásra —
+      a szavak nem kerülnek semmilyen szerverre.
+    </div>
+    <textarea class="tx-input" id="import-phrase" rows="5"
+      placeholder="word1 word2 word3 … word24"
+      autocomplete="off" spellcheck="false"
+      style="resize:vertical;line-height:1.7;font-size:0.8rem;font-family:monospace;"></textarea>
+    <button class="btn btn-primary" id="btn-import-enroll">
+      Beolvasás + importálás
+      <small>5 arc-scan → biometriai titkosítás</small>
+    </button>
+    <button class="btn btn-ghost" id="btn-import-cancel">
+      Vissza
+    </button>
   </div>
 
   <!-- ── Zárolt panel ── -->
@@ -892,6 +916,6 @@
 
 <script src="../vendor/face-api.min.js"></script>
 <script src="../vendor/ethers.umd.min.js"></script>
-<script type="module" src="app.js?v=10"></script>
+<script type="module" src="app.js?v=11"></script>
 </body>
 </html>
