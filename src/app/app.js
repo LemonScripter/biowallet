@@ -15,7 +15,7 @@ import {
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
-const worker  = new Worker('./vault_worker.js', { type: 'module' });
+const worker  = new Worker('./vault_worker.js?v=6', { type: 'module' });
 let _nextId   = 0;
 const _pending = new Map();
 
