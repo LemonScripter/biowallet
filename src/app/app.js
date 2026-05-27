@@ -6,16 +6,16 @@
  * Megerősítés: küldés előtt TX overlay.
  */
 
-import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=8';
+import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=10';
 import {
   NETWORKS, getBalance, getNonce,
   getFeeData, estimateGas, broadcastTx,
   ethToWei, weiToEth, isValidAddress,
-} from '../core/rpc.js?v=8';
+} from '../core/rpc.js?v=10';
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
-const worker  = new Worker('./vault_worker.js?v=8', { type: 'module' });
+const worker  = new Worker('./vault_worker.js?v=10', { type: 'module' });
 let _nextId   = 0;
 const _pending = new Map();
 
@@ -170,7 +170,7 @@ btnScan.addEventListener('click', async () => {
     showPanel('vault');
   } catch (e) {
     setScanning(false);
-    setMsg(e.message, 'error');
+    setMsg(friendlyError(e.message), 'error');
     btnScan.disabled = false;
   }
 });
@@ -483,6 +483,22 @@ async function pickFile(accept) {
     inp.onchange = e => e.target.files[0] ? resolve(e.target.files[0]) : reject(new Error('Nem választott fájlt'));
     inp.click();
   });
+}
+
+// ── Hibaüzenet fordítás ───────────────────────────────────────────────────
+function friendlyError(msg) {
+  if (!msg) return 'Ismeretlen hiba.';
+  if (msg.includes('BIO_MISMATCH'))
+    return 'Az arc nem egyezik. Tipp: a tárcát abban a böngészőben nyissa meg, amelyikben létrehozta (Firefox ↔ Chrome eltérő képfeldolgozás).';
+  if (msg.includes('EXPIRED'))
+    return 'A biometriai token lejárt — próbálja újra.';
+  if (msg.includes('NO_TOKEN'))
+    return 'Nincs érvényes biometriai token — szkennelje be arcát.';
+  if (msg.includes('VAULT_ID_MISMATCH'))
+    return 'Rossz .biowallet fájl — ez nem az Ön tárcájához tartozik.';
+  if (msg.includes('ALREADY_CONSUMED'))
+    return 'A token már felhasználásra került — próbálja újra.';
+  return msg;
 }
 
 // ── Használati útmutató modal ─────────────────────────────────────────────

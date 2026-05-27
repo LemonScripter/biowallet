@@ -8,9 +8,9 @@
  * Külső függőség: causal_chain.js, fuzzy_extractor.js
  */
 
-import { CausalChain, DCCError } from './causal_chain.js?v=8';
-import { fuzzyExtract, fuzzyCommit } from './fuzzy_extractor.js?v=8';
-import { seedToMnemonic, seedToAddress, signEthTx } from './wallet.js?v=8';
+import { CausalChain, DCCError } from './causal_chain.js?v=10';
+import { fuzzyExtract, fuzzyCommit } from './fuzzy_extractor.js?v=10';
+import { seedToMnemonic, seedToAddress, signEthTx } from './wallet.js?v=10';
 
 // KDF: PBKDF2-SHA256 300k iteráció (WebCrypto natív).
 // Argon2 (mem-hard) erősebb lenne — WASM bundler nélkül nem implementálható (Phase 6+).
