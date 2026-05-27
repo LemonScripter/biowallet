@@ -6,12 +6,12 @@
  * Megerősítés: küldés előtt TX overlay.
  */
 
-import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js';
+import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=6';
 import {
   NETWORKS, getBalance, getNonce,
   getFeeData, estimateGas, broadcastTx,
   ethToWei, weiToEth, isValidAddress,
-} from '../core/rpc.js';
+} from '../core/rpc.js?v=6';
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
