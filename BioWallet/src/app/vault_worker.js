@@ -22,7 +22,7 @@
 import * as _ethersLib from '../vendor/ethers.bundle.js';
 self.ethers = _ethersLib;   // wallet.js ezt olvassa (self.ethers)
 
-import { BioVault } from '../core/vault.js?v=10';
+import { BioVault } from '../core/vault.js?v=11';
 
 let vault = null;
 
@@ -45,6 +45,12 @@ async function handle(type, p) {
 
     case 'ENROLL': {
       const res = await BioVault.create(p.embedding);
+      vault = new BioVault(res.vaultId);
+      return { vaultId: res.vaultId, P: res.P, encryptedVault: res.encryptedVault };
+    }
+
+    case 'IMPORT': {
+      const res = await BioVault.importFromMnemonic(p.mnemonic, p.embedding);
       vault = new BioVault(res.vaultId);
       return { vaultId: res.vaultId, P: res.P, encryptedVault: res.encryptedVault };
     }

@@ -23,6 +23,14 @@ export function seedToMnemonic(seedBytes) {
   return e.Mnemonic.fromEntropy(hex).phrase;
 }
 
+/** 24 szavas BIP39 mnemonic → 32 bájt entropy (vault seed). */
+export function mnemonicToSeed(phrase) {
+  const e    = eth();
+  const mnem = e.Mnemonic.fromPhrase(phrase.trim());
+  const hex  = mnem.entropy.startsWith('0x') ? mnem.entropy.slice(2) : mnem.entropy;
+  return new Uint8Array(hex.match(/../g).map(x => parseInt(x, 16)));
+}
+
 // ── BIP32 + Ethereum cím ──────────────────────────────────────────────────
 
 /** 32 bájt seed → Ethereum cím (EIP-55 checksum). Deriváció: m/44'/60'/0'/0/0 */

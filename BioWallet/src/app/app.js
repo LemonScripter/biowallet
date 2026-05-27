@@ -6,16 +6,16 @@
  * Megerősítés: küldés előtt TX overlay.
  */
 
-import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=10';
+import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=11';
 import {
   NETWORKS, getBalance, getNonce,
   getFeeData, estimateGas, broadcastTx,
   ethToWei, weiToEth, isValidAddress,
-} from '../core/rpc.js?v=10';
+} from '../core/rpc.js?v=11';
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
-const worker  = new Worker('./vault_worker.js?v=10', { type: 'module' });
+const worker  = new Worker('./vault_worker.js?v=11', { type: 'module' });
 let _nextId   = 0;
 const _pending = new Map();
 
@@ -48,10 +48,15 @@ const ttlBars     = document.getElementById('ttl-bars');
 const ethAddress  = document.getElementById('eth-address');
 
 const panelSetup  = document.getElementById('panel-setup');
+const panelImport = document.getElementById('panel-import');
 const panelLock   = document.getElementById('panel-lock');
 const panelVault  = document.getElementById('panel-vault');
 
 const btnEnroll      = document.getElementById('btn-enroll');
+const btnImport      = document.getElementById('btn-import');
+const btnImportEnroll= document.getElementById('btn-import-enroll');
+const btnImportCancel= document.getElementById('btn-import-cancel');
+const importPhrase   = document.getElementById('import-phrase');
 const btnScan        = document.getElementById('btn-scan');
 const btnSign        = document.getElementById('btn-sign');
 const btnExport      = document.getElementById('btn-export');
@@ -144,6 +149,59 @@ btnEnroll.addEventListener('click', async () => {
     enrollDots.style.display = 'none';
     setMsg(e.message, 'error');
     btnEnroll.disabled = false;
+  }
+});
+
+// ── Import ────────────────────────────────────────────────────────────────
+btnImport.addEventListener('click', () => {
+  importPhrase.value = '';
+  showPanel('import');
+  setMsg('Adja meg a 24 szavas seed phrase-t.', '');
+});
+
+btnImportCancel.addEventListener('click', () => {
+  importPhrase.value = '';
+  showPanel('setup');
+  setMsg('', '');
+});
+
+btnImportEnroll.addEventListener('click', async () => {
+  const words = importPhrase.value.trim().split(/\s+/).filter(Boolean);
+  if (words.length !== 24) {
+    setMsg(`${words.length} szót adott meg — pontosan 24 szó szükséges.`, 'error');
+    return;
+  }
+
+  btnImportEnroll.disabled = true;
+  setScanning(true);
+  enrollDots.style.display = 'flex';
+  setMsg('Tartsa arcát a keretben — biometriai regisztráció...', '');
+
+  try {
+    const embedding = await enrollEmbedding(video, (n) => {
+      dots.forEach((d, i) => d.classList.toggle('done', i < n));
+      setMsg(`Beolvasás ${n}/5...`, '');
+    });
+
+    const { vaultId, P, encryptedVault } = await callWorker(
+      'IMPORT', { mnemonic: words.join(' '), embedding }, [embedding.buffer]
+    );
+
+    localStorage.setItem('biowallet_meta', JSON.stringify({ vaultId, P }));
+    downloadBlob(encryptedVault, `${vaultId}.biowallet`);
+    downloadBlob(JSON.stringify(P), `${vaultId}.P.json`);
+
+    importPhrase.value = '';
+    vaultReady = true;
+    setScanning(false);
+    enrollDots.style.display = 'none';
+    setMsg('Wallet importálva! Mentse el a letöltött fájlokat.', 'ok');
+    showPanel('lock');
+  } catch (e) {
+    setScanning(false);
+    enrollDots.style.display = 'none';
+    setMsg(friendlyError(e.message), 'error');
+    btnImportEnroll.disabled = false;
   }
 });
 
@@ -437,10 +495,11 @@ function showConfirm({ to, amount, gas, network }) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 function showPanel(name) {
-  panelSetup.classList.toggle('visible', name === 'setup');
-  panelLock.classList.toggle('visible',  name === 'lock');
-  panelVault.classList.toggle('visible', name === 'vault');
-  ttlBars.classList.toggle('visible',    name === 'vault');
+  panelSetup.classList.toggle('visible',  name === 'setup');
+  panelImport.classList.toggle('visible', name === 'import');
+  panelLock.classList.toggle('visible',   name === 'lock');
+  panelVault.classList.toggle('visible',  name === 'vault');
+  ttlBars.classList.toggle('visible',     name === 'vault');
   if (name !== 'vault') {
     btnScan.disabled        = false;
     btnSign.disabled        = false;
@@ -498,6 +557,8 @@ function friendlyError(msg) {
     return 'Rossz .biowallet fájl — ez nem az Ön tárcájához tartozik.';
   if (msg.includes('ALREADY_CONSUMED'))
     return 'A token már felhasználásra került — próbálja újra.';
+  if (msg.toLowerCase().includes('invalid mnemonic') || msg.toLowerCase().includes('invalid phrase') || msg.toLowerCase().includes('invalid word'))
+    return 'Érvénytelen seed phrase — ellenőrizze a szavakat és a sorrendet (BIP39 szólista).';
   return msg;
 }
 

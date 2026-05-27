@@ -8,9 +8,9 @@
  * Külső függőség: causal_chain.js, fuzzy_extractor.js
  */
 
-import { CausalChain, DCCError } from './causal_chain.js?v=10';
-import { fuzzyExtract, fuzzyCommit } from './fuzzy_extractor.js?v=10';
-import { seedToMnemonic, seedToAddress, signEthTx } from './wallet.js?v=10';
+import { CausalChain, DCCError } from './causal_chain.js?v=11';
+import { fuzzyExtract, fuzzyCommit } from './fuzzy_extractor.js?v=11';
+import { seedToMnemonic, seedToAddress, signEthTx, mnemonicToSeed } from './wallet.js?v=11';
 
 // KDF: PBKDF2-SHA256 300k iteráció (WebCrypto natív).
 // Argon2 (mem-hard) erősebb lenne — WASM bundler nélkül nem implementálható (Phase 6+).
@@ -49,23 +49,46 @@ class BioVault {
    * @returns {{ encryptedVault: ArrayBuffer, P: Uint8Array, vaultId: string }}
    */
   static async create(embedding) {
-    const vaultId            = crypto.randomUUID();
-    const { R, P }           = await fuzzyCommit(embedding);
-    const salt               = crypto.getRandomValues(new Uint8Array(32));
-    const cryptoKey          = await deriveKey(R, salt);
+    const seed = crypto.getRandomValues(new Uint8Array(32));
+    try {
+      return await BioVault._encryptSeed(seed, embedding);
+    } finally {
+      seed.fill(0);
+    }
+  }
 
-    const seed      = crypto.getRandomValues(new Uint8Array(32));
-    const plaintext = encode({ seed: toHex(seed), accounts: [], vaultId, created: Date.now() });
+  // ── Seed importálás (meglévő BIP39 mnemonic → új vault) ─────────────────
+
+  /**
+   * Meglévő 24 szavas mnemonic importálása biometriai vault-ba.
+   * A seedBytes-t fill(0) törli a finally-ban.
+   * @param {string}       mnemonic  — 24 szavas BIP39 phrase (szóközzel)
+   * @param {Float32Array} embedding — enrollment scan (5x átlagolt)
+   */
+  static async importFromMnemonic(mnemonic, embedding) {
+    const seedBytes = mnemonicToSeed(mnemonic);
+    try {
+      return await BioVault._encryptSeed(seedBytes, embedding);
+    } finally {
+      seedBytes.fill(0);
+    }
+  }
+
+  /**
+   * Belső helper: 32 bájt seed → titkosított vault (embedding alapján új kulcs).
+   * @param {Uint8Array}   seedBytes
+   * @param {Float32Array} embedding
+   */
+  static async _encryptSeed(seedBytes, embedding) {
+    const vaultId   = crypto.randomUUID();
+    const { R, P }  = await fuzzyCommit(embedding);
+    const salt      = crypto.getRandomValues(new Uint8Array(32));
+    const cryptoKey = await deriveKey(R, salt);
+
+    const plaintext = encode({ seed: toHex(seedBytes), accounts: [], vaultId, created: Date.now() });
     const { iv, ciphertext } = await aesEncrypt(cryptoKey, plaintext);
 
-    // explicit törlés
-    seed.fill(0);
-
-    return {
-      vaultId,
-      P,
-      encryptedVault: pack({ salt, iv, ciphertext }),
-    };
+    return { vaultId, P, encryptedVault: pack({ salt, iv, ciphertext }) };
   }
 
   // ── OPEN ─────────────────────────────────────────────────────────────────
