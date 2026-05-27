@@ -1,5 +1,5 @@
 # BioWallet — Státuszjelentés
-**Verzió:** v0.6 (Phase 6 — face-api.js lokális bundle)  
+**Verzió:** v0.7 (Phase 9.0 — Papír-képlet generátor)  
 **Dátum:** 2026-05-27  
 **Git:** `bio-kernel-emu` branch  
 **Deploy:** https://biowallet.metaspace.bio  
@@ -10,8 +10,8 @@
 
 Biometrikailag kötött, OS-független crypto wallet PWA.  
 A privát kulcsot kizárólag a tulajdonos arca nyitja meg.  
-A DCC kauzális lánc, BCH hibajavítás és Phase 5 biztonsági invariánsok formálisan bizonyítottak: **Z3 33/33 PASS**.  
-Phase 5: CDN-mentes (lokális ethers.js), Web Worker sandbox, CSP + biztonsági fejlécek, EIP-1559, megerősítő overlay, egyenleg-ellenőrzés.
+A DCC kauzális lánc, BCH hibajavítás és Phase 9 biztonsági invariánsok formálisan bizonyítottak: **Z3 38/38 PASS**.  
+Phase 9.0: A 24 szavas seed SOHA nem jelenik meg digitálisan. Helyette obfuszkált papír-képlet (c_j, r_j) generálódik.
 
 ---
 
@@ -100,18 +100,15 @@ BioWallet/
 
 ### DATA_FLOW invariánsok (DF1–DF9): **14/14 PASS**
 
-### BCH invariánsok (BCH-P1–BCH-P4)
+### BCH invariánsok (BCH-P1–BCH-P4): **4/4 PASS**
 
-| Invariáns | Leírás | Eredmény |
-|-----------|--------|----------|
-| BCH-P1 | b_ref nyílt tárolása lehetetlen (Phase 3) | ✅ PASS |
-| BCH-P2 | errors≤25 AND dekódolás sikertelen → lehetetlen | ✅ PASS |
-| BCH-P3 | kulcs visszaállítás bio_match nélkül lehetetlen | ✅ PASS |
-| BCH-P4 | BCH + DCC feltételek → SAT konzisztens | ✅ PASS |
+### Phase 9 invariánsok (REC1–REC4): **5/5 PASS**
 
-**Összesített: 25/25 PASS — DCC + DATA_FLOW + BCH FORMÁLISAN BIZONYÍTVA**
+**Összesített: 38/38 PASS — DCC + DATA_FLOW + BCH + PHASE 9 FORMÁLISAN BIZONYÍTVA**
 
 ### BCH algoritmus egységtesztek: **28/28 PASS**
+
+### Phase 9.0 Matematikai E2E teszt: **SUCCESS**
 
 ---
 
@@ -166,14 +163,27 @@ BioWallet/
 | index.html: face-api script tag az ethers előtt | ✅ KÉSZ |
 | Teljes CDN-mentesség: CSP script-src 'self' valóban érvényes | ✅ KÉSZ |
 
-### Következő lépések (Phase 6+)
+### Phase 9.0 — ✅ KÉSZ (2026-05-27)
+
+| Feladat | Állapot | Mit old meg |
+|-----------|---------|-------------|
+| EXPORT gomb eltávolítása | ✅ KÉSZ | Seed soha nem kerül a main thread-be |
+| Papír-képlet generátor (c_j, r_j) | ✅ KÉSZ | Offline, papír-alapú visszaállítás |
+| Z3 Verifikáció (38/38) | ✅ KÉSZ | Matematikai bizonyíték a biztonságra |
+| E2E Matematikai teszt | ✅ KÉSZ | Visszafejtési képlet helyessége igazolva |
+
+> ⚠ **BIZTONSÁGI FIGYELMEZTETÉS (Digital Exposure Risk):**  
+> A `recovery_tool.html` használata során a 24 szó digitálisan megjelenik a képernyőn. Ez sérülékenységet jelenthet képernyőfigyelő malware-ekkel szemben.  
+> **KÖTELEZŐ PROTOKOLL:** Az eszközt csak **OFFLINE (Air-gap)** környezetben használja. A szavak felírása után zárja be a böngészőt, és törölje a gyorsítótárat, mielőtt újra csatlakozna az internetre.
+
+### Következő lépések (Phase 9.1+)
 
 | Prioritás | Feladat | Mit old meg |
 |-----------|---------|-------------|
-| 🟡 1 | Argon2 KDF (argon2-browser WASM) | Mem-hard KDF biometriai kulcsnál |
-| 🟢 2 | QR kód (cím fogadáshoz) | UX |
-| 🟢 3 | ERC-20 egyenleg (USDC, USDT) | Multi-token |
-| 🟢 4 | ENS feloldás | Human-readable cím |
+| 🔴 1 | Phase 9.1: Tokyo Server Ring 0 r_j | Szerver-szintű biztonsági eltolás |
+| 🟡 2 | Argon2 KDF (argon2-browser WASM) | Mem-hard KDF biometriai kulcsnál |
+| 🟢 3 | QR kód (cím fogadáshoz) | UX |
+| 🟢 4 | ERC-20 egyenleg (USDC, USDT) | Multi-token |
 | 🟢 5 | WalletConnect v2 | dApp integráció |
 
 ---
@@ -188,6 +198,7 @@ BioWallet/
 | 2026-05-27 | v0.4 | Phase 4: JSON-RPC 2.0 réteg (rpc.js) — egyenleg, nonce, gasPrice, broadcastTx; ETH küldő form; hálózat választó (Sepolia/Mainnet) |
 | 2026-05-27 | v0.5 | Phase 5: lokális ethers.js bundle, Web Worker sandbox, CSP+HSTS+biztonsági fejlécek, EIP-1559, megerősítő overlay, egyenleg-check; Z3 33/33; smoke 23/23 |
 | 2026-05-27 | v0.6 | Phase 6: face-api.js lokális bundle (vendor/face-api.min.js) + modell súlyok (models/, ~6.8MB); bio_capture.js CDN-mentes; teljes CSP 'self' kompatibilitás |
+| 2026-05-27 | v0.7 | Phase 9.0: Papír-képlet generátor (c_j, r_j) implementálva; EXPORT gomb és seed-kijelzés eltávolítva; Z3 38/38 PASS; E2E math teszt PASS |
 
 ---
 

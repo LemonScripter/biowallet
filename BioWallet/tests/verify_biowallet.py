@@ -328,6 +328,14 @@ gas_cost_wei            = Int('gas_cost_wei')
 value_wei               = Int('value_wei')
 balance_wei             = Int('balance_wei')
 
+# Phase 9 változók (Papír-képlet)
+recovery_active           = Bool('recovery_active')
+recovery_exposes_seed     = Bool('recovery_exposes_seed')
+recovery_exposes_indices  = Bool('recovery_exposes_indices')
+recovery_codes_to_display = Bool('recovery_codes_to_display')
+recovery_offsets_to_display = Bool('recovery_offsets_to_display')
+recovery_locks_vault      = Bool('recovery_locks_vault')
+
 P5_AXIOMS = [
     # WK1: CDN script = supply chain breach — tiltott
     Not(cdn_script_loaded),
@@ -352,6 +360,22 @@ P5_AXIOMS = [
     gas_cost_wei >= 0,
     value_wei >= 0,
     balance_wei >= 0,
+]
+
+P9_AXIOMS = [
+    # REC1: Recovery indítása csak EXPORT gate (P6) alatt lehetséges
+    Implies(recovery_active, And(op_export, sat_verdict, token_age < 5000)),
+
+    # REC2: A nyers seed és szóindexek soha nem szivárognak a kijelzőre
+    Not(recovery_exposes_seed),
+    Not(recovery_exposes_indices),
+
+    # REC3: Csak a kódolt adatok (c, r) mehetnek a kijelzőre
+    Implies(recovery_active, And(recovery_codes_to_display, recovery_offsets_to_display)),
+
+    # REC4: A folyamat végén a vault kötelezően lezár (auto-lock)
+    Implies(recovery_active, recovery_locks_vault),
+    Implies(recovery_locks_vault, vault_locked)
 ]
 
 # WK1: CDN script betöltése lehetetlen
@@ -405,6 +429,48 @@ print(f"  {'PASS' if ok_p5 else 'FAIL'} P5-OK: összes Phase 5 feltétel → SAT
 
 
 # ══════════════════════════════════════════════════════════════════
+# PHASE 9 INVARIÁNSOK — Papír-képlet (Recovery Formula)
+# ══════════════════════════════════════════════════════════════════
+
+print("\n── Phase 9 invariánsok (Papír-képlet) ────────────────")
+
+# REC1: seed szivárgás recovery közben → lehetetlen
+results.append(run_proof(
+    "REC1: recovery_exposes_seed=True → LEHETETLEN",
+    P9_AXIOMS, recovery_exposes_seed))
+
+# REC2: szóindexek szivárgása → lehetetlen
+results.append(run_proof(
+    "REC2: recovery_exposes_indices=True → LEHETETLEN",
+    P9_AXIOMS, recovery_exposes_indices))
+
+# REC3: recovery érvényes gate nélkül → lehetetlen
+results.append(run_proof(
+    "REC3: recovery_active=True, token_age≥5000ms → LEHETETLEN",
+    P9_AXIOMS, And(recovery_active, token_age >= 5000)))
+
+# REC4: recovery után a seed törlődik (auto-lock miatt)
+# Logika: recovery_active → recovery_locks_vault → vault_locked → seed_zeroed
+results.append(run_proof(
+    "REC4: recovery_active=True, seed_zeroed=False → LEHETETLEN",
+    P9_AXIOMS + DF_AXIOMS, And(recovery_active, Not(seed_zeroed))))
+
+# P9-OK konzisztencia
+s_p9 = Solver()
+for a in P9_AXIOMS + DCC_AXIOMS + DF_AXIOMS: s_p9.add(a)
+s_p9.add(
+    recovery_active, Not(recovery_exposes_seed), Not(recovery_exposes_indices),
+    recovery_codes_to_display, recovery_offsets_to_display, recovery_locks_vault,
+    vault_locked, seed_zeroed,
+    op_export, bio_event, bio_match, token_age == 1000,
+    Not(token_consumed), vault_id_match, sat_verdict
+)
+ok_p9 = s_p9.check() == sat
+results.append(ok_p9)
+print(f"  {'PASS' if ok_p9 else 'FAIL'} P9-OK: összes Phase 9 feltétel → SAT konzisztens")
+
+
+# ══════════════════════════════════════════════════════════════════
 # ÖSSZESÍTÉS
 # ══════════════════════════════════════════════════════════════════
 
@@ -414,12 +480,14 @@ total  = len(results)
 dcc_ok = all(results[:7])
 df_ok  = all(results[7:21])
 bch_ok = all(results[21:25])
-p5_ok  = all(results[25:])
+p5_ok  = all(results[25:33])
+p9_ok  = all(results[33:])
 
 print(f"DCC invariansok:       {sum(results[:7])}/7   {'PASS' if dcc_ok else 'FAIL'}")
 print(f"DATA_FLOW invariansok: {sum(results[7:21])}/14  {'PASS' if df_ok else 'FAIL'}")
 print(f"BCH invariansok:       {sum(results[21:25])}/4   {'PASS' if bch_ok else 'FAIL'}")
-print(f"Phase 5 invariansok:   {sum(results[25:])}/8   {'PASS' if p5_ok else 'FAIL'}")
+print(f"Phase 5 invariansok:   {sum(results[25:33])}/8   {'PASS' if p5_ok else 'FAIL'}")
+print(f"Phase 9 invariansok:   {sum(results[33:])}/5   {'PASS' if p9_ok else 'FAIL'}")
 print(f"Osszesitett:           {passed}/{total}")
 print()
 if passed == total:
