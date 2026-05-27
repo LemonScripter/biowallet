@@ -54,6 +54,7 @@ const panelVault  = document.getElementById('panel-vault');
 
 const btnEnroll      = document.getElementById('btn-enroll');
 const btnImport       = document.getElementById('btn-import');
+const btnRestore      = document.getElementById('btn-restore');
 const btnSwitchWallet = document.getElementById('btn-switch-wallet');
 const btnImportEnroll= document.getElementById('btn-import-enroll');
 const btnImportCancel= document.getElementById('btn-import-cancel');
@@ -202,6 +203,38 @@ btnSwitchWallet.addEventListener('click', () => {
   callWorker('LOCK').catch(() => {});
   showPanel('setup');
   setMsg('Hozzon létre új walletot vagy importáljon meglévőt.', '');
+});
+
+// ── Meglévő wallet visszaállítása (.P.json fájlból) ──────────────────────
+btnRestore.addEventListener('click', async () => {
+  try {
+    const pFile = await pickFile('.json,application/json');
+    const text  = await pFile.text();
+    const P     = JSON.parse(text);
+
+    if (!P.version || !['p2', 'p3'].includes(P.version)) {
+      setMsg('Érvénytelen .P.json fájl (rossz verzió).', 'error');
+      return;
+    }
+    if (!P.W_seed || !P.syndrome) {
+      setMsg('Érvénytelen .P.json fájl (hiányzó BCH adat).', 'error');
+      return;
+    }
+
+    // .biowallet fájlnévből vaultId — vagy generálunk INIT-hez
+    // (a .P.json önmagában nem tartalmazza a vaultId-t, csak a BCH helper-t)
+    // A valódi vaultId csak a .biowallet visszafejtésekor derül ki — addig
+    // egy ideiglenes id-t használunk.
+    const vaultId = pFile.name.replace(/\.P\.json$/i, '').replace(/^.*[/\\]/, '');
+
+    localStorage.setItem('biowallet_meta', JSON.stringify({ vaultId, P }));
+    await callWorker('INIT_VAULT', { vaultId });
+    vaultReady = true;
+    showPanel('lock');
+    setMsg('Wallet visszaállítva — arc-scan + .biowallet a megnyitáshoz.', 'ok');
+  } catch (e) {
+    setMsg(`Visszaállítás hiba: ${e.message}`, 'error');
+  }
 });
 
 // ── Import ────────────────────────────────────────────────────────────────
