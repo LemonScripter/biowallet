@@ -22,7 +22,7 @@
 import * as _ethersLib from '../vendor/ethers.bundle.js';
 self.ethers = _ethersLib;   // wallet.js ezt olvassa (self.ethers)
 
-import { BioVault } from '../core/vault.js?v=8';
+import { BioVault } from '../core/vault.js?v=10';
 
 let vault = null;
 
