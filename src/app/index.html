@@ -581,7 +581,7 @@
       <span class="dot"></span>
       <span id="token-text">ZÁROLT</span>
     </div>
-    <button class="help-btn" id="btn-help" title="Használati útmutató">?</button>
+    <button class="help-btn" id="btn-help" title="Használati útmutató" onclick="document.getElementById('guide-modal').classList.add('open')">?</button>
   </div>
 </header>
 
@@ -892,10 +892,9 @@
 <script>
   (function() {
     const overlay = document.getElementById('guide-modal');
-    const btnOpen = document.getElementById('btn-help');
     const btnClose = document.getElementById('btn-modal-close');
+    if (!overlay || !btnClose) return;
 
-    btnOpen.addEventListener('click', () => overlay.classList.add('open'));
     btnClose.addEventListener('click', () => overlay.classList.remove('open'));
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) overlay.classList.remove('open');
@@ -908,6 +907,6 @@
 
 <script src="../vendor/face-api.min.js"></script>
 <script src="../vendor/ethers.umd.min.js"></script>
-<script type="module" src="app.js?v=6"></script>
+<script type="module" src="app.js?v=7"></script>
 </body>
 </html>

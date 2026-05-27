@@ -6,16 +6,16 @@
  * Megerősítés: küldés előtt TX overlay.
  */
 
-import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=6';
+import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=7';
 import {
   NETWORKS, getBalance, getNonce,
   getFeeData, estimateGas, broadcastTx,
   ethToWei, weiToEth, isValidAddress,
-} from '../core/rpc.js?v=6';
+} from '../core/rpc.js?v=7';
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
-const worker  = new Worker('./vault_worker.js?v=6', { type: 'module' });
+const worker  = new Worker('./vault_worker.js?v=7', { type: 'module' });
 let _nextId   = 0;
 const _pending = new Map();
 
