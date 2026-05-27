@@ -6,16 +6,16 @@
  * Megerősítés: küldés előtt TX overlay.
  */
 
-import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=7';
+import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=8';
 import {
   NETWORKS, getBalance, getNonce,
   getFeeData, estimateGas, broadcastTx,
   ethToWei, weiToEth, isValidAddress,
-} from '../core/rpc.js?v=7';
+} from '../core/rpc.js?v=8';
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
-const worker  = new Worker('./vault_worker.js?v=7', { type: 'module' });
+const worker  = new Worker('./vault_worker.js?v=8', { type: 'module' });
 let _nextId   = 0;
 const _pending = new Map();
 
@@ -483,4 +483,18 @@ async function pickFile(accept) {
     inp.onchange = e => e.target.files[0] ? resolve(e.target.files[0]) : reject(new Error('Nem választott fájlt'));
     inp.click();
   });
+}
+
+// ── Használati útmutató modal ─────────────────────────────────────────────
+// Inline <script> és onclick attribútumok CSP script-src 'self' által blokkoltak —
+// az event listener csak external module scriptből regisztrálható.
+{
+  const overlay  = document.getElementById('guide-modal');
+  const btnOpen  = document.getElementById('btn-help');
+  const btnClose = document.getElementById('btn-modal-close');
+
+  btnOpen .addEventListener('click', ()  => overlay.classList.add('open'));
+  btnClose.addEventListener('click', ()  => overlay.classList.remove('open'));
+  overlay .addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
+  document.addEventListener('keydown',(e) => { if (e.key === 'Escape') overlay.classList.remove('open'); });
 }
