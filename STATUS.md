@@ -1,5 +1,5 @@
 # BioWallet — Státuszjelentés
-**Verzió:** v0.5 (Phase 5 — Biztonsági hardening)  
+**Verzió:** v0.6 (Phase 6 — face-api.js lokális bundle)  
 **Dátum:** 2026-05-27  
 **Git:** `bio-kernel-emu` branch  
 **Deploy:** https://biowallet.metaspace.bio  
@@ -140,8 +140,9 @@ BioWallet/
 | TOCTOU (token újrahasználat) | CausalToken.consumed flag | ✅ Biztonságos |
 | Vault ID csere | token.boundTo(vaultId) ellenőrzés | ✅ Biztonságos |
 | Replay attack | TTL + consumed flag kombináció | ✅ Biztonságos |
-| CDN supply chain | face-api.js + ethers.js CDN-ről | ⚠️ Nem SRI-zett |
-| Adatfolyam exfiltráció | Nincs CSP, nincs Worker sandbox | ⚠️ Részlegesen zárva |
+| CDN supply chain (ethers.js) | vendor/ethers.umd.min.js + ethers.bundle.js lokális | ✅ Biztonságos |
+| CDN supply chain (face-api.js) | vendor/face-api.min.js + models/ lokális (Phase 6) | ✅ Biztonságos |
+| Adatfolyam exfiltráció | CSP 'self' + Worker sandbox (Phase 5) | ✅ Zárt |
 | ETH küldés | JSON-RPC 2.0 Sepolia + Mainnet | ✅ Implementálva |
 
 ### Phase 5 — ✅ KÉSZ (2026-05-27)
@@ -154,6 +155,16 @@ BioWallet/
 | EIP-1559 (maxFeePerGas + estimateGas) | ✅ KÉSZ |
 | Megerősítő overlay + egyenleg-ellenőrzés | ✅ KÉSZ |
 | Z3 33/33 PASS + smoke teszt 23/23 PASS | ✅ KÉSZ |
+
+### Phase 6 — ✅ KÉSZ (2026-05-27)
+
+| Feladat | Állapot |
+|---------|---------|
+| face-api.js lokális bundle (vendor/face-api.min.js, 649KB) | ✅ KÉSZ |
+| Modell súlyok lokálisan (models/, 7 fájl, ~6.8MB) | ✅ KÉSZ |
+| bio_capture.js CDN eltávolítva, MODELS_URL=/models | ✅ KÉSZ |
+| index.html: face-api script tag az ethers előtt | ✅ KÉSZ |
+| Teljes CDN-mentesség: CSP script-src 'self' valóban érvényes | ✅ KÉSZ |
 
 ### Következő lépések (Phase 6+)
 
@@ -176,6 +187,7 @@ BioWallet/
 | 2026-05-27 | v0.3 | Phase 3: BCH(255,55,25) szindróma — b_ref nem tárolódik nyíltan; Z3 25/25; BCH teszt 28/28 |
 | 2026-05-27 | v0.4 | Phase 4: JSON-RPC 2.0 réteg (rpc.js) — egyenleg, nonce, gasPrice, broadcastTx; ETH küldő form; hálózat választó (Sepolia/Mainnet) |
 | 2026-05-27 | v0.5 | Phase 5: lokális ethers.js bundle, Web Worker sandbox, CSP+HSTS+biztonsági fejlécek, EIP-1559, megerősítő overlay, egyenleg-check; Z3 33/33; smoke 23/23 |
+| 2026-05-27 | v0.6 | Phase 6: face-api.js lokális bundle (vendor/face-api.min.js) + modell súlyok (models/, ~6.8MB); bio_capture.js CDN-mentes; teljes CSP 'self' kompatibilitás |
 
 ---
 
