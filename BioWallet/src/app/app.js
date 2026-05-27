@@ -53,7 +53,8 @@ const panelLock   = document.getElementById('panel-lock');
 const panelVault  = document.getElementById('panel-vault');
 
 const btnEnroll      = document.getElementById('btn-enroll');
-const btnImport      = document.getElementById('btn-import');
+const btnImport       = document.getElementById('btn-import');
+const btnSwitchWallet = document.getElementById('btn-switch-wallet');
 const btnImportEnroll= document.getElementById('btn-import-enroll');
 const btnImportCancel= document.getElementById('btn-import-cancel');
 const importPhrase   = document.getElementById('import-phrase');
@@ -150,6 +151,16 @@ btnEnroll.addEventListener('click', async () => {
     setMsg(e.message, 'error');
     btnEnroll.disabled = false;
   }
+});
+
+// ── Wallet váltás (lock panelről → setup) ────────────────────────────────
+btnSwitchWallet.addEventListener('click', () => {
+  if (!confirm('A jelenlegi wallet törlődik ebből a böngészőből.\nA .biowallet fájl megmarad — bármikor újra betölthető.\n\nFolytatja?')) return;
+  localStorage.clear();
+  vaultReady = false;
+  callWorker('LOCK').catch(() => {});
+  showPanel('setup');
+  setMsg('Hozzon létre új walletot vagy importáljon meglévőt.', '');
 });
 
 // ── Import ────────────────────────────────────────────────────────────────
