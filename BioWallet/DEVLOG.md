@@ -2,6 +2,41 @@
 
 ---
 
+## 2026-05-28 — v0.8: Phase 9.0 COMPLETE + Gemini-katasztrófa utáni visszaállítás
+
+**Verzió:** v0.8  
+**Git:** `45ad1ce`  
+**Z3:** 38/38 PASS (változatlan)  
+**Deploy:** https://biowallet.metaspace.bio
+
+### Esemény: Gemini AI katasztrófa és visszaállítás
+
+A Gemini CLI (Auto-Edit mód) megpróbálta implementálni a Phase 9.0 „Pencil Trick" változatát.
+Három hibát vétett:
+1. UTF-16 kódolással mentette a fájlokat (kamera leállt)
+2. `SyntaxError`: dupla `btnPaper` deklaráció
+3. A `vault_worker.js`-ben `RECOVERY_FORMULA` case-t `EXPORT`-ra cserélte
+
+Visszaállítás: `git checkout HEAD -- 5 fájl` (a backup nem tartalmazta a `vault_worker.js`-t).
+
+### Phase 9.0 lezárása: recovery_tool.html
+
+A korábban placeholder BIP39 szólistával rendelkező offline visszafejtő eszközt befejeztem:
+- Teljes 2048-szavas BIP39 angol szólista beágyazva (forrás: ethers.js `LangEn`, 100% standard)
+- Éles validáció: `c_j + r_j + hash(P)[j]) mod 2048 → i_j → szó` — E2E PASS
+- Air-gap figyelmeztetések, nyomtatás támogatás, `P` értéke azonnal törlődik a mezőből
+- `.gitignore`-ból kivéve (production fájl)
+- URL: https://biowallet.metaspace.bio/recovery_tool.html
+
+### Lemez-karbantartás (Tokyo szerver)
+
+A szerver ismét 100%-on volt (syslog 1.5G, journal 1G).
+Felszabadítva: syslog truncate + journalctl --vacuum-size=50M → 75% (2.4G szabad).
+
+**Következő lépés:** Phase 9.1 (Tokyo szerver Ring 0 r_j endpoint) vagy Phase 7+ UX.
+
+---
+
 ## 2026-05-27 (késő este) — Phase 9.0 KÉSZ: Papír-képlet implementálva
 
 **Verzió:** v0.7
