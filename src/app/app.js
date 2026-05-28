@@ -153,69 +153,8 @@ btnEnroll.addEventListener('click', async () => {
   }
 });
 
-// ── Személyes szám prompt (P) ────────────────────────────────────────────
-function showPersonalNumberPrompt() {
-  return new Promise(resolve => {
-    const overlay = document.createElement('div');
-    overlay.style.cssText = `
-      position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000;
-      display:flex;align-items:center;justify-content:center;padding:1rem;
-    `;
-    overlay.innerHTML = `
-      <div style="background:#16161a;border:1px solid #2a2a35;border-radius:16px;
-                  width:100%;max-width:420px;padding:1.5rem;">
-        <div style="font-size:1rem;font-weight:700;color:#6c63ff;margin-bottom:0.8rem;">
-          Személyes szám (P)
-        </div>
-        <p style="font-size:0.8rem;color:#e8e8f0;line-height:1.5;margin-bottom:0.8rem;">
-          Adjon meg egy <strong>csak Ön által ismert</strong> számot vagy
-          karaktersort. Példa: gyerekkori telefonszám, régi ajtókód, jelentéssel
-          bíró dátum kombináció.
-        </p>
-        <p style="font-size:0.78rem;color:#ffa502;line-height:1.5;margin-bottom:1rem;
-                  background:rgba(255,165,2,0.07);border-left:2px solid #ffa502;
-                  padding:0.5rem 0.7rem;border-radius:0 6px 6px 0;">
-          ⚠ Ez a szám SEHOL nem tárolódik. Ha elfelejti, a papírképlet
-          önmagában nem segít a wallet visszafejtésében.
-        </p>
-        <input id="_p_input" type="text" autocomplete="off" spellcheck="false"
-               placeholder="min. 4 karakter"
-               style="width:100%;padding:0.7rem;border-radius:10px;
-                      background:#1e1e24;border:1px solid #2a2a35;color:#e8e8f0;
-                      font-family:monospace;font-size:0.9rem;outline:none;">
-        <div style="display:flex;gap:0.75rem;margin-top:1.2rem;">
-          <button id="_p_cancel" style="flex:1;padding:0.75rem;border-radius:10px;
-            border:1px solid #2a2a35;background:#1e1e24;color:#e8e8f0;
-            font-size:0.9rem;font-weight:600;cursor:pointer;">Mégse</button>
-          <button id="_p_ok" style="flex:1;padding:0.75rem;border-radius:10px;
-            border:none;background:#6c63ff;color:#fff;
-            font-size:0.9rem;font-weight:600;cursor:pointer;">Tovább · arc-scan</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(overlay);
-    const input = overlay.querySelector('#_p_input');
-    setTimeout(() => input.focus(), 100);
-
-    const finish = (val) => { overlay.remove(); resolve(val); };
-    overlay.querySelector('#_p_cancel').onclick = () => finish(null);
-    overlay.querySelector('#_p_ok').onclick = () => {
-      const v = input.value.trim();
-      if (v.length < 4) {
-        input.style.borderColor = '#ff4757';
-        return;
-      }
-      finish(v);
-    };
-    input.addEventListener('keydown', e => {
-      if (e.key === 'Enter') overlay.querySelector('#_p_ok').click();
-      if (e.key === 'Escape') finish(null);
-    });
-  });
-}
-
 // ── Papírképlet megjelenítő modal (nyomtatható) ──────────────────────────
-function showRecoveryPaperModal(c, r) {
+function showRecoveryPaperModal(rawA, r) {
   return new Promise(resolve => {
     const overlay = document.createElement('div');
     overlay.id = 'paper-overlay';
@@ -258,23 +197,31 @@ function showRecoveryPaperModal(c, r) {
       <div style="background:#16161a;border:1px solid #ff4757;border-radius:16px;
                   width:100%;max-width:560px;margin:auto;padding:1.5rem;">
 
-        <div style="color:#ff4757;font-size:0.72rem;font-weight:700;letter-spacing:0.08em;
-                    text-transform:uppercase;margin-bottom:0.3rem;">BIZALMASAN</div>
+        <div style="color:#ffa502;font-size:0.72rem;font-weight:700;letter-spacing:0.08em;
+                    text-transform:uppercase;margin-bottom:0.3rem;">2 LÉPÉSES FOLYAMAT — 1. LÉPÉS</div>
         <div style="font-size:1.05rem;font-weight:700;color:#e8e8f0;margin-bottom:0.3rem;">
-          BioWallet — Papír Recovery Képlet
+          BioWallet — Papír Recovery (Nyers adatok)
         </div>
-        <div style="font-size:0.78rem;color:#6b6b80;margin-bottom:1rem;line-height:1.5;">
-          Nyomtassa ki, majd <strong>vágja szét a két szekciót</strong>
-          a szaggatott vonal mentén. Tárolja a két papírt KÜLÖNBÖZŐ helyen.
+        <div style="font-size:0.78rem;color:#6b6b80;margin-bottom:0.8rem;line-height:1.5;">
+          Írja le mindkét papírt, majd folytassa a <strong>recovery_tool.html ENCODE</strong>
+          módban — ott adja meg P-jét, és kapja meg a <strong>Végleges Papír A-t</strong>.
         </div>
 
-        <!-- Paper A: c_j -->
-        <div class="paper-section" style="background:#1e1e24;border:1px solid #2a2a35;
+        <!-- Figyelmeztetés -->
+        <div style="font-size:0.78rem;color:#ff4757;background:rgba(255,71,87,0.08);
+                    border:1px solid rgba(255,71,87,0.4);border-radius:8px;
+                    padding:0.6rem 0.8rem;margin-bottom:0.8rem;line-height:1.5;">
+          ⚠ Ez a NYERS Papír A — P-vel <strong>még nem véglegesítve</strong>!
+          Ne tárolja véglegesen — a 2. lépés után semmisítse meg és csak a Végleges Papír A-t őrizze.
+        </div>
+
+        <!-- Nyers Paper A: raw_A_j -->
+        <div class="paper-section" style="background:#1e1e24;border:1px solid #3a2a00;
                                           border-radius:10px;padding:1rem;margin-bottom:0.8rem;">
-          <div style="font-size:0.8rem;font-weight:700;color:#6c63ff;margin-bottom:0.6rem;">
-            PAPÍR A · Kódok (c_j)
+          <div style="font-size:0.8rem;font-weight:700;color:#ffa502;margin-bottom:0.6rem;">
+            NYERS PAPÍR A · (raw_A_j) — ideiglenes!
           </div>
-          <div class="paper-grid">${rows(c)}</div>
+          <div class="paper-grid">${rows(rawA)}</div>
         </div>
 
         <div class="paper-cut">✂  ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─  ✂</div>
@@ -290,28 +237,22 @@ function showRecoveryPaperModal(c, r) {
 
         <div class="paper-cut">✂  ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─  ✂</div>
 
-        <!-- Visszafejtési útmutató -->
-        <div class="paper-section" style="background:#1e1e24;border:1px solid #2a2a35;
+        <!-- 2. lépés útmutató -->
+        <div class="paper-section" style="background:#0d1a2b;border:1px solid #1a3a5c;
                                           border-radius:10px;padding:1rem;margin-bottom:0.8rem;
                                           font-size:0.78rem;line-height:1.6;color:#e8e8f0;">
-          <div style="font-weight:700;color:#ffa502;margin-bottom:0.5rem;">
-            VISSZAFEJTÉSI ÚTMUTATÓ
+          <div style="font-weight:700;color:#6c63ff;margin-bottom:0.5rem;">
+            2. LÉPÉS — Véglegesítés (offline)
           </div>
-          <p style="margin-bottom:0.4rem;">
-            A 24 szó papíron kiszámolható a két papírból és a fejedben tartott
-            <strong>P</strong> személyes számból:
-          </p>
           <ol style="padding-left:1.3rem;margin-bottom:0.5rem;">
-            <li>j-edik szóhoz: számold ki <strong>SHA-256(P||"|"||j)</strong> első 2 bájtját mint uint16-t,
-                majd vedd <strong>mod 2048</strong> = h_j</li>
-            <li>i_j = (c_j + r_j + h_j) <strong>mod 2048</strong></li>
-            <li>i_j szám alapján keresd ki a szót a <strong>BIP39 angol szólistából</strong>
-                (2048 szó, publikus, github.com/bitcoin/bips/blob/master/bip-0039)</li>
-            <li>24 szó → MetaMask import</li>
+            <li>Nyissa meg a <strong>recovery_tool.html</strong> oldalt <strong>offline</strong> (internet lekapcsolva)</li>
+            <li>Válassza az <strong>ENCODE</strong> fület</li>
+            <li>Írja be a Nyers Papír A számait + a fejben tartott <strong>P-jét</strong></li>
+            <li>A kapott <strong>Végleges Papír A-t</strong> nyomtassa ki és tárolja a Papír B-vel KÜLÖN helyen</li>
+            <li>Semmisítse meg a Nyers Papír A-t</li>
           </ol>
-          <p style="color:#ffa502;font-size:0.74rem;">
-            ⚠ Ne tárolja P-t sehol — csak fejben. Ha elveszik az egyik papír (A vagy B),
-            a wallet nem visszafejthető — készítsen friss BioWallet biometriai másolatot!
+          <p style="color:#4CAF50;font-size:0.74rem;">
+            ✓ A BioWallet soha nem tudja meg a P értékét — csak Ön és a recovery_tool.html offline kombinálhatja.
           </p>
         </div>
 
@@ -568,13 +509,8 @@ btnSign.addEventListener('click', async () => {
   }
 });
 
-// ── Papírképlet (Phase 9.0) ───────────────────────────────────────────────
+// ── Papírképlet (Phase 9.1b — P soha nem kerül az app-ba) ────────────────
 btnPaper.addEventListener('click', async () => {
-  // Lépés 1: személyes szám (P) bekérése
-  const P = await showPersonalNumberPrompt();
-  if (!P) return;
-
-  // Lépés 2: arc-scan + worker hívás
   setScanning(true);
   setMsg('Arc-scan a papírképlet generálásához (5 mp ablak)...', '');
 
@@ -583,10 +519,10 @@ btnPaper.addEventListener('click', async () => {
     const embedding = await captureEmbedding(video);
     await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
 
-    const { c, r } = await callWorker('RECOVERY_FORMULA', { personalNumber: P });
+    const { rawA, r } = await callWorker('RECOVERY_FORMULA', {});
 
     setScanning(false);
-    await showRecoveryPaperModal(c, r);
+    await showRecoveryPaperModal(rawA, r);
     setMsg('Papírképlet generálva. Vault zárolva.', 'ok');
     showPanel('lock');
   } catch (e) {

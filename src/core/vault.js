@@ -12,7 +12,7 @@ import { CausalChain, DCCError } from './causal_chain.js?v=11';
 import { fuzzyExtract, fuzzyCommit } from './fuzzy_extractor.js?v=11';
 import { seedToAddress, signEthTx, mnemonicToSeed } from './wallet.js?v=11';
 import {
-  entropyToIndices, personalHashOffsets, fetchRandomOffsets, computeCodes,
+  entropyToIndices, fetchRandomOffsets, computeRawPaper,
 } from './recovery_formula.js?v=11';
 
 // KDF: PBKDF2-SHA256 300k iteráció (WebCrypto natív).
@@ -146,37 +146,31 @@ class BioVault {
     return signed;
   }
 
-  // ── Papírképlet (Phase 9.0 — browser only) ──────────────────────────────
+  // ── Papírképlet (Phase 9.1b — P soha nem kerül az app-ba) ──────────────
 
   /**
-   * Visszanyerési képlet generálása:
-   *   c_j = (i_j - r_j - hash(P)[j]) mod 2048
+   * Nyers visszanyerési adatok generálása:
+   *   raw_A_j = (i_j - r_j) mod 2048
    *
-   * A 24 szó SOHA nem hagyja el ezt a függvényt — csak c_j és r_j tér vissza.
+   * P (személyes szám) NEM kerül be — az offline ENCODE lépés alkalmazza.
+   * A 24 szó SOHA nem hagyja el ezt a függvényt.
    * EXPORT gate (5s TTL) szükséges, auto-lock után.
    *
-   * @param {string} personalNumber — felhasználó által megadott P
-   * @returns {Promise<{ c: number[], r: number[] }>}
+   * @returns {Promise<{ rawA: number[], r: number[] }>}
    */
-  async makeRecoveryFormula(personalNumber) {
+  async makeRecoveryFormula() {
     if (!this.#vaultData) throw new DCCError('VAULT_LOCKED', 'EXPORT');
-    if (!personalNumber || personalNumber.length < 4) {
-      throw new Error('A személyes szám legalább 4 karakter legyen.');
-    }
     this.#chain.gate('EXPORT', this.#vaultId);
 
     const entropy = fromHex(this.#vaultData.seed);
     try {
-      const indices = await entropyToIndices(entropy);          // i_j
-      const r       = await fetchRandomOffsets(24, false);      // r_j (Phase 9.0: helyi)
-      const p       = await personalHashOffsets(personalNumber, 24);
-      const c       = computeCodes(indices, r, p);
-
-      // indices és p tömbök tartalma még RAM-ban van, de nincs export-csatorna
-      return { c, r };
+      const indices = await entropyToIndices(entropy);
+      const r       = await fetchRandomOffsets(24, false);
+      const rawA    = computeRawPaper(indices, r);   // P nélkül
+      return { rawA, r };
     } finally {
       entropy.fill(0);
-      this.lock();   // P7: auto-lock
+      this.lock();
     }
   }
 

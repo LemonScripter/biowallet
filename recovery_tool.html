@@ -100,68 +100,146 @@
       margin-top: 0.5rem; display: none;
     }
 
+    .mode-tabs {
+      display: flex; gap: 0.5rem; margin-bottom: 1.5rem;
+    }
+    .mode-tab {
+      flex: 1; padding: 0.75rem; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--surface2); color: var(--muted); font-size: 0.85rem; font-weight: 600;
+      cursor: pointer; transition: all 0.2s; text-align: center;
+    }
+    .mode-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    .mode-panel { display: none; }
+    .mode-panel.active { display: block; }
+
+    .encode-result { display: none; }
+    .num-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 0.35rem; margin-bottom: 1rem;
+    }
+    .num-row {
+      background: var(--surface2); padding: 0.45rem 0.65rem;
+      border-radius: 7px; display: flex; gap: 0.5rem; align-items: baseline;
+    }
+    .n-idx { color: var(--muted); font-size: 0.7rem; width: 1.4rem; flex-shrink: 0; }
+    .n-num { font-family: monospace; color: var(--accent); font-weight: 700; font-size: 0.9rem; }
+
     @media print {
       body { background: #fff !important; color: #000 !important;
              padding: 1cm; max-width: 100%; }
       .warning-box, .card:first-of-type, button,
-      .no-print { display: none !important; }
+      .mode-tabs, .no-print { display: none !important; }
       .card { background: #fff !important; border: 1px solid #ccc !important;
               border-radius: 0 !important; page-break-inside: avoid; }
-      .word-row { background: #f5f5f5 !important; }
+      .word-row, .num-row { background: #f5f5f5 !important; }
       .w-word { color: #006400 !important; }
-      .w-num { color: #856404 !important; }
+      .w-num, .n-num { color: #856404 !important; }
       .copy-note { display: none !important; }
       h1 { -webkit-text-fill-color: #000 !important; color: #000; }
+      .mode-panel { display: block !important; }
+      .encode-result, #results { display: block !important; }
     }
   </style>
 </head>
 <body>
 
-  <h1>BioWallet — Szuverén Visszafejtő</h1>
-  <p class="subtitle">Offline Recovery Tool · Csak légréses környezetben!</p>
+  <h1>BioWallet — Offline Recovery Tool</h1>
+  <p class="subtitle">Kizárólag offline (légréses) környezetben használható!</p>
 
   <div class="warning-box no-print">
-    <strong>⚠ KRITIKUS BIZTONSÁGI FIGYELMEZTETÉS</strong>
-    <p>Ezt az eszközt <strong>kizárólag offline</strong> (internetkapcsolat nélkül) szabad használni.
-    A 24 szó digitális megjelenítése kockázatot jelent képernyőfigyelő malware-ekkel szemben.</p>
+    <strong>⚠ KRITIKUS BIZTONSÁGI PROTOKOLL</strong>
     <ol>
-      <li>Kapcsolja le az internetet</li>
-      <li>Végezze el a visszafejtést</li>
-      <li>Írja fel a szavakat papírra</li>
-      <li>Zárja be a böngészőt — törölje a gyorsítótárat</li>
+      <li>Kapcsolja le az internetet mielőtt bármit beír</li>
+      <li>Végezze el az ENCODE vagy DECODE műveletet</li>
+      <li>Írja le az eredményt papírra</li>
+      <li>Kattintson a "Törlés &amp; Zárolás" gombra</li>
+      <li>Zárja be a böngészőt, törölje a gyorsítótárat</li>
       <li>Csak ezután csatlakozzon újra az internetre</li>
     </ol>
   </div>
 
-  <div class="card no-print">
-    <h3>PAPER A — Kódok (c_j)</h3>
-    <label for="paper-a">24 szám, szóközzel vagy sortöréssel elválasztva</label>
-    <textarea id="paper-a" placeholder="0432 1289 0042 1801 0713 ...&#10;(24 szám összesen)"></textarea>
-
-    <h3>PAPER B — Eltolások (r_j)</h3>
-    <label for="paper-b">24 szám, szóközzel vagy sortöréssel elválasztva</label>
-    <textarea id="paper-b" placeholder="0512 0011 1892 0304 1567 ...&#10;(24 szám összesen)"></textarea>
-
-    <label for="personal-p" style="margin-top:0.5rem;">Személyes szám (P) — csak fejben tárolt!</label>
-    <input type="password" id="personal-p" placeholder="Fejben tartott P értéke" autocomplete="off">
-    <div class="hint">A P értéke sehol nem tárolódik — megadása után azonnal eldobásra kerül.</div>
-
-    <div id="err-msg" class="error-msg"></div>
-    <button onclick="decode()">Visszafejtés indítása</button>
+  <!-- Mód választó -->
+  <div class="mode-tabs no-print">
+    <button class="mode-tab active" onclick="switchMode('encode')">
+      ENCODE — Nyers Papír A → Végleges
+    </button>
+    <button class="mode-tab" onclick="switchMode('decode')">
+      DECODE — Papírokból 24 szó
+    </button>
   </div>
 
-  <div class="card" id="results">
-    <div class="result-header">✓ Visszafejtés sikeres — 24 szavas BIP39 Seed Phrase</div>
-    <div id="word-grid" class="word-grid"></div>
-    <div class="copy-note">
-      ⚠ Írja fel a szavakat papírra a sorrendnek megfelelően, mielőtt bezárja ezt az oldalt.
-      A MetaMask import sorrendje: 1–24.
+  <!-- ── ENCODE mód ── -->
+  <div class="mode-panel active" id="panel-encode">
+    <div class="card no-print">
+      <h3>1. LÉPÉS — Nyers Papír A véglegesítése</h3>
+      <p style="font-size:0.78rem;color:var(--muted);margin-bottom:1rem;line-height:1.5;">
+        A BioWallet app a Nyers Papír A számait generálta — ezek még <strong>P nélküliek</strong>.
+        Adja meg itt P-jét, és megkapja a <strong>Végleges Papír A-t</strong>, amit már biztonságosan tárolhat.
+      </p>
+
+      <label for="raw-paper-a">NYERS PAPÍR A — 24 szám az app-ból</label>
+      <textarea id="raw-paper-a" placeholder="0432 1289 0042 1801 0713 ...&#10;(24 szám összesen)"></textarea>
+
+      <label for="encode-p">Személyes szám (P) — csak fejben tárolt!</label>
+      <input type="password" id="encode-p" placeholder="Fejben tartott P értéke" autocomplete="off">
+      <div class="hint">P itt sem tárolódik — véglegesítés után azonnal törlődik a mezőből.</div>
+
+      <div id="err-encode" class="error-msg"></div>
+      <button onclick="encode()">Végleges Papír A generálása</button>
     </div>
-    <button class="secondary no-print" onclick="window.print()">🖨 Nyomtatás</button>
-    <button class="secondary no-print" onclick="clearResults()"
-            style="border-color:var(--danger);color:var(--danger);margin-top:0.4rem;">
-      🔒 Törlés &amp; Zárolás
-    </button>
+
+    <div class="card encode-result" id="encode-result">
+      <div class="result-header">✓ Végleges Papír A kész — nyomtassa ki és tárolja a Papír B-vel KÜLÖN helyen</div>
+      <div id="final-a-grid" class="num-grid"></div>
+      <div class="copy-note">
+        ⚠ A Nyers Papír A-t ezután semmisítse meg — csak a Végleges Papír A + Papír B szükséges a visszafejtéshez.
+        A visszafejtéshez még mindig szüksége lesz a fejben tartott <strong>P</strong>-re!
+      </div>
+      <button class="secondary no-print" onclick="window.print()">🖨 Nyomtatás</button>
+      <button class="secondary no-print" onclick="clearEncode()"
+              style="border-color:var(--danger);color:var(--danger);margin-top:0.4rem;">
+        🔒 Törlés &amp; Zárolás
+      </button>
+    </div>
+  </div>
+
+  <!-- ── DECODE mód ── -->
+  <div class="mode-panel" id="panel-decode">
+    <div class="card no-print">
+      <h3>Visszafejtés — Papírokból 24 szó</h3>
+      <p style="font-size:0.78rem;color:var(--muted);margin-bottom:1rem;line-height:1.5;">
+        A <strong>Végleges Papír A</strong> + <strong>Papír B</strong> + fejben tartott <strong>P</strong> → 24 BIP39 szó.
+      </p>
+
+      <label for="paper-a">VÉGLEGES PAPÍR A — 24 szám</label>
+      <textarea id="paper-a" placeholder="0432 1289 0042 1801 0713 ...&#10;(24 szám összesen)"></textarea>
+
+      <h3>PAPÍR B — Eltolások (r_j)</h3>
+      <label for="paper-b">24 szám, szóközzel vagy sortöréssel elválasztva</label>
+      <textarea id="paper-b" placeholder="0512 0011 1892 0304 1567 ...&#10;(24 szám összesen)"></textarea>
+
+      <label for="personal-p" style="margin-top:0.5rem;">Személyes szám (P) — csak fejben tárolt!</label>
+      <input type="password" id="personal-p" placeholder="Fejben tartott P értéke" autocomplete="off">
+      <div class="hint">A P értéke sehol nem tárolódik — visszafejtés után azonnal törlődik.</div>
+
+      <div id="err-msg" class="error-msg"></div>
+      <button onclick="decode()">Visszafejtés indítása</button>
+    </div>
+
+    <div class="card" id="results">
+      <div class="result-header">✓ Visszafejtés sikeres — 24 szavas BIP39 Seed Phrase</div>
+      <div id="word-grid" class="word-grid"></div>
+      <div class="copy-note">
+        ⚠ Írja fel a szavakat papírra a sorrendnek megfelelően, mielőtt bezárja ezt az oldalt.
+        A MetaMask import sorrendje: 1–24.
+      </div>
+      <button class="secondary no-print" onclick="window.print()">🖨 Nyomtatás</button>
+      <button class="secondary no-print" onclick="clearResults()"
+              style="border-color:var(--danger);color:var(--danger);margin-top:0.4rem;">
+        🔒 Törlés &amp; Zárolás
+      </button>
+    </div>
   </div>
 
   <script>
@@ -184,6 +262,14 @@
     return offsets;
   }
 
+  // ── Mód váltás ───────────────────────────────────────────────────────────
+  function switchMode(mode) {
+    document.querySelectorAll('.mode-tab').forEach((t, i) =>
+      t.classList.toggle('active', (mode === 'encode') ? i === 0 : i === 1));
+    document.getElementById('panel-encode').classList.toggle('active', mode === 'encode');
+    document.getElementById('panel-decode').classList.toggle('active', mode === 'decode');
+  }
+
   // ── Validálás ────────────────────────────────────────────────────────────
   function parseNumbers(raw, label) {
     const nums = raw.trim().split(/[\s,;]+/).filter(Boolean).map(Number);
@@ -195,29 +281,84 @@
     return nums;
   }
 
-  // ── Visszafejtés ─────────────────────────────────────────────────────────
+  // ── ENCODE: Nyers Papír A + P → Végleges Papír A ─────────────────────────
+  async function encode() {
+    const errEl = document.getElementById('err-encode');
+    errEl.style.display = 'none';
+    document.getElementById('encode-result').style.display = 'none';
+
+    let rawA;
+    try { rawA = parseNumbers(document.getElementById('raw-paper-a').value, 'Nyers Papír A'); }
+    catch (e) { errEl.textContent = '⚠ ' + e.message; errEl.style.display = 'block'; return; }
+
+    const pValue = document.getElementById('encode-p').value.trim();
+    if (pValue.length < 4) {
+      errEl.textContent = '⚠ A személyes szám (P) legalább 4 karakter legyen.';
+      errEl.style.display = 'block'; return;
+    }
+
+    let p;
+    try { p = await personalHashOffsets(pValue, 24); }
+    catch (e) {
+      errEl.textContent = '⚠ Hiba a P hash számításánál: ' + e.message;
+      errEl.style.display = 'block'; return;
+    }
+
+    const finalA = rawA.map((raw_j, j) => mod(raw_j - p[j], 2048));
+
+    const grid = document.getElementById('final-a-grid');
+    grid.innerHTML = '';
+    finalA.forEach((val, i) => {
+      const row = document.createElement('div');
+      row.className = 'num-row';
+      row.innerHTML =
+        `<span class="n-idx">${i+1}.</span>` +
+        `<span class="n-num">${String(val).padStart(4,'0')}</span>`;
+      grid.appendChild(row);
+    });
+
+    document.getElementById('encode-result').style.display = 'block';
+    document.getElementById('encode-p').value = '';   // P azonnal törlődik
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  }
+
+  function clearEncode() {
+    document.getElementById('encode-result').style.display = 'none';
+    document.getElementById('final-a-grid').innerHTML = '';
+    document.getElementById('raw-paper-a').value = '';
+    document.getElementById('encode-p').value = '';
+  }
+
+  // ── DECODE: Végleges Papír A + Papír B + P → 24 szó ─────────────────────
   async function decode() {
     const errEl  = document.getElementById('err-msg');
     errEl.style.display = 'none';
     document.getElementById('results').style.display = 'none';
 
     let c, r;
-    try { c = parseNumbers(document.getElementById('paper-a').value, 'Paper A'); }
-    catch (e) { showError(e.message); return; }
-    try { r = parseNumbers(document.getElementById('paper-b').value, 'Paper B'); }
-    catch (e) { showError(e.message); return; }
+    try { c = parseNumbers(document.getElementById('paper-a').value, 'Végleges Papír A'); }
+    catch (e) { errEl.textContent = '⚠ ' + e.message; errEl.style.display = 'block'; return; }
+    try { r = parseNumbers(document.getElementById('paper-b').value, 'Papír B'); }
+    catch (e) { errEl.textContent = '⚠ ' + e.message; errEl.style.display = 'block'; return; }
 
     const pValue = document.getElementById('personal-p').value.trim();
-    if (pValue.length < 4) { showError('A személyes szám (P) legalább 4 karakter legyen.'); return; }
+    if (pValue.length < 4) {
+      errEl.textContent = '⚠ A személyes szám (P) legalább 4 karakter legyen.';
+      errEl.style.display = 'block'; return;
+    }
 
     let p;
     try { p = await personalHashOffsets(pValue, 24); }
-    catch (e) { showError('Hiba a P hash számításánál: ' + e.message); return; }
+    catch (e) {
+      errEl.textContent = '⚠ Hiba a P hash számításánál: ' + e.message;
+      errEl.style.display = 'block'; return;
+    }
 
     const indices = c.map((cj, j) => mod(cj + r[j] + p[j], 2048));
 
     if (WORDLIST.length !== 2048) {
-      showError('Belső hiba: szólista nem 2048 elemű!'); return;
+      errEl.textContent = '⚠ Belső hiba: szólista nem 2048 elemű!';
+      errEl.style.display = 'block'; return;
     }
 
     const grid = document.getElementById('word-grid');
@@ -244,12 +385,6 @@
     document.getElementById('paper-a').value  = '';
     document.getElementById('paper-b').value  = '';
     document.getElementById('personal-p').value = '';
-  }
-
-  function showError(msg) {
-    const el = document.getElementById('err-msg');
-    el.textContent = '⚠ ' + msg;
-    el.style.display = 'block';
   }
   </script>
 </body>

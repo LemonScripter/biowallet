@@ -75,7 +75,21 @@ export async function fetchRandomOffsets(n = 24, useServer = false) {
 // ── Kódszámítás ──────────────────────────────────────────────────────────
 
 /**
+ * raw_A_j = (i_j - r_j) mod 2048
+ * Phase 9.1b: P NEM kerül az app-ba. Az offline ENCODE lépés alkalmazza P-t.
+ * @param {number[]} indices  — i_j tömb
+ * @param {number[]} rOffsets — r_j tömb
+ * @returns {number[]}
+ */
+export function computeRawPaper(indices, rOffsets) {
+  if (indices.length !== rOffsets.length)
+    throw new Error('Hossz-eltérés: indices és rOffsets ugyanolyan hosszú kell legyen');
+  return indices.map((i, j) => mod(i - rOffsets[j], 2048));
+}
+
+/**
  * c_j = (i_j - r_j - p_j) mod 2048
+ * Csak recovery_tool.html ENCODE módban használt (offline, P-vel).
  * @param {number[]} indices  — i_j tömb
  * @param {number[]} rOffsets — r_j tömb
  * @param {number[]} pOffsets — hash(P)[j] tömb
