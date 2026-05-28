@@ -1,6 +1,6 @@
 # BioWallet — Státuszjelentés
-**Verzió:** v0.7 (Phase 9.0 — Papír-képlet generátor)  
-**Dátum:** 2026-05-27  
+**Verzió:** v0.8 (Phase 9.0 COMPLETE — recovery_tool.html kész)  
+**Dátum:** 2026-05-28  
 **Git:** `bio-kernel-emu` branch  
 **Deploy:** https://biowallet.metaspace.bio  
 
@@ -163,7 +163,7 @@ BioWallet/
 | index.html: face-api script tag az ethers előtt | ✅ KÉSZ |
 | Teljes CDN-mentesség: CSP script-src 'self' valóban érvényes | ✅ KÉSZ |
 
-### Phase 9.0 — ✅ KÉSZ (2026-05-27)
+### Phase 9.0 — ✅ TELJES (2026-05-28, v0.8)
 
 | Feladat | Állapot | Mit old meg |
 |-----------|---------|-------------|
@@ -171,10 +171,13 @@ BioWallet/
 | Papír-képlet generátor (c_j, r_j) | ✅ KÉSZ | Offline, papír-alapú visszaállítás |
 | Z3 Verifikáció (38/38) | ✅ KÉSZ | Matematikai bizonyíték a biztonságra |
 | E2E Matematikai teszt | ✅ KÉSZ | Visszafejtési képlet helyessége igazolva |
+| recovery_tool.html (offline visszafejtő) | ✅ KÉSZ | 2048-szó BIP39 szólista beágyazva, production-ready |
 
 > ⚠ **BIZTONSÁGI FIGYELMEZTETÉS (Digital Exposure Risk):**  
 > A `recovery_tool.html` használata során a 24 szó digitálisan megjelenik a képernyőn. Ez sérülékenységet jelenthet képernyőfigyelő malware-ekkel szemben.  
 > **KÖTELEZŐ PROTOKOLL:** Az eszközt csak **OFFLINE (Air-gap)** környezetben használja. A szavak felírása után zárja be a böngészőt, és törölje a gyorsítótárat, mielőtt újra csatlakozna az internetre.
+>
+> **URL:** https://biowallet.metaspace.bio/recovery_tool.html (letöltendő, offline futtatandó)
 
 ### Következő lépések (Phase 9.1+)
 
@@ -199,6 +202,7 @@ BioWallet/
 | 2026-05-27 | v0.5 | Phase 5: lokális ethers.js bundle, Web Worker sandbox, CSP+HSTS+biztonsági fejlécek, EIP-1559, megerősítő overlay, egyenleg-check; Z3 33/33; smoke 23/23 |
 | 2026-05-27 | v0.6 | Phase 6: face-api.js lokális bundle (vendor/face-api.min.js) + modell súlyok (models/, ~6.8MB); bio_capture.js CDN-mentes; teljes CSP 'self' kompatibilitás |
 | 2026-05-27 | v0.7 | Phase 9.0: Papír-képlet generátor (c_j, r_j) implementálva; EXPORT gomb és seed-kijelzés eltávolítva; Z3 38/38 PASS; E2E math teszt PASS |
+| 2026-05-28 | v0.8 | Phase 9.0 COMPLETE: recovery_tool.html offline visszafejtő, teljes 2048-szavas BIP39 szólista beágyazva (ethers.js verifikált); .gitignore fix; Gemini-katasztrófa utáni visszaállítás |
 
 ---
 
