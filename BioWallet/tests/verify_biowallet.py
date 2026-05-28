@@ -329,12 +329,13 @@ value_wei               = Int('value_wei')
 balance_wei             = Int('balance_wei')
 
 # Phase 9 változók (Papír-képlet)
-recovery_active           = Bool('recovery_active')
-recovery_exposes_seed     = Bool('recovery_exposes_seed')
-recovery_exposes_indices  = Bool('recovery_exposes_indices')
-recovery_codes_to_display = Bool('recovery_codes_to_display')
+recovery_active             = Bool('recovery_active')
+recovery_exposes_seed       = Bool('recovery_exposes_seed')
+recovery_exposes_indices    = Bool('recovery_exposes_indices')
+recovery_codes_to_display   = Bool('recovery_codes_to_display')
 recovery_offsets_to_display = Bool('recovery_offsets_to_display')
-recovery_locks_vault      = Bool('recovery_locks_vault')
+recovery_locks_vault        = Bool('recovery_locks_vault')
+personal_number_in_app      = Bool('personal_number_in_app')   # Phase 9.1b
 
 P5_AXIOMS = [
     # WK1: CDN script = supply chain breach — tiltott
@@ -370,12 +371,15 @@ P9_AXIOMS = [
     Not(recovery_exposes_seed),
     Not(recovery_exposes_indices),
 
-    # REC3: Csak a kódolt adatok (c, r) mehetnek a kijelzőre
+    # REC3: Csak a rawA és r kódok mehetnek a kijelzőre (P nélkül)
     Implies(recovery_active, And(recovery_codes_to_display, recovery_offsets_to_display)),
 
     # REC4: A folyamat végén a vault kötelezően lezár (auto-lock)
     Implies(recovery_active, recovery_locks_vault),
-    Implies(recovery_locks_vault, vault_locked)
+    Implies(recovery_locks_vault, vault_locked),
+
+    # REC5: P (személyes szám) soha nem kerül az app-ba (Phase 9.1b)
+    Not(personal_number_in_app),
 ]
 
 # WK1: CDN script betöltése lehetetlen
@@ -455,13 +459,18 @@ results.append(run_proof(
     "REC4: recovery_active=True, seed_zeroed=False → LEHETETLEN",
     P9_AXIOMS + DF_AXIOMS, And(recovery_active, Not(seed_zeroed))))
 
+# REC5: P (személyes szám) az app-ba kerül → lehetetlen (Phase 9.1b)
+results.append(run_proof(
+    "REC5: personal_number_in_app=True → LEHETETLEN (P soha nem kerül az app-ba)",
+    P9_AXIOMS, personal_number_in_app))
+
 # P9-OK konzisztencia
 s_p9 = Solver()
 for a in P9_AXIOMS + DCC_AXIOMS + DF_AXIOMS: s_p9.add(a)
 s_p9.add(
     recovery_active, Not(recovery_exposes_seed), Not(recovery_exposes_indices),
     recovery_codes_to_display, recovery_offsets_to_display, recovery_locks_vault,
-    vault_locked, seed_zeroed,
+    vault_locked, seed_zeroed, Not(personal_number_in_app),
     op_export, bio_event, bio_match, token_age == 1000,
     Not(token_consumed), vault_id_match, sat_verdict
 )
@@ -487,7 +496,7 @@ print(f"DCC invariansok:       {sum(results[:7])}/7   {'PASS' if dcc_ok else 'FA
 print(f"DATA_FLOW invariansok: {sum(results[7:21])}/14  {'PASS' if df_ok else 'FAIL'}")
 print(f"BCH invariansok:       {sum(results[21:25])}/4   {'PASS' if bch_ok else 'FAIL'}")
 print(f"Phase 5 invariansok:   {sum(results[25:33])}/8   {'PASS' if p5_ok else 'FAIL'}")
-print(f"Phase 9 invariansok:   {sum(results[33:])}/5   {'PASS' if p9_ok else 'FAIL'}")
+print(f"Phase 9 invariansok:   {sum(results[33:])}/6   {'PASS' if p9_ok else 'FAIL'}")
 print(f"Osszesitett:           {passed}/{total}")
 print()
 if passed == total:

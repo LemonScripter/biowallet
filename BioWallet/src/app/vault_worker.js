@@ -75,8 +75,8 @@ async function handle(type, p) {
 
     case 'RECOVERY_FORMULA': {
       if (!vault) throw new Error('Nincs vault inicializálva');
-      const { c, r } = await vault.makeRecoveryFormula(p.personalNumber);
-      return { c, r };
+      const { rawA, r } = await vault.makeRecoveryFormula();
+      return { rawA, r };
     }
 
     case 'LOCK': {
