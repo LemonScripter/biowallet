@@ -179,15 +179,69 @@ BioWallet/
 >
 > **URL:** https://biowallet.metaspace.bio/recovery_tool.html (letöltendő, offline futtatandó)
 
-### Következő lépések (Phase 9.1+)
+### Stratégiai irány — "Trustless by Design" (2026-05-28 döntés)
+
+**Alapelv:** A felhasználónak nem kell megbíznia a BioWallet fejlesztőiben.
+A rendszer úgy van tervezve, hogy nincs mit ellopni — és ez ellenőrizhető.
+
+#### A három fenyegetés és megoldásuk
+
+| Fenyegetés | Megoldás | Hogyan ellenőrizhető |
+|-----------|---------|---------------------|
+| Kompromittált szerver | Letölthető egyfájlos app + SHA-256 hash | `sha256sum biowallet.html` == GitHub hash |
+| App rosszindulatú kódja | Nyílt forrás + Z3 formális bizonyíték | Bárki reprodukálhatja a Z3 tesztet |
+| Papírtolvaj (A+B papír megvan) | P fejben — soha nem kerül az app-ba | Kétfázisú papírgenerálás |
+
+#### Mit kommunikál az app a hálózaton?
+
+```
+BioWallet szervere ← SEMMI (letöltés után örökre)
+Ethereum RPC node ← Csak aláírt tranzakció broadcast + egyenleg
+  (eth.llamarpc.com, publicnode.com — publikus, decentralizált)
+
+Bizonyíték: Böngésző DevTools → Network tab → biowallet.metaspace.bio
+            egyetlen hívás sem jelenik meg tranzakció közben
+```
+
+### Fejlesztési ütemterv (2026-05-28 állapot)
+
+#### Phase 9.1 — Trustless architektúra (következő)
+
+| # | Feladat | Leírás |
+|---|---------|--------|
+| 9.1a | **Service Worker bekapcsolása** | PWA mode: app kód cache-elve, szerver nélkül fut |
+| 9.1b | **Kétfázisú papírgenerálás** | P soha nem kerül az app-ba: raw_A_j app-ban, P-alkalmazás offline |
+| 9.1c | **recovery_tool.html ENCODE mód** | Raw Paper A + P → Végleges Paper A (offline) |
+| 9.1d | **recovery_tool.html DECODE mód átírás** | Papírok + P → .biowallet.tmp (szavak soha nem látszanak) |
+| 9.1e | **Verzió hash a UI-ban** | Verifiable build: app mutatja saját SHA-256 hash-ét |
+| 9.1f | **IMPORT flow felülvizsgálata** | Csak PWA-ból ajánlott + post-import protokoll útmutató |
+
+#### Phase 9.2 — Letölthető önálló fájl
+
+| # | Feladat | Leírás |
+|---|---------|--------|
+| 9.2a | **biowallet.html single-file build** | face-api + ethers + modellek beágyazva (~15 MB) |
+| 9.2b | **SHA-256 hash GitHub README-ben** | Publikusan dokumentált, reprodukálható |
+| 9.2c | **"Offline mód" UI jelzés** | App jelzi, ha hálózat nélkül fut (csak aláírás, nem broadcast) |
+
+#### Phase C — UX funkciók (Phase 9.1 után)
 
 | Prioritás | Feladat | Mit old meg |
 |-----------|---------|-------------|
-| 🔴 1 | Phase 9.1: Tokyo Server Ring 0 r_j | Szerver-szintű biztonsági eltolás |
-| 🟡 2 | Argon2 KDF (argon2-browser WASM) | Mem-hard KDF biometriai kulcsnál |
-| 🟢 3 | QR kód (cím fogadáshoz) | UX |
-| 🟢 4 | ERC-20 egyenleg (USDC, USDT) | Multi-token |
-| 🟢 5 | WalletConnect v2 | dApp integráció |
+| 🟢 1 | QR kód (saját cím fogadáshoz) | UX — fogadás egyszerűsítése |
+| 🟢 2 | ERC-20 egyenleg (USDC, USDT) | Multi-token megjelenítés |
+| 🟢 3 | ENS feloldás (`vitalik.eth` → `0x...`) | Küldés egyszerűsítése |
+| 🟢 4 | Multi-account (`m/44'/60'/0'/0/n`) | Több cím egy vaultból |
+| 🟢 5 | Brute-force védelem (cooldown) | Biztonság |
+| 🔵 6 | WalletConnect v2 | dApp integráció |
+
+#### Phase D — Hitelességi réteg (hosszú táv)
+
+| # | Feladat |
+|---|---------|
+| D1 | Független biztonsági audit (neves cég) |
+| D2 | Bug bounty program |
+| D3 | MetaSpace OSIM szabadalom hivatkozás a dokumentációban |
 
 ---
 
