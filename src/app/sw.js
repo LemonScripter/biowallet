@@ -1,15 +1,29 @@
-// BioWallet ServiceWorker — offline cache
-// Scope: /app/ (a fájl /app/sw.js-ből regisztrálódik)
-const CACHE    = 'biowallet-v1';
+// BioWallet ServiceWorker — offline cache (Phase 9.1a)
+const CACHE = 'biowallet-v2';
+
 const PRECACHE = [
   '/app/',
   '/app/index.html',
   '/app/app.js',
   '/app/manifest.json',
-  '/core/causal_chain.js',
-  '/core/vault.js',
-  '/core/fuzzy_extractor.js',
+  '/app/vault_worker.js',
   '/core/bio_capture.js',
+  '/core/causal_chain.js',
+  '/core/fuzzy_extractor.js',
+  '/core/recovery_formula.js',
+  '/core/rpc.js',
+  '/core/vault.js',
+  '/core/wallet.js',
+  '/vendor/face-api.min.js',
+  '/vendor/ethers.umd.min.js',
+  '/models/tiny_face_detector_model-shard1',
+  '/models/tiny_face_detector_model-weights_manifest.json',
+  '/models/face_landmark_68_model-shard1',
+  '/models/face_landmark_68_model-weights_manifest.json',
+  '/models/face_recognition_model-shard1',
+  '/models/face_recognition_model-shard2',
+  '/models/face_recognition_model-weights_manifest.json',
+  '/recovery_tool.html',
 ];
 
 self.addEventListener('install', e =>
@@ -21,11 +35,22 @@ self.addEventListener('install', e =>
 );
 
 self.addEventListener('activate', e =>
-  e.waitUntil(self.clients.claim())
-);
-
-self.addEventListener('fetch', e =>
-  e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request))
+  e.waitUntil(
+    caches.keys()
+      .then(names => Promise.all(
+        names.filter(n => n !== CACHE).map(n => caches.delete(n))
+      ))
+      .then(() => self.clients.claim())
   )
 );
+
+self.addEventListener('fetch', e => {
+  if (e.request.method !== 'GET') return;
+  const url = new URL(e.request.url);
+  // Pass through: external RPC calls (Ethereum nodes)
+  if (url.origin !== self.location.origin) return;
+  e.respondWith(
+    caches.match(e.request, { ignoreSearch: true })
+      .then(r => r || fetch(e.request))
+  );
+});

@@ -84,8 +84,7 @@ let vaultReady     = false;   // worker-ben van-e aktív vault
 // ── Init ──────────────────────────────────────────────────────────────────
 (async () => {
   if ('serviceWorker' in navigator)
-    navigator.serviceWorker.getRegistrations()
-      .then(rs => rs.forEach(r => r.unregister())).catch(() => {});
+    navigator.serviceWorker.register('/app/sw.js').catch(() => {});
 
   try {
     stream = await openCamera(video, m => setMsg(m, ''));
