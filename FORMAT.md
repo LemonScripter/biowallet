@@ -1,7 +1,7 @@
 # BioWallet — Open Vault Format Specification
 
 Version: 1.0  
-Author: Szőke László-Ferenc / Citrom Média LTD  
+Author: Szőke László-Ferenc | MetaSpace.Bio Logic Engine project | metaspace.bio, biowallet.metaspace.bio | admin@metaspace.bio  
 Purpose: Sovereignty guarantee — any developer can implement wallet recovery
 without the BioWallet service. If BioWallet shuts down, your funds remain
 accessible using the files, the math below, and your biometrics.
