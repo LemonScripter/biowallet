@@ -569,7 +569,7 @@ const GUIDE_HTML = {
     <hr class="guide-sep">
     <div class="guide-section">
       <div class="guide-h2">3. ETH küldése</div>
-      <ol class="guide-ol"><li>Válassza ki a hálózatot (<strong>Sepolia</strong> = testnet, <strong>Mainnet</strong> = éles).</li><li>Adja meg a fogadó Ethereum-cím (0x… vagy ENS).</li><li>Adja meg az összeget ETH-ben.</li><li>Kattintson az <strong>ETH küldése</strong> gombra — díjbecslés + egyenlegellenőrzés.</li><li>Egy <strong>megerősítő ablak</strong> jelenik meg: ellenőrizze, majd kattintson a <strong>Küldés</strong> gombra.</li><li>Végezzen el egy újabb arc-scant — 10 másodperces aláírási ablak.</li><li>A vault automatikusan <strong>zárolódik</strong>.</li></ol>
+      <ol class="guide-ol"><li>Válassza ki a hálózatot (<strong>Sepolia</strong> = testnet, <strong>Mainnet</strong> = éles).</li><li>Adja meg a fogadó Ethereum-cím (0x… vagy ENS).</li><li>Adja meg az összeget ETH-ben.</li><li>Kattintson az <strong>ETH küldése</strong> gombra — díjbecslés + egyenlegellenőrzés.</li><li>Egy <strong>megerősítő ablak</strong> jelenik meg a tranzakció részleteivel és egy <strong>8 karakteres ujjlenyomattal</strong>.</li><li>Írja be az ujjlenyomat első <strong>4 karakterét</strong> a mezőbe — ez kriptográfiailag a tranzakcióhoz köti az aláírást.</li><li>Kattintson a <strong>Küldés</strong> gombra, majd végezzen el egy újabb arc-scant — 10 másodperces aláírási ablak.</li><li>A vault automatikusan <strong>zárolódik</strong>.</li></ol>
       <div class="guide-note">⚠ Sepolia = ingyenes tesztnet. Mainnet használatához valódi ETH szükséges.</div>
     </div>
     <hr class="guide-sep">
@@ -589,6 +589,7 @@ const GUIDE_HTML = {
         <tr><td><span class="guide-badge badge-err">FE_DECODE_FAIL</span></td><td>Jobb megvilágítás, egyenes tartás, próbálja újra</td></tr>
         <tr><td><span class="guide-badge badge-err">EXPIRED</span></td><td>Az időablak lejárt — indítson új arc-scant</td></tr>
         <tr><td><span class="guide-badge badge-err">BIO_MISMATCH</span></td><td>Az arc nem egyezik — különböző kulcs keletkezett</td></tr>
+        <tr><td><span class="guide-badge badge-err">TX_MISMATCH</span></td><td>Az ujjlenyomat nem egyezett — a tranzakció módosult. Az aláírás blokkolva.</td></tr>
         <tr><td><span class="guide-badge badge-err">Kamera hiba</span></td><td>HTTPS szükséges; helyi tesztnél: <code style="font-size:0.72rem">http://localhost:3333</code></td></tr>
       </tbody></table>
       <div class="guide-ok" style="margin-top:0.7rem">✓ Tipp: egyenes tartás, közvetlen fényforrás szemből, kerülje az erős háttérvilágítást.</div>
@@ -621,7 +622,7 @@ const GUIDE_HTML = {
     <hr class="guide-sep">
     <div class="guide-section">
       <div class="guide-h2">3. Send ETH</div>
-      <ol class="guide-ol"><li>Select the network (<strong>Sepolia</strong> = testnet, <strong>Mainnet</strong> = live).</li><li>Enter the recipient Ethereum address (0x… or ENS).</li><li>Enter the amount in ETH.</li><li>Click <strong>Send ETH</strong> — fee estimation + balance check.</li><li>A <strong>confirmation dialog</strong> appears — verify, then click <strong>Send</strong>.</li><li>Perform another face scan — 10-second signing window.</li><li>The vault auto-<strong>locks</strong>.</li></ol>
+      <ol class="guide-ol"><li>Select the network (<strong>Sepolia</strong> = testnet, <strong>Mainnet</strong> = live).</li><li>Enter the recipient Ethereum address (0x… or ENS).</li><li>Enter the amount in ETH.</li><li>Click <strong>Send ETH</strong> — fee estimation + balance check.</li><li>A <strong>confirmation dialog</strong> appears with the transaction details and an <strong>8-character fingerprint</strong>.</li><li>Type the first <strong>4 characters</strong> of the fingerprint into the field — this cryptographically binds the signature to the exact transaction.</li><li>Click <strong>Send</strong>, then perform another face scan — 10-second signing window.</li><li>The vault auto-<strong>locks</strong>.</li></ol>
       <div class="guide-note">⚠ Sepolia = free testnet. Real ETH is required for Mainnet.</div>
     </div>
     <hr class="guide-sep">
@@ -641,6 +642,7 @@ const GUIDE_HTML = {
         <tr><td><span class="guide-badge badge-err">FE_DECODE_FAIL</span></td><td>Better lighting, hold head straight, try again</td></tr>
         <tr><td><span class="guide-badge badge-err">EXPIRED</span></td><td>Window expired — start a new face scan</td></tr>
         <tr><td><span class="guide-badge badge-err">BIO_MISMATCH</span></td><td>Face does not match — different key generated</td></tr>
+        <tr><td><span class="guide-badge badge-err">TX_MISMATCH</span></td><td>Fingerprint mismatch — the transaction was altered. Signing blocked.</td></tr>
         <tr><td><span class="guide-badge badge-err">Camera error</span></td><td>HTTPS required; for local testing: <code style="font-size:0.72rem">http://localhost:3333</code></td></tr>
       </tbody></table>
       <div class="guide-ok" style="margin-top:0.7rem">✓ Tip: hold head straight, direct front lighting, avoid strong backlight.</div>
