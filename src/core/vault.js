@@ -10,7 +10,7 @@
 
 import { CausalChain, DCCError } from './causal_chain.js?v=11';
 import { fuzzyExtract, fuzzyCommit } from './fuzzy_extractor.js?v=11';
-import { seedToAddress, signEthTx, mnemonicToSeed } from './wallet.js?v=11';
+import { seedToAddress, signEthTx, signPersonal, mnemonicToSeed } from './wallet.js?v=11';
 import {
   entropyToIndices, fetchRandomOffsets, computeRawPaper,
 } from './recovery_formula.js?v=11';
@@ -144,6 +144,18 @@ class BioVault {
     this.lock();   // P7: auto-lock
 
     return signed;
+  }
+
+  // ── PERSONAL SIGN (WalletConnect personal_sign) ──────────────────────────
+
+  async personalSign(message) {
+    if (!this.#cryptoKey || !this.#vaultData) throw new DCCError('VAULT_LOCKED', 'SIGN');
+    this.#chain.gate('SIGN', this.#vaultId);
+    const seed = fromHex(this.#vaultData.seed);
+    const sig  = await signPersonal(message, seed);
+    seed.fill(0);
+    this.lock();   // P7: auto-lock
+    return sig;
   }
 
   // ── Papírképlet (Phase 9.1b — P soha nem kerül az app-ba) ──────────────
