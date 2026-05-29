@@ -65,6 +65,10 @@ const STRINGS = {
     'btn.paper.sub':      'Visszafejtő kód — a 24 szó nem jelenik meg digitálisan',
     'btn.lock':           'Azonnali zárolás',
     'btn.lock.sub':       'Privát kulcs törlése a memóriából',
+    'btn.device':         'Eszköz hozzáadása',
+    'btn.device.sub':     'Ez az eszköz legyen második faktor — ujjlenyomat / Windows Hello',
+    'btn.device.remove':  'Eszköz eltávolítása',
+    'btn.device.remove.sub': 'Ezt az eszközt eltávolítja a második faktorok közül',
     'footer':             'BioWallet · DCC kauzális lánc · BCH-255 · AES-256-GCM · secp256k1',
 
     /* ── Dynamic messages ──────────────────────────────────────────── */
@@ -127,6 +131,11 @@ const STRINGS = {
     'msg.tx.no.blockscout':   'TX history ezen a hálózaton nem elérhető',
     'msg.tx.empty':           'Még nincsenek tranzakciók',
     'msg.tx.unavailable':     'Nem elérhető',
+    'msg.device.auth':        'Eszközhitelesítés folyamatban...',
+    'msg.device.fallback':    'Eszköz kihagyva — arc-alapú belépés.',
+    'msg.device.enrolled':    'Eszköz regisztrálva! Mentse el az új .biowallet fájlt.',
+    'msg.device.offer':       'Regisztrálja ezt az eszközt második faktorként? (ujjlenyomat / Windows Hello)',
+    'msg.device.removed':     'Eszköz eltávolítva. Mentse el az új .biowallet fájlt.',
 
     /* ── Confirm modal ─────────────────────────────────────────────── */
     'confirm.title':    'Tranzakció megerősítése',
@@ -213,6 +222,7 @@ const STRINGS = {
     'err.consumed':      'A token már felhasználásra került — próbálja újra.',
     'err.mnemonic':      'Érvénytelen seed phrase — ellenőrizze a szavakat és a sorrendet (BIP39 szólista).',
     'err.tx.mismatch':   'Tranzakció ujjlenyomat mismatch — aláírás blokkolva.',
+    'err.device.prf':    'WebAuthn PRF nem támogatott ezen az eszközön/böngészőn.',
     'bf.remaining':      ' · még {n} próba a zárolásig',
 
     /* ── Guide modal ───────────────────────────────────────────────── */
@@ -280,6 +290,10 @@ const STRINGS = {
     'btn.paper.sub':      'Recovery code — the 24 words never appear digitally',
     'btn.lock':           'Lock immediately',
     'btn.lock.sub':       'Erase private key from memory',
+    'btn.device':         'Add this device',
+    'btn.device.sub':     'Make this device a second factor — fingerprint / Windows Hello',
+    'btn.device.remove':  'Remove device',
+    'btn.device.remove.sub': 'Remove this device from the second factors',
     'footer':             'BioWallet · DCC causal chain · BCH-255 · AES-256-GCM · secp256k1',
 
     /* ── Dynamic messages ──────────────────────────────────────────── */
@@ -342,6 +356,11 @@ const STRINGS = {
     'msg.tx.no.blockscout':   'TX history not available on this network',
     'msg.tx.empty':           'No transactions yet',
     'msg.tx.unavailable':     'Unavailable',
+    'msg.device.auth':        'Device authentication in progress...',
+    'msg.device.fallback':    'Device skipped — face-only unlock.',
+    'msg.device.enrolled':    'Device enrolled! Save the new .biowallet file.',
+    'msg.device.offer':       'Register this device as a second factor? (fingerprint / Windows Hello)',
+    'msg.device.removed':     'Device removed. Save the new .biowallet file.',
 
     /* ── Confirm modal ─────────────────────────────────────────────── */
     'confirm.title':    'Confirm transaction',
@@ -428,6 +447,7 @@ const STRINGS = {
     'err.consumed':      'Token already consumed — please try again.',
     'err.mnemonic':      'Invalid seed phrase — check the words and their order (BIP39 word list).',
     'err.tx.mismatch':   'Transaction fingerprint mismatch — signing blocked.',
+    'err.device.prf':    'WebAuthn PRF not supported on this device/browser.',
     'bf.remaining':      ' · {n} attempts left before lockout',
 
     /* ── Guide modal ───────────────────────────────────────────────── */
