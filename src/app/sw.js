@@ -1,5 +1,5 @@
 // BioWallet ServiceWorker — offline cache (Phase C + WC2)
-const CACHE = 'biowallet-v7';
+const CACHE = 'biowallet-v8';
 
 const PRECACHE = [
   '/app/',
@@ -29,10 +29,15 @@ const PRECACHE = [
   '/recovery_tool.html',
 ];
 
+// cache: 'reload' — HTTP cache kihagyása, mindig a szerverről tölt
 self.addEventListener('install', e =>
   e.waitUntil(
     caches.open(CACHE)
-      .then(c => c.addAll(PRECACHE))
+      .then(c => Promise.all(
+        PRECACHE.map(url =>
+          fetch(url, { cache: 'reload' }).then(r => c.put(url, r))
+        )
+      ))
       .then(() => self.skipWaiting())
   )
 );
