@@ -1,7 +1,8 @@
 /**
  * BioWallet — WalletConnect v2 Session Manager
  *
- * Szükséges: window.WC2 = { Web3Wallet, Core } (vendor/wc2.min.js)
+ * Szükséges: window.WC2 = { WalletKit, Core } (vendor/wc2.min.js)
+ * SDK: @reown/walletkit 1.5.5 + @walletconnect/core 2.23.9
  * Project ID: cloud.walletconnect.com → ingyenes regisztráció
  */
 
@@ -18,11 +19,11 @@ const WC_METADATA = {
 let _wallet = null;
 
 export async function initWC(handlers) {
-  if (!window.WC2?.Web3Wallet) throw new Error('wc2.min.js nincs betöltve');
-  if (!WC_PROJECT_ID)           throw new Error('WC_PROJECT_ID nincs beállítva (src/core/wc2.js)');
+  if (!window.WC2?.WalletKit) throw new Error('wc2.min.js nincs betöltve');
+  if (!WC_PROJECT_ID)         throw new Error('WC_PROJECT_ID nincs beállítva (src/core/wc2.js)');
 
   const core = new window.WC2.Core({ projectId: WC_PROJECT_ID });
-  _wallet    = await window.WC2.Web3Wallet.init({ core, metadata: WC_METADATA });
+  _wallet    = await window.WC2.WalletKit.init({ core, metadata: WC_METADATA });
 
   _wallet.on('session_proposal', (p) => handlers.onProposal?.(p));
   _wallet.on('session_request',  (r) => handlers.onRequest?.(r));
@@ -33,7 +34,7 @@ export async function initWC(handlers) {
 
 export async function wcPair(uri) {
   if (!_wallet) throw new Error('WC nincs inicializálva');
-  return _wallet.core.pairing.pair({ uri: uri.trim() });
+  return _wallet.pair({ uri: uri.trim() });
 }
 
 export async function wcApprove(id, address, chainId) {

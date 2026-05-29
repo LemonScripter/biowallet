@@ -560,29 +560,96 @@ print(f"  {'PASS' if ok_sss else 'FAIL'} SSS6: threshold=2, bio+fingerprint enro
 
 
 # ══════════════════════════════════════════════════════════════════
+# AZONOSÍTÁSI ALKOTMÁNY — 2-of-3 belépési feltétel
+#   "arc és/vagy ujj és/vagy vas — ebből az első belépéskor
+#    legalább kettőnek kell érvényesülni"
+# ══════════════════════════════════════════════════════════════════
+
+print("\n── Azonosítási alkotmány (2-of-3 enrollment) ─────────")
+
+# Újabb változók az alkotmányhoz
+enrollment_complete = Bool('enrollment_complete')   # regisztráció befejezett
+
+ALKOTMANY_AXIOMS = SSS_AXIOMS + [
+    # Regisztráció csak akkor teljes, ha >=2 faktor aktív
+    Implies(enrollment_complete, enrolled_factors >= 2),
+
+    # vault_open_p10 csak befejezett regisztrációval
+    Implies(vault_open_p10, enrollment_complete),
+]
+
+# ALKOT1: enrollment_complete AND enrolled_factors < 2 → LEHETETLEN
+results.append(run_proof(
+    "ALKOT1: enrollment_complete, enrolled_factors<2 → LEHETETLEN",
+    ALKOTMANY_AXIOMS, And(enrollment_complete, enrolled_factors < 2)))
+
+# ALKOT2: vault_open_p10 AND NOT enrollment_complete → LEHETETLEN
+results.append(run_proof(
+    "ALKOT2: vault_open_p10, NOT enrollment_complete → LEHETETLEN",
+    ALKOTMANY_AXIOMS, And(vault_open_p10, Not(enrollment_complete))))
+
+# ALKOT3: arc + ujj elegendő a belépéshez (SAT)
+s_a3 = Solver()
+for a in ALKOTMANY_AXIOMS: s_a3.add(a)
+s_a3.add(factor_bio, factor_fin, Not(factor_hw),
+         sss_threshold == 2, shares_count == 2, sss_split,
+         enrollment_complete, vault_open_p10, reconstruct_ok)
+ok_a3 = s_a3.check() == sat
+results.append(ok_a3)
+print(f"  {'PASS' if ok_a3 else 'FAIL'} ALKOT3: arc+ujj → vault_open SAT (2-of-3 ok)")
+
+# ALKOT4: arc + hardverkulcs elegendő (SAT)
+s_a4 = Solver()
+for a in ALKOTMANY_AXIOMS: s_a4.add(a)
+s_a4.add(factor_bio, Not(factor_fin), factor_hw,
+         sss_threshold == 2, shares_count == 2, sss_split,
+         enrollment_complete, vault_open_p10, reconstruct_ok)
+ok_a4 = s_a4.check() == sat
+results.append(ok_a4)
+print(f"  {'PASS' if ok_a4 else 'FAIL'} ALKOT4: arc+hardver → vault_open SAT (2-of-3 ok)")
+
+# ALKOT5: ujj + hardverkulcs elegendő (SAT)
+s_a5 = Solver()
+for a in ALKOTMANY_AXIOMS: s_a5.add(a)
+s_a5.add(Not(factor_bio), factor_fin, factor_hw,
+         sss_threshold == 2, shares_count == 2, sss_split,
+         enrollment_complete, vault_open_p10, reconstruct_ok)
+ok_a5 = s_a5.check() == sat
+results.append(ok_a5)
+print(f"  {'PASS' if ok_a5 else 'FAIL'} ALKOT5: ujj+hardver → vault_open SAT (2-of-3 ok)")
+
+# ALKOT6: csak arc (1-of-3) → vault_open LEHETETLEN
+results.append(run_proof(
+    "ALKOT6: csak arc (1 faktor) → vault_open LEHETETLEN",
+    ALKOTMANY_AXIOMS, And(factor_bio, Not(factor_fin), Not(factor_hw), vault_open_p10)))
+
+
+# ══════════════════════════════════════════════════════════════════
 # ÖSSZESÍTÉS
 # ══════════════════════════════════════════════════════════════════
 
 print("\n" + "=" * 56)
 passed = sum(results)
 total  = len(results)
-dcc_ok = all(results[:7])
-df_ok  = all(results[7:21])
-bch_ok = all(results[21:25])
-p5_ok  = all(results[25:33])
-p9_ok  = all(results[33:39])
-sss_ok = all(results[39:])
+dcc_ok    = all(results[:7])
+df_ok     = all(results[7:21])
+bch_ok    = all(results[21:25])
+p5_ok     = all(results[25:33])
+p9_ok     = all(results[33:39])
+sss_ok    = all(results[39:45])
+alkot_ok  = all(results[45:])
 
 print(f"DCC invariansok:       {sum(results[:7])}/7   {'PASS' if dcc_ok else 'FAIL'}")
 print(f"DATA_FLOW invariansok: {sum(results[7:21])}/14  {'PASS' if df_ok else 'FAIL'}")
 print(f"BCH invariansok:       {sum(results[21:25])}/4   {'PASS' if bch_ok else 'FAIL'}")
 print(f"Phase 5 invariansok:   {sum(results[25:33])}/8   {'PASS' if p5_ok else 'FAIL'}")
 print(f"Phase 9 invariansok:   {sum(results[33:39])}/6   {'PASS' if p9_ok else 'FAIL'}")
-print(f"Phase 10 SSS:          {sum(results[39:])}/6   {'PASS' if sss_ok else 'FAIL'}")
+print(f"Phase 10 SSS:          {sum(results[39:45])}/6   {'PASS' if sss_ok else 'FAIL'}")
+print(f"Azonositasi alkotmany: {sum(results[45:])}/6   {'PASS' if alkot_ok else 'FAIL'}")
 print(f"Osszesitett:           {passed}/{total}")
 print()
 if passed == total:
-    print("BioWallet -- DCC + DATA_FLOW + BCH + PHASE5 + SSS: FORMÁLISAN BIZONYÍTOTT")
+    print("BioWallet -- DCC + DATA_FLOW + BCH + PHASE5 + SSS + ALKOTMANY: FORMÁLISAN BIZONYÍTOTT")
 else:
     print("FIGYELEM: egyes invariansok nem teljesulnek!")
 print("=" * 56)
