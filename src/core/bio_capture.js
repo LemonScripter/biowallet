@@ -46,10 +46,17 @@ export async function openCamera(videoEl, onStatus) {
     videoEl.srcObject = null;
   }
 
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { width: 640, height: 480, facingMode: 'user' },
-    audio: false,
-  });
+  // Use ideal constraints — exact facingMode causes Samsung Browser to open native camera app
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: { ideal: 'user' } },
+      audio: false,
+    });
+  } catch {
+    // Fallback: accept any camera (handles devices that reject facingMode entirely)
+    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+  }
   videoEl.srcObject = stream;
 
   // loadedmetadata + 2s fallback timeout (Firefox race condition)
