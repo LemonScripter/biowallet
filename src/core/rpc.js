@@ -185,7 +185,7 @@ export function encodeTransfer(to, amount) {
 export async function fetchTxHistory(address, network, limit = 5) {
   if (!network?.blockscout) throw new Error('TX history nem elérhető ezen a hálózaton');
   const res = await fetch(
-    `${network.blockscout}/api/v2/addresses/${address}/transactions?filter=to%20%7C%20from`
+    `${network.blockscout}/api/v2/addresses/${address}/transactions`
   );
   if (!res.ok) throw new Error(`Blockscout ${res.status}`);
   const { items } = await res.json();
