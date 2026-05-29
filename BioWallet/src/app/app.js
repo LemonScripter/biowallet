@@ -8,16 +8,20 @@
 
 import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=11';
 import {
+  WC_PROJECT_ID, initWC, wcPair, wcApprove, wcRejectProposal,
+  wcRespondOk, wcRespondError, wcGetSessions, wcDisconnect, wcReady,
+} from '../core/wc2.js';
+import {
   NETWORKS, getBalance, getNonce,
   getFeeData, estimateGas, broadcastTx,
   ethToWei, weiToEth, isValidAddress, resolveENS,
   getTokenBalance, formatToken, fetchTxHistory,
   tokenToRaw, encodeTransfer,
-} from '../core/rpc.js?v=19';
+} from '../core/rpc.js?v=20';
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
-const worker  = new Worker('./vault_worker.js?v=19', { type: 'module' });
+const worker  = new Worker('./vault_worker.js?v=20', { type: 'module' });
 let _nextId   = 0;
 const _pending = new Map();
 
@@ -75,6 +79,10 @@ const sendToInput    = document.getElementById('send-to');
 const sendAmountInput= document.getElementById('send-amount');
 const txResult       = document.getElementById('tx-result');
 const txLink         = document.getElementById('tx-link');
+const wcBar          = document.getElementById('wc-bar');
+const wcDappName     = document.getElementById('wc-dapp-name');
+const btnWcDisc      = document.getElementById('btn-wc-disc');
+const btnWc          = document.getElementById('btn-wc');
 const txHistoryCard  = document.getElementById('tx-history-card');
 const txHistoryList  = document.getElementById('tx-history-list');
 const sendCardLabel  = document.getElementById('send-card-label');
@@ -95,8 +103,9 @@ let currentNetwork    = NETWORKS.sepolia;
 let vaultReady        = false;      // worker-ben van-e aktív vault
 let ensResolved       = null;       // ENS → ETH cím (ha feloldva)
 let inCooldown        = false;      // brute-force védelem aktív
-let selectedToken     = null;       // null=ETH, egyéb={ symbol,address,decimals }
+let selectedToken       = null;       // null=ETH, egyéb={ symbol,address,decimals }
 const tokenBalanceCache = new Map(); // symbol → raw BigInt
+let pendingWCReq        = null;       // { topic, id, params } — WC kérés vault-lock esetén
 
 // ── Init ──────────────────────────────────────────────────────────────────
 (async () => {
@@ -600,6 +609,12 @@ btnScan.addEventListener('click', async () => {
     setScanning(false, true);
     setMsg('Vault nyitva.', 'ok');
     showPanel('vault');
+    ensureWCInit().catch(() => {});
+    if (pendingWCReq) {
+      const req = pendingWCReq;
+      pendingWCReq = null;
+      dispatchWCRequest(req.topic, req.id, req.params).catch(() => {});
+    }
   } catch (e) {
     setScanning(false);
     if (e.message.includes('BIO_MISMATCH')) bioFail();
@@ -826,6 +841,27 @@ btnQR.addEventListener('click', async () => {
   } catch { /* QR lib nem töltött be — offline PWA */ }
 });
 
+// ── WalletConnect gombok ──────────────────────────────────────────────────
+btnWc.addEventListener('click', async () => {
+  const uri = await showWCPairModal();
+  if (!uri) return;
+  try {
+    await ensureWCInit();
+    if (!wcReady()) return;
+    await wcPair(uri);
+    setMsg('WC párosítás folyamatban — várja a dApp jóváhagyási kérést...', '');
+  } catch (e) {
+    setMsg(`WC hiba: ${e.message}`, 'error');
+  }
+});
+
+btnWcDisc.addEventListener('click', async () => {
+  const sessions = wcGetSessions();
+  for (const s of sessions) await wcDisconnect(s.topic);
+  updateWCBar();
+  setMsg('WalletConnect kapcsolat bontva.', '');
+});
+
 // ── ENS feloldás (C3) — debounce 600ms ───────────────────────────────────
 let _ensTimer = null;
 sendToInput.addEventListener('input', () => {
@@ -956,6 +992,241 @@ async function fetchTokenBalances(address) {
       tokenBalances.appendChild(row);
     } catch { /* ismeretlen token vagy RPC hiba — kihagyás */ }
   }));
+}
+
+// ── WalletConnect v2 ──────────────────────────────────────────────────────
+
+async function ensureWCInit() {
+  if (wcReady()) return;
+  if (!WC_PROJECT_ID) {
+    setMsg('WalletConnect Project ID nincs beállítva (src/core/wc2.js).', 'error');
+    return;
+  }
+  await initWC({
+    onProposal:      handleWCProposal,
+    onRequest:       handleWCRequest,
+    onSessionDelete: () => updateWCBar(),
+  });
+}
+
+function updateWCBar() {
+  const sessions = wcGetSessions();
+  if (sessions.length) {
+    const name = sessions[0].peer?.metadata?.name ?? 'dApp';
+    wcDappName.textContent = name;
+    wcBar.classList.add('visible');
+  } else {
+    wcBar.classList.remove('visible');
+  }
+}
+
+async function handleWCProposal(proposal) {
+  const meta    = proposal.params?.proposer?.metadata ?? {};
+  const address = ethAddress.textContent;
+  const approved = await showWCProposalModal(meta);
+  if (approved) {
+    await wcApprove(proposal.id, address, currentNetwork.chainId);
+  } else {
+    await wcRejectProposal(proposal.id);
+  }
+  updateWCBar();
+}
+
+async function handleWCRequest(event) {
+  const { topic, id, params } = event;
+  const method = params.request.method;
+
+  // Ha vault zárolt: queue + üzenet
+  if (ethAddress.textContent === '—') {
+    pendingWCReq = event;
+    setMsg(`Bejövő dApp kérés (${method}) — nyissa meg a vaultot az arc-scannel.`, 'ok');
+    return;
+  }
+
+  await dispatchWCRequest(topic, id, params);
+}
+
+async function dispatchWCRequest(topic, id, params) {
+  const method = params.request.method;
+
+  if (method === 'eth_sendTransaction') {
+    await handleWCEthSend(topic, id, params.request.params[0]);
+  } else if (method === 'personal_sign') {
+    await handleWCPersonalSign(topic, id, params.request.params[0]);
+  } else {
+    await wcRespondError(topic, id, `Nem támogatott: ${method}`);
+    setMsg(`dApp kérés elutasítva — ${method} nem támogatott.`, 'error');
+  }
+}
+
+async function handleWCEthSend(topic, id, wcTx) {
+  const address = ethAddress.textContent;
+  if (cooldownMs() > 0) { await wcRespondError(topic, id, 'Cooldown aktív'); return; }
+
+  setMsg('Hálózati adatok lekérdezése (dApp TX)...', '');
+  let nonce, feeData, gasLimit;
+  try {
+    const txValue = BigInt(wcTx.value ?? '0x0');
+    const txData  = wcTx.data ?? '0x';
+    const txTo    = wcTx.to;
+    [nonce, feeData] = await Promise.all([
+      getNonce(address, currentNetwork.rpc),
+      getFeeData(currentNetwork.rpc),
+    ]);
+    gasLimit = await estimateGas(
+      { from: address, to: txTo, value: txValue, data: txData },
+      currentNetwork.rpc, 65000n,
+    );
+
+    const confirmed = await showConfirm({
+      to:      txTo,
+      amount:  weiToEth(txValue.toString()) + ' ETH',
+      gas:     `~${weiToEth((gasLimit * feeData.maxFeePerGas).toString())} ETH`,
+      network: currentNetwork.name + ' (dApp)',
+    });
+    if (!confirmed) { await wcRespondError(topic, id); setMsg('dApp TX elutasítva.', ''); return; }
+
+    setScanning(true);
+    setMsg('Arc-scan a dApp TX aláíráshoz...', '');
+    const meta      = JSON.parse(localStorage.getItem('biowallet_meta'));
+    const embedding = await captureEmbedding(video);
+    await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
+    bioSuccess();
+
+    const { signed } = await callWorker('SIGN', {
+      tx: {
+        to: wcTx.to, value: (BigInt(wcTx.value ?? '0x0')).toString(),
+        data: wcTx.data ?? '0x', nonce,
+        gasLimit: gasLimit.toString(), chainId: currentNetwork.chainId,
+        maxFeePerGas: feeData.maxFeePerGas.toString(),
+        maxPriorityFeePerGas: feeData.maxPriorityFeePerGas.toString(),
+      },
+    });
+    setScanning(false);
+    const txHash = await broadcastTx(signed, currentNetwork.rpc);
+    await wcRespondOk(topic, id, txHash);
+    setMsg(`dApp TX elküldve: ${txHash.slice(0,10)}…`, 'ok');
+  } catch (e) {
+    setScanning(false);
+    if (e.message?.includes('BIO_MISMATCH')) bioFail();
+    await wcRespondError(topic, id, e.message);
+    setMsg(friendlyError(e.message) + bioFailHint(), 'error');
+  }
+}
+
+async function handleWCPersonalSign(topic, id, hexMsg) {
+  if (cooldownMs() > 0) { await wcRespondError(topic, id, 'Cooldown aktív'); return; }
+
+  const approved = await showWCSignModal(hexMsg);
+  if (!approved) { await wcRespondError(topic, id); return; }
+
+  try {
+    setScanning(true);
+    setMsg('Arc-scan az üzenet aláíráshoz...', '');
+    const meta      = JSON.parse(localStorage.getItem('biowallet_meta'));
+    const embedding = await captureEmbedding(video);
+    await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
+    bioSuccess();
+    const { signature } = await callWorker('PERSONAL_SIGN', { message: hexMsg });
+    setScanning(false);
+    await wcRespondOk(topic, id, signature);
+    setMsg('Üzenet aláírva.', 'ok');
+  } catch (e) {
+    setScanning(false);
+    if (e.message?.includes('BIO_MISMATCH')) bioFail();
+    await wcRespondError(topic, id, e.message);
+    setMsg(friendlyError(e.message) + bioFailHint(), 'error');
+  }
+}
+
+// ── WC modals ─────────────────────────────────────────────────────────────
+
+function showWCPairModal() {
+  return new Promise(resolve => {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;';
+    ov.innerHTML = `
+      <div style="background:#16161a;border:1px solid #2a2a35;border-radius:16px;width:100%;max-width:400px;padding:1.5rem;">
+        <div style="font-size:1rem;font-weight:700;color:#6c63ff;margin-bottom:0.8rem;">dApp kapcsolódás</div>
+        <div style="font-size:0.78rem;color:#6b6b80;margin-bottom:0.8rem;line-height:1.5;">
+          Nyissa meg a dApp-ot (pl. Uniswap), kattintson a <strong style="color:#e8e8f0">WalletConnect</strong> gombra,
+          másolja a URI-t és illessze be ide.
+        </div>
+        <textarea id="_wc_uri" style="width:100%;background:#1e1e24;border:1px solid #2a2a35;border-radius:10px;
+          padding:0.6rem;color:#e8e8f0;font-size:0.75rem;font-family:monospace;resize:vertical;min-height:70px;outline:none;"
+          placeholder="wc:..."></textarea>
+        <div id="_wc_err" style="font-size:0.72rem;color:#ff4757;margin-top:0.4rem;min-height:1em;"></div>
+        <div style="display:flex;gap:0.75rem;margin-top:0.8rem;">
+          <button id="_wc_cancel" style="flex:1;padding:0.7rem;border-radius:10px;border:1px solid #2a2a35;background:#1e1e24;color:#e8e8f0;font-size:0.85rem;font-weight:600;cursor:pointer;">Mégse</button>
+          <button id="_wc_ok" style="flex:1;padding:0.7rem;border-radius:10px;border:none;background:#6c63ff;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;">Kapcsolódás</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    ov.querySelector('#_wc_cancel').onclick = () => { ov.remove(); resolve(null); };
+    ov.querySelector('#_wc_ok').onclick = async () => {
+      const uri = ov.querySelector('#_wc_uri').value.trim();
+      if (!uri.startsWith('wc:')) {
+        ov.querySelector('#_wc_err').textContent = 'Érvénytelen WC URI (wc:... formátum szükséges).'; return;
+      }
+      ov.remove(); resolve(uri);
+    };
+  });
+}
+
+function showWCProposalModal(meta) {
+  return new Promise(resolve => {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;';
+    ov.innerHTML = `
+      <div style="background:#16161a;border:1px solid #2a2a35;border-radius:16px;width:100%;max-width:400px;padding:1.5rem;">
+        <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#ffa502;margin-bottom:0.3rem;">dApp kapcsolódási kérés</div>
+        <div style="font-size:1rem;font-weight:700;color:#e8e8f0;margin-bottom:0.25rem;">${meta.name ?? 'Ismeretlen dApp'}</div>
+        <div style="font-size:0.75rem;color:#6b6b80;margin-bottom:0.25rem;">${meta.url ?? ''}</div>
+        <div style="font-size:0.78rem;color:#a0a0b0;margin-bottom:1rem;line-height:1.5;">${meta.description ?? ''}</div>
+        <div style="font-size:0.75rem;color:#6b6b80;padding:0.5rem 0.7rem;background:#1e1e24;border-radius:8px;margin-bottom:1rem;line-height:1.5;">
+          A dApp olvasni fogja az Ethereum <strong style="color:#e8e8f0">címét</strong> és aláírási kéréseket küldhet.<br>
+          <strong style="color:#4CAF50">Minden aláírás külön arc-scant igényel.</strong>
+        </div>
+        <div style="display:flex;gap:0.75rem;">
+          <button id="_wc_reject" style="flex:1;padding:0.7rem;border-radius:10px;border:1px solid #5a2020;background:#2b0a0a;color:#ff4757;font-size:0.85rem;font-weight:600;cursor:pointer;">Elutasít</button>
+          <button id="_wc_approve" style="flex:1;padding:0.7rem;border-radius:10px;border:none;background:#6c63ff;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;">Jóváhagy</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    ov.querySelector('#_wc_reject').onclick  = () => { ov.remove(); resolve(false); };
+    ov.querySelector('#_wc_approve').onclick = () => { ov.remove(); resolve(true); };
+  });
+}
+
+function showWCSignModal(hexMsg) {
+  let decoded = hexMsg;
+  try {
+    const bytes = hexMsg.startsWith('0x')
+      ? new Uint8Array(hexMsg.slice(2).match(/../g).map(h => parseInt(h,16)))
+      : new TextEncoder().encode(hexMsg);
+    const txt = new TextDecoder().decode(bytes);
+    if (/^[\x20-\x7E\n\r\t]+$/.test(txt)) decoded = txt;
+  } catch { /* leave as hex */ }
+
+  return new Promise(resolve => {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;';
+    ov.innerHTML = `
+      <div style="background:#16161a;border:1px solid #2a2a35;border-radius:16px;width:100%;max-width:400px;padding:1.5rem;">
+        <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#ffa502;margin-bottom:0.3rem;">Üzenet aláírási kérés</div>
+        <div style="font-size:0.78rem;color:#6b6b80;margin-bottom:0.6rem;">A dApp az alábbi üzenetet kéri aláírni:</div>
+        <div style="background:#1e1e24;border:1px solid #2a2a35;border-radius:8px;padding:0.7rem;
+             font-family:monospace;font-size:0.75rem;color:#e8e8f0;word-break:break-all;
+             max-height:120px;overflow-y:auto;margin-bottom:1rem;line-height:1.5;">${decoded}</div>
+        <div style="display:flex;gap:0.75rem;">
+          <button id="_wcs_reject" style="flex:1;padding:0.7rem;border-radius:10px;border:1px solid #5a2020;background:#2b0a0a;color:#ff4757;font-size:0.85rem;font-weight:600;cursor:pointer;">Elutasít</button>
+          <button id="_wcs_sign" style="flex:1;padding:0.7rem;border-radius:10px;border:none;background:#6c63ff;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;">Arc-scan + Aláír</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    ov.querySelector('#_wcs_reject').onclick = () => { ov.remove(); resolve(false); };
+    ov.querySelector('#_wcs_sign').onclick   = () => { ov.remove(); resolve(true); };
+  });
 }
 
 function updateTokenSelector() {
@@ -1114,6 +1385,7 @@ function showPanel(name) {
     ensResolved                 = null;
     ensHint.style.display   = 'none';
     qrWrap.style.display    = 'none';
+    wcBar.classList.remove('visible');
   }
 }
 

@@ -73,6 +73,12 @@ async function handle(type, p) {
       return { signed: res.signed, from: res.from };
     }
 
+    case 'PERSONAL_SIGN': {
+      if (!vault) throw new Error('Nincs vault inicializálva');
+      const sig = await vault.personalSign(p.message);
+      return { signature: sig };
+    }
+
     case 'RECOVERY_FORMULA': {
       if (!vault) throw new Error('Nincs vault inicializálva');
       const { rawA, r } = await vault.makeRecoveryFormula();

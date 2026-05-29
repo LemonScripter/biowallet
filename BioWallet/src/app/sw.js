@@ -1,5 +1,5 @@
-// BioWallet ServiceWorker — offline cache (Phase C)
-const CACHE = 'biowallet-v3';
+// BioWallet ServiceWorker — offline cache (Phase C + WC2)
+const CACHE = 'biowallet-v4';
 
 const PRECACHE = [
   '/app/',
@@ -14,9 +14,11 @@ const PRECACHE = [
   '/core/rpc.js',
   '/core/vault.js',
   '/core/wallet.js',
+  '/core/wc2.js',
   '/vendor/face-api.min.js',
   '/vendor/ethers.umd.min.js',
   '/vendor/qrcode.min.js',
+  '/vendor/wc2.min.js',
   '/models/tiny_face_detector_model-shard1',
   '/models/tiny_face_detector_model-weights_manifest.json',
   '/models/face_landmark_68_model-shard1',
