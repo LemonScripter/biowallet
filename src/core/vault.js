@@ -22,8 +22,9 @@ const AES_MODE = 'AES-GCM';
 class BioVault {
   #chain;
   #vaultId;
-  #cryptoKey = null;    // WebCrypto CryptoKey — lives in memory, auto-nulled after lock
-  #vaultData = null;    // { seed, accounts, metadata } — decrypted state
+  #cryptoKey     = null;   // WebCrypto CryptoKey — lives in memory, auto-nulled after lock
+  #vaultData     = null;   // { seed, accounts, metadata } — decrypted state
+  #pendingTxHash = null;   // SHA-256 hex of committed tx; set by commitTx(), cleared by lock/cancelCommit
 
   constructor(vaultId) {
     this.#vaultId = vaultId;
@@ -32,17 +33,53 @@ class BioVault {
 
   get id() { return this.#vaultId; }
 
+  // ── TX commitment (pre-sign causal anchor) ───────────────────────────────
+
+  /**
+   * Commit a transaction before the second biometric scan.
+   * Returns an 8-hex-char fingerprint shown to the user; the user must manually
+   * type the first 4 characters into the confirm modal before the second scan.
+   * This binds the physical user attention to the exact tx being signed.
+   *
+   * @param {object} tx  — the transaction object (same fields as sign())
+   * @returns {string}   — 8-character hex fingerprint (SHA-256(canonical(tx))[:8])
+   */
+  async commitTx(tx) {
+    const canonical = JSON.stringify(tx, Object.keys(tx).sort());
+    const hashBuf   = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
+    const hex = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
+    this.#pendingTxHash = hex;
+    return hex.slice(0, 8);
+  }
+
+  /** Cancel a pending tx commit without locking the vault (user dismissed confirm modal). */
+  cancelCommit() {
+    this.#pendingTxHash = null;
+  }
+
   // ── Biometric event ───────────────────────────────────────────────────────
 
   /**
    * Face capture succeeded → token issued.
    * Called by the app directly after bio_capture.
-   * @param {Float32Array} embedding — FaceNet 512-dim output
-   * @param {Uint8Array}   P         — fuzzy extractor helper (public)
+   *
+   * In the SIGN flow, `userInput` must contain the first 4 chars the user
+   * typed from the fingerprint display. If #pendingTxHash is set and
+   * userInput doesn't match its first 4 chars → TX_MISMATCH (blocks substitution).
+   *
+   * @param {Float32Array} embedding   — FaceNet 512-dim output
+   * @param {Uint8Array}   P           — fuzzy extractor helper (public)
+   * @param {string|null}  userInput   — manually typed fingerprint prefix (SIGN only)
    */
-  async onBioCapture(embedding, P) {
-    const R = await fuzzyExtract(embedding, P);   // stabil kulcs → tokenbe
-    this.#chain.issue(R, this.#vaultId);           // vault-kötés: vaultId egyezés (P4)
+  async onBioCapture(embedding, P, userInput = null) {
+    if (this.#pendingTxHash !== null && userInput !== null) {
+      if (userInput !== this.#pendingTxHash.slice(0, 4)) {
+        this.#pendingTxHash = null;
+        throw new DCCError('TX_MISMATCH', 'BIO_CAPTURE');
+      }
+    }
+    const R = await fuzzyExtract(embedding, P);
+    this.#chain.issue(R, this.#vaultId, this.#pendingTxHash);
   }
 
   // ── Vault creation (once, on first launch) ───────────────────────────────
@@ -127,15 +164,22 @@ class BioVault {
 
   /**
    * Sign a transaction — strictest TTL (10s), auto-lock after.
+   * Verifies that the tx matches the hash committed in commitTx() (P_TX).
    * @param {object} tx
    */
   async sign(tx) {
     if (!this.#cryptoKey || !this.#vaultData) {
       throw new DCCError('VAULT_LOCKED', 'SIGN');
     }
-    // New biometric scan required for every signing (P5)
-    // gate() returns R — not needed for KDF here, only causal check
-    this.#chain.gate('SIGN', this.#vaultId);
+
+    // Compute hash of the tx to verify against the token-bound hash (P_TX)
+    const canonical = JSON.stringify(tx, Object.keys(tx).sort());
+    const hashBuf   = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
+    const txHash    = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
+
+    // New biometric scan required for every signing (P5); gate also checks TX_MISMATCH
+    this.#chain.gate('SIGN', this.#vaultId, txHash);
+    this.#pendingTxHash = null;
 
     const seed   = fromHex(this.#vaultData.seed);
     const signed = await signEthTx(tx, seed);
@@ -190,8 +234,9 @@ class BioVault {
 
   lock() {
     this.#chain.revoke();
-    this.#cryptoKey = null;
-    this.#vaultData = null;
+    this.#cryptoKey     = null;
+    this.#vaultData     = null;
+    this.#pendingTxHash = null;
   }
 
   chainStatus() { return this.#chain.status(); }

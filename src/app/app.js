@@ -709,13 +709,33 @@ btnSign.addEventListener('click', async () => {
     return;
   }
 
-  const confirmed = await showConfirm({
-    to:      recipient,
-    amount:  confirmAmount,
-    gas:     `~${weiToEth(gasLimit * feeData.maxFeePerGas)} ETH`,
-    network: currentNetwork.name,
+  // Build the canonical tx payload before commit (same object used for SIGN)
+  const txPayload = {
+    to:                   txTo,
+    value:                txValue.toString(),
+    data:                 txData,
+    nonce,
+    gasLimit:             gasLimit.toString(),
+    chainId:              currentNetwork.chainId,
+    maxFeePerGas:         feeData.maxFeePerGas.toString(),
+    maxPriorityFeePerGas: feeData.maxPriorityFeePerGas.toString(),
+  };
+
+  // Commit tx to Worker: Worker stores hash(txPayload), returns 8-char fingerprint
+  const { fingerprint } = await callWorker('COMMIT_TX', { tx: txPayload });
+
+  const { confirmed, userInput } = await showConfirm({
+    to:          recipient,
+    amount:      confirmAmount,
+    gas:         `~${weiToEth(gasLimit * feeData.maxFeePerGas)} ETH`,
+    network:     currentNetwork.name,
+    fingerprint,
   });
-  if (!confirmed) { setMsg(t('msg.tx.cancelled'), ''); return; }
+  if (!confirmed) {
+    await callWorker('CANCEL_TX');
+    setMsg(t('msg.tx.cancelled'), '');
+    return;
+  }
 
   if (cooldownMs() > 0) return;
   btnSign.disabled = true;
@@ -725,21 +745,10 @@ btnSign.addEventListener('click', async () => {
   try {
     const meta      = JSON.parse(localStorage.getItem('biowallet_meta'));
     const embedding = await captureEmbedding(video);
-    await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
+    await callWorker('BIO_CAPTURE', { embedding, P: meta.P, userInput }, [embedding.buffer]);
     bioSuccess();
 
-    const { signed } = await callWorker('SIGN', {
-      tx: {
-        to:                   txTo,
-        value:                txValue.toString(),
-        data:                 txData,
-        nonce,
-        gasLimit:             gasLimit.toString(),
-        chainId:              currentNetwork.chainId,
-        maxFeePerGas:         feeData.maxFeePerGas.toString(),
-        maxPriorityFeePerGas: feeData.maxPriorityFeePerGas.toString(),
-      },
-    });
+    const { signed } = await callWorker('SIGN', { tx: txPayload });
 
     setScanning(false);
     setMsg(t('msg.broadcast'), '');
@@ -1129,30 +1138,41 @@ async function handleWCEthSend(topic, id, wcTx) {
       currentNetwork.rpc, 65000n,
     );
 
-    const confirmed = await showConfirm({
-      to:      txTo,
-      amount:  weiToEth(txValue.toString()) + ' ' + currentNetwork.nativeSymbol,
-      gas:     `~${weiToEth((gasLimit * feeData.maxFeePerGas).toString())} ETH`,
-      network: currentNetwork.name + ' (dApp)',
+    const wcTxPayload = {
+      to:                   wcTx.to,
+      value:                (BigInt(wcTx.value ?? '0x0')).toString(),
+      data:                 wcTx.data ?? '0x',
+      nonce,
+      gasLimit:             gasLimit.toString(),
+      chainId:              currentNetwork.chainId,
+      maxFeePerGas:         feeData.maxFeePerGas.toString(),
+      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas.toString(),
+    };
+
+    const { fingerprint: wcFp } = await callWorker('COMMIT_TX', { tx: wcTxPayload });
+
+    const { confirmed: wcConfirmed, userInput: wcUserInput } = await showConfirm({
+      to:          wcTx.to,
+      amount:      weiToEth(wcTxPayload.value) + ' ' + currentNetwork.nativeSymbol,
+      gas:         `~${weiToEth((gasLimit * feeData.maxFeePerGas).toString())} ETH`,
+      network:     currentNetwork.name + ' (dApp)',
+      fingerprint: wcFp,
     });
-    if (!confirmed) { await wcRespondError(topic, id); setMsg(t('msg.wc.tx.rejected'), ''); return; }
+    if (!wcConfirmed) {
+      await callWorker('CANCEL_TX');
+      await wcRespondError(topic, id);
+      setMsg(t('msg.wc.tx.rejected'), '');
+      return;
+    }
 
     setScanning(true);
     setMsg(t('msg.signing.dapp'), '');
     const meta      = JSON.parse(localStorage.getItem('biowallet_meta'));
     const embedding = await captureEmbedding(video);
-    await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
+    await callWorker('BIO_CAPTURE', { embedding, P: meta.P, userInput: wcUserInput }, [embedding.buffer]);
     bioSuccess();
 
-    const { signed } = await callWorker('SIGN', {
-      tx: {
-        to: wcTx.to, value: (BigInt(wcTx.value ?? '0x0')).toString(),
-        data: wcTx.data ?? '0x', nonce,
-        gasLimit: gasLimit.toString(), chainId: currentNetwork.chainId,
-        maxFeePerGas: feeData.maxFeePerGas.toString(),
-        maxPriorityFeePerGas: feeData.maxPriorityFeePerGas.toString(),
-      },
-    });
+    const { signed } = await callWorker('SIGN', { tx: wcTxPayload });
     setScanning(false);
     const txHash = await broadcastTx(signed, currentNetwork.rpc);
     await wcRespondOk(topic, id, txHash);
@@ -1365,13 +1385,35 @@ function startTimer() {
 }
 
 // ── Confirm overlay ───────────────────────────────────────────────────────
-function showConfirm({ to, amount, gas, network }) {
+// Returns { confirmed: boolean, userInput: string|null }
+// When fingerprint is provided, the confirm button is locked until user types 4 chars.
+function showConfirm({ to, amount, gas, network, fingerprint = null }) {
   return new Promise(resolve => {
     const overlay = document.createElement('div');
     overlay.style.cssText = `
       position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000;
       display:flex;align-items:center;justify-content:center;padding:1rem;
     `;
+
+    const fpSection = fingerprint ? `
+      <div style="margin-top:1rem;background:#0d1a0d;border:1px solid #1a4a1a;
+                  border-radius:10px;padding:0.75rem 0.9rem;">
+        <div style="font-size:0.68rem;font-weight:700;letter-spacing:0.07em;
+                    text-transform:uppercase;color:#4CAF50;margin-bottom:0.4rem;">
+          ${t('confirm.fp.label')}
+        </div>
+        <div id="_fp_display" style="font-family:monospace;font-size:1.2rem;font-weight:700;
+                  letter-spacing:0.18em;color:#e8e8f0;margin-bottom:0.6rem;">${fingerprint}</div>
+        <div style="font-size:0.72rem;color:#6b6b80;margin-bottom:0.4rem;">
+          ${t('confirm.fp.hint')}
+        </div>
+        <input id="_fp_input" type="text" maxlength="4" autocomplete="off" spellcheck="false"
+               style="width:100%;background:#1e1e24;border:1px solid #2a2a35;border-radius:8px;
+                      padding:0.5rem 0.6rem;color:#e8e8f0;font-family:monospace;font-size:1rem;
+                      font-weight:600;letter-spacing:0.12em;outline:none;box-sizing:border-box;"
+               placeholder="_ _ _ _">
+      </div>` : '';
+
     overlay.innerHTML = `
       <div style="background:#16161a;border:1px solid #2a2a35;border-radius:16px;
                   width:100%;max-width:400px;padding:1.5rem;">
@@ -1388,19 +1430,43 @@ function showConfirm({ to, amount, gas, network }) {
           <tr><td style="color:#6b6b80;padding:0.3rem 0;">${t('confirm.gas')}</td>
               <td style="color:#ffa502;text-align:right;">${gas}</td></tr>
         </table>
+        ${fpSection}
         <div style="display:flex;gap:0.75rem;margin-top:1.2rem;">
           <button id="_cancel" style="flex:1;padding:0.75rem;border-radius:10px;
             border:1px solid #2a2a35;background:#1e1e24;color:#e8e8f0;
             font-size:0.9rem;font-weight:600;cursor:pointer;">${t('confirm.cancel')}</button>
           <button id="_confirm" style="flex:1;padding:0.75rem;border-radius:10px;
             border:none;background:#6c63ff;color:#fff;
-            font-size:0.9rem;font-weight:600;cursor:pointer;">${t('confirm.send')}</button>
+            font-size:0.9rem;font-weight:600;cursor:pointer;
+            ${fingerprint ? 'opacity:0.4;cursor:not-allowed;' : ''}"
+            ${fingerprint ? 'disabled' : ''}>${t('confirm.send')}</button>
         </div>
       </div>
     `;
     document.body.appendChild(overlay);
-    overlay.querySelector('#_cancel').onclick  = () => { overlay.remove(); resolve(false); };
-    overlay.querySelector('#_confirm').onclick = () => { overlay.remove(); resolve(true);  };
+
+    const confirmBtn = overlay.querySelector('#_confirm');
+
+    if (fingerprint) {
+      const fpInput = overlay.querySelector('#_fp_input');
+      fpInput.addEventListener('input', () => {
+        const ready = fpInput.value.length === 4;
+        confirmBtn.disabled = !ready;
+        confirmBtn.style.opacity  = ready ? '1' : '0.4';
+        confirmBtn.style.cursor   = ready ? 'pointer' : 'not-allowed';
+      });
+      fpInput.focus();
+    }
+
+    overlay.querySelector('#_cancel').onclick = () => {
+      overlay.remove();
+      resolve({ confirmed: false, userInput: null });
+    };
+    confirmBtn.onclick = () => {
+      const userInput = fingerprint ? overlay.querySelector('#_fp_input').value : null;
+      overlay.remove();
+      resolve({ confirmed: true, userInput });
+    };
   });
 }
 
@@ -1471,6 +1537,7 @@ async function pickFile(accept) {
 // ── Friendly error messages ───────────────────────────────────────────────
 function friendlyError(m) {
   if (!m) return t('err.unknown');
+  if (m.includes('TX_MISMATCH'))     return t('err.tx.mismatch');
   if (m.includes('BIO_MISMATCH'))    return t('err.bio.mismatch');
   if (m.includes('EXPIRED'))         return t('err.expired');
   if (m.includes('NO_TOKEN'))        return t('err.no.token');

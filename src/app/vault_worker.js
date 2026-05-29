@@ -11,7 +11,9 @@
  * Típusok:
  *   INIT_VAULT   { vaultId }
  *   ENROLL       { embedding: Float32Array }
- *   BIO_CAPTURE  { embedding: Float32Array, P: object }
+ *   COMMIT_TX    { tx: object }                           → { fingerprint: string }
+ *   CANCEL_TX    {}
+ *   BIO_CAPTURE  { embedding: Float32Array, P: object, userInput?: string }
  *   OPEN         { encryptedVault: ArrayBuffer, P: object }
  *   SIGN         { tx: object }
  *   EXPORT       {}
@@ -55,9 +57,20 @@ async function handle(type, p) {
       return { vaultId: res.vaultId, P: res.P, encryptedVault: res.encryptedVault };
     }
 
+    case 'COMMIT_TX': {
+      if (!vault) throw new Error('No vault initialised');
+      const fingerprint = await vault.commitTx(p.tx);
+      return { fingerprint };
+    }
+
+    case 'CANCEL_TX': {
+      vault?.cancelCommit();
+      return {};
+    }
+
     case 'BIO_CAPTURE': {
       if (!vault) throw new Error('No vault initialised');
-      await vault.onBioCapture(p.embedding, p.P);
+      await vault.onBioCapture(p.embedding, p.P, p.userInput ?? null);
       return {};
     }
 
