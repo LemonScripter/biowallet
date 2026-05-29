@@ -545,6 +545,25 @@
       padding-right: 0.2rem;
     }
 
+    /* ── TX history ── */
+    .tx-hist-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.75rem;
+      line-height: 1.3;
+    }
+    .tx-hist-row:last-child { border-bottom: none; }
+    .tx-hist-hash {
+      color: var(--accent);
+      text-decoration: none;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.7rem;
+    }
+    .tx-hist-hash:hover { text-decoration: underline; }
+
     /* ── TX eredmény ── */
     .tx-result {
       margin-top: 0.7rem;
@@ -748,6 +767,12 @@
       ETH küldése
       <small>Fogadó cím + összeg megadása · arc-scan · auto-zárolás</small>
     </button>
+
+    <!-- TX history kártya -->
+    <div class="card" id="tx-history-card" style="display:none;">
+      <div class="card-label">Tranzakciók</div>
+      <div id="tx-history-list"></div>
+    </div>
 
     <button class="btn btn-ghost" id="btn-paper">
       Papírképlet készítése
@@ -956,6 +981,6 @@
 <script src="../vendor/qrcode.min.js"></script>
 <script src="../vendor/face-api.min.js"></script>
 <script src="../vendor/ethers.umd.min.js"></script>
-<script type="module" src="app.js?v=15"></script>
+<script type="module" src="app.js?v=16"></script>
 </body>
 </html>

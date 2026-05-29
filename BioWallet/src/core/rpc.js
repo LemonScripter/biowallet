@@ -142,3 +142,20 @@ export function formatToken(amount, decimals) {
   const frac  = (amount % d).toString().padStart(decimals, '0').slice(0, 2);
   return `${whole}.${frac}`;
 }
+
+/**
+ * Blockscout API v2 — utolsó N tranzakció (nincs API key szükséges).
+ * networkKey: 'mainnet' | 'sepolia'
+ * Visszaad: items tömb (max limit db), vagy dob hibát.
+ */
+export async function fetchTxHistory(address, networkKey, limit = 5) {
+  const base = networkKey === 'mainnet'
+    ? 'https://eth.blockscout.com'
+    : 'https://eth-sepolia.blockscout.com';
+  const res = await fetch(
+    `${base}/api/v2/addresses/${address}/transactions?filter=to%20%7C%20from`
+  );
+  if (!res.ok) throw new Error(`Blockscout ${res.status}`);
+  const { items } = await res.json();
+  return (items ?? []).slice(0, limit);
+}
