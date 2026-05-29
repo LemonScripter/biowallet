@@ -23,7 +23,7 @@ import {
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
-const worker  = new Worker('./vault_worker.js?v=20', { type: 'module' });
+const worker  = new Worker('./vault_worker.js?v=21', { type: 'module' });
 let _nextId   = 0;
 const _pending = new Map();
 
@@ -98,6 +98,8 @@ const btnQR          = document.getElementById('btn-qr');
 const qrWrap         = document.getElementById('qr-wrap');
 const qrCanvas       = document.getElementById('qr-canvas');
 const ensHint        = document.getElementById('ens-hint');
+const btnDevice      = document.getElementById('btn-device');
+const deviceRow      = document.getElementById('device-row');
 
 const dots = [0,1,2,3,4].map(i => document.getElementById(`dot-${i}`));
 
@@ -111,6 +113,7 @@ let inCooldown        = false;
 let selectedToken       = null;
 const tokenBalanceCache = new Map();
 let pendingWCReq        = null;
+let _currentMsgKey    = null;  // i18n key of the last status bar message
 
 // ── i18n init ─────────────────────────────────────────────────────────────
 applyI18n();
@@ -122,6 +125,7 @@ if (btnLang) {
     applyI18n();
     document.getElementById('guide-modal-body').innerHTML = getGuideHTML();
     _refreshDynamicLabels();
+    if (_currentMsgKey) setMsg(t(_currentMsgKey), msg.className.replace('msg-bar', '').trim());
   });
 }
 
@@ -158,21 +162,21 @@ function _refreshDynamicLabels() {
       if (meta.P?.version === 'p1') {
         localStorage.clear();
         showPanel('setup');
-        setMsg(t('msg.vault.outdated'), 'error');
+        setMsgK('msg.vault.outdated', 'error');
       } else {
         await callWorker('INIT_VAULT', { vaultId: meta.vaultId });
         vaultReady = true;
         showPanel('lock');
-        setMsg(t('msg.vault.loaded'), '');
+        setMsgK('msg.vault.loaded');
       }
     } catch {
       localStorage.clear();
       showPanel('setup');
-      setMsg(t('msg.vault.corrupted'), 'error');
+      setMsgK('msg.vault.corrupted', 'error');
     }
   } else {
     showPanel('setup');
-    setMsg(t('msg.first.launch'), '');
+    setMsgK('msg.first.launch');
   }
 
   startTimer();
@@ -258,24 +262,95 @@ async function showVersionHash() {
       box.style.cssText = [
         'position:fixed', 'bottom:3.5rem', 'left:50%', 'transform:translateX(-50%)',
         'background:#16161a', 'border:1px solid #2a2a35', 'border-radius:12px',
-        'padding:1rem 1.2rem', 'font-family:monospace', 'font-size:0.68rem',
-        'color:#e8e8f0', 'white-space:pre', 'z-index:999', 'line-height:1.8',
+        'padding:1rem 1.2rem 0.8rem', 'font-family:monospace', 'font-size:0.68rem',
+        'color:#e8e8f0', 'z-index:999', 'line-height:1.8',
         'box-shadow:0 8px 32px rgba(0,0,0,0.7)', 'max-width:calc(100vw - 2rem)',
-        'overflow-x:auto',
+        'overflow-x:auto', 'min-width:min(380px, calc(100vw - 2rem))',
       ].join(';');
 
       const lines = results.map(r =>
         `${r.name.padEnd(22)} ${r.hex.slice(0, 16)}…`
       ).join('\n');
-      box.textContent =
-        `SHA-256 Build Fingerprint\n${'─'.repeat(40)}\n${lines}\n\nCombined: ${fp}`;
+      const pre = document.createElement('pre');
+      pre.style.cssText = 'margin:0;white-space:pre;';
+      pre.textContent = `SHA-256 Build Fingerprint\n${'─'.repeat(40)}\n${lines}\n\nCombined: ${fp}`;
 
+      const closeBtn = document.createElement('button');
+      closeBtn.textContent = '✕';
+      closeBtn.style.cssText = [
+        'display:block', 'margin-top:0.6rem', 'margin-left:auto',
+        'background:none', 'border:1px solid #3a3a55', 'border-radius:6px',
+        'color:#6b6b80', 'font-size:0.75rem', 'padding:0.2rem 0.6rem',
+        'cursor:pointer', 'font-family:inherit',
+      ].join(';');
+      closeBtn.addEventListener('click', (e) => { e.stopPropagation(); box.remove(); });
+
+      box.appendChild(pre);
+      box.appendChild(closeBtn);
       document.body.appendChild(box);
-      setTimeout(() => box.remove(), 10000);
     });
 
     footer.appendChild(el);
   } catch { /* offline or fetch error — hash not displayed */ }
+}
+
+// ── WebAuthn PRF helpers ──────────────────────────────────────────────────
+
+async function enrollWebAuthn() {
+  const prfSalt = crypto.getRandomValues(new Uint8Array(32));
+  let credential;
+  try {
+    credential = await navigator.credentials.create({
+      publicKey: {
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        rp: { name: 'BioWallet', id: location.hostname },
+        user: {
+          id: crypto.getRandomValues(new Uint8Array(16)),
+          name: 'biowallet',
+          displayName: 'BioWallet',
+        },
+        pubKeyCredParams: [
+          { type: 'public-key', alg: -7   },
+          { type: 'public-key', alg: -257 },
+        ],
+        authenticatorSelection: {
+          authenticatorAttachment: 'platform',
+          residentKey:             'required',
+          requireResidentKey:      true,
+          userVerification:        'required',
+        },
+        extensions: { prf: { eval: { first: prfSalt } } },
+      },
+    });
+  } catch { return null; }
+
+  const prfResult = credential.getClientExtensionResults()?.prf?.results?.first;
+  if (!prfResult) return null;
+
+  return {
+    credentialId: Array.from(new Uint8Array(credential.rawId)),
+    prfSalt:      Array.from(prfSalt),
+    devicePrf:    Array.from(new Uint8Array(prfResult)),
+  };
+}
+
+async function getDevicePrf(credentialId, prfSalt) {
+  let credential;
+  try {
+    credential = await navigator.credentials.get({
+      publicKey: {
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        rpId: location.hostname,
+        allowCredentials: [{ type: 'public-key', id: new Uint8Array(credentialId) }],
+        userVerification: 'required',
+        extensions: { prf: { eval: { first: new Uint8Array(prfSalt) } } },
+      },
+    });
+  } catch { return null; }
+
+  const prfResult = credential?.getClientExtensionResults()?.prf?.results?.first;
+  if (!prfResult) return null;
+  return Array.from(new Uint8Array(prfResult));
 }
 
 // ── Enrollment ────────────────────────────────────────────────────────────
@@ -471,7 +546,7 @@ btnRestore.addEventListener('click', async () => {
     await callWorker('INIT_VAULT', { vaultId });
     vaultReady = true;
     showPanel('lock');
-    setMsg(t('msg.restore.ok'), 'ok');
+    setMsgK('msg.restore.ok', 'ok');
   } catch (e) {
     setMsg(t('msg.restore.error', { err: e.message }), 'error');
   }
@@ -596,7 +671,7 @@ function showPostImportChecklist() {
   });
 }
 
-// ── Open vault (face scan) ────────────────────────────────────────────────
+// ── Open vault (face scan + optional device) ──────────────────────────────
 btnScan.addEventListener('click', async () => {
   if (cooldownMs() > 0) return;
   btnScan.disabled = true;
@@ -611,20 +686,43 @@ btnScan.addEventListener('click', async () => {
     await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
     bioSuccess();
 
+    // Try device factor if this vault has one registered on this device
+    let devicePrf = null;
+    if (meta.device?.credentialId) {
+      setMsg(t('msg.device.auth'), '');
+      try {
+        devicePrf = await getDevicePrf(meta.device.credentialId, meta.device.prfSalt);
+      } catch { /* fall through — face-only open */ }
+      if (!devicePrf) setMsg(t('msg.device.fallback'), '');
+    }
+
     const encBuf = await vaultFile.arrayBuffer();
-    const { address } = await callWorker('OPEN', { encryptedVault: encBuf, P: meta.P }, [encBuf]);
+    const { address, hasDevice, usedDevice } = await callWorker(
+      'OPEN',
+      { encryptedVault: encBuf, P: meta.P, devicePrf },
+      [encBuf]
+    );
 
     ethAddress.textContent = address;
     fetchBalance(address);
     updateTokenSelector();
     setScanning(false, true);
     setMsg(t('msg.vault.open'), 'ok');
+
+    _updateDeviceRow(hasDevice, usedDevice);
+    deviceRow.style.display = '';
+
     showPanel('vault');
     ensureWCInit().catch(() => {});
     if (pendingWCReq) {
       const req = pendingWCReq;
       pendingWCReq = null;
       dispatchWCRequest(req.topic, req.id, req.params).catch(() => {});
+    }
+
+    // Offer device enrollment if vault has no device yet and WebAuthn is available
+    if (!hasDevice && navigator.credentials) {
+      setTimeout(() => setMsg(t('msg.device.offer'), ''), 1500);
     }
   } catch (e) {
     setScanning(false);
@@ -633,6 +731,23 @@ btnScan.addEventListener('click', async () => {
     btnScan.disabled = false;
   }
 });
+
+function _updateDeviceRow(hasDevice, usedDevice) {
+  const span  = btnDevice.querySelector('span');
+  const small = btnDevice.querySelector('small');
+  if (hasDevice && usedDevice) {
+    span.setAttribute('data-i18n', 'btn.device.remove');
+    small.setAttribute('data-i18n', 'btn.device.remove.sub');
+    span.textContent  = t('btn.device.remove');
+    small.textContent = t('btn.device.remove.sub');
+  } else {
+    span.setAttribute('data-i18n', 'btn.device');
+    small.setAttribute('data-i18n', 'btn.device.sub');
+    span.textContent  = t('btn.device');
+    small.textContent = t('btn.device.sub');
+  }
+  btnDevice._removeMode = hasDevice && usedDevice;
+}
 
 // ── Send ETH / ERC-20 ────────────────────────────────────────────────────
 btnSign.addEventListener('click', async () => {
@@ -808,8 +923,54 @@ btnLock.addEventListener('click', async () => {
   ethAddress.textContent = '—';
   ethBalance.textContent = '—';
   setScanning(false);
-  setMsg(t('msg.vault.locked'), '');
+  setMsgK('msg.vault.locked');
   showPanel('lock');
+});
+
+// ── Device second factor ──────────────────────────────────────────────────
+btnDevice.addEventListener('click', async () => {
+  const meta = JSON.parse(localStorage.getItem('biowallet_meta') ?? 'null');
+  if (!meta) return;
+
+  if (btnDevice._removeMode) {
+    // Remove device: clear from meta. The vault file retains a stale deviceWrap
+    // but face-only open always works and the orphaned wrap is harmless without its credential.
+    delete meta.device;
+    localStorage.setItem('biowallet_meta', JSON.stringify(meta));
+    _updateDeviceRow(false, false);
+    setMsg(t('msg.device.removed'), 'ok');
+    return;
+  }
+
+  // Enroll this device
+  if (!navigator.credentials) {
+    setMsg(t('err.device.prf'), 'error');
+    return;
+  }
+
+  setMsg(t('msg.device.auth'), '');
+  const wa = await enrollWebAuthn();
+  if (!wa) {
+    setMsg(t('err.device.prf'), 'error');
+    return;
+  }
+
+  try {
+    const { encryptedVault } = await callWorker('ENROLL_DEVICE', {
+      devicePrf:    wa.devicePrf,
+      credentialId: wa.credentialId,
+      prfSalt:      wa.prfSalt,
+    });
+
+    meta.device = { credentialId: wa.credentialId, prfSalt: wa.prfSalt };
+    localStorage.setItem('biowallet_meta', JSON.stringify(meta));
+
+    downloadBlob(encryptedVault, `${meta.vaultId}.biowallet`);
+    _updateDeviceRow(true, true);
+    setMsg(t('msg.device.enrolled'), 'ok');
+  } catch (e) {
+    setMsg(e.message, 'error');
+  }
 });
 
 // ── Copy address ──────────────────────────────────────────────────────────
@@ -1478,6 +1639,7 @@ function showPanel(name) {
   panelVault.classList.toggle('visible',  name === 'vault');
   ttlBars.classList.toggle('visible',     name === 'vault');
   if (name !== 'vault') {
+    deviceRow.style.display = 'none';
     btnScan.disabled        = false;
     btnSign.disabled        = false;
     ethAddress.textContent  = '—';
@@ -1510,9 +1672,14 @@ function setScanning(on, detected = false) {
   scanHint.textContent = on ? t('scan.hint.active') : t('scan.hint.done');
 }
 
-function setMsg(text, type = '') {
+function setMsg(text, type = '', i18nKey = null) {
   msg.textContent = text;
   msg.className   = 'msg-bar' + (type ? ' ' + type : '');
+  _currentMsgKey  = i18nKey;
+}
+
+function setMsgK(key, type = '', vars = {}) {
+  setMsg(t(key, vars), type, key);
 }
 
 function downloadBlob(data, filename) {

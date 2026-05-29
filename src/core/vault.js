@@ -1,11 +1,17 @@
 /**
- * BioWallet — AES-256-GCM Vault
+ * BioWallet — AES-256-GCM Vault (v2)
  *
- * Every vault operation runs behind a causal gate.
- * The bio_key never leaves memory.
- * Auto-lock after signing (P7).
+ * v1: vault_key = PBKDF2(face_R, salt)           — single factor (legacy)
+ * v2: vault_key = random 32 bytes, wrapped twice:
+ *     faceWrap:   AES-GCM( PBKDF2(face_R, salt),                    vault_key )
+ *     deviceWrap: AES-GCM( HKDF(face_R ‖ device_prf, salt), vault_key ) — optional
  *
- * External dependencies: causal_chain.js, fuzzy_extractor.js
+ * Open paths (v2):
+ *   Same device:  device_prf available → device path (stronger)
+ *   New device:   no device_prf → face-only path (always works with P.json)
+ *
+ * Device enrollment requires vault to be open (#faceR, #vaultKeyRaw in memory).
+ * Both are zeroed on lock (P7).
  */
 
 import { CausalChain, DCCError } from './causal_chain.js?v=11';
@@ -15,16 +21,18 @@ import {
   entropyToIndices, fetchRandomOffsets, computeRawPaper,
 } from './recovery_formula.js?v=11';
 
-// KDF: PBKDF2-SHA256 300k iteráció (WebCrypto natív).
-// Argon2 (mem-hard) erősebb lenne — WASM bundler nélkül nem implementálható (Phase 6+).
-const AES_MODE = 'AES-GCM';
+const AES_MODE        = 'AES-GCM';
+const DEVICE_PRF_INFO = new TextEncoder().encode('biowallet-device-v2');
 
 class BioVault {
   #chain;
   #vaultId;
-  #cryptoKey     = null;   // WebCrypto CryptoKey — lives in memory, auto-nulled after lock
-  #vaultData     = null;   // { seed, accounts, metadata } — decrypted state
-  #pendingTxHash = null;   // SHA-256 hex of committed tx; set by commitTx(), cleared by lock/cancelCommit
+  #cryptoKey    = null;   // AES-GCM CryptoKey for vault data
+  #vaultData    = null;   // { seed, accounts, ... }
+  #vaultFormat  = null;   // parsed v2 JSON | null (v1)
+  #vaultKeyRaw  = null;   // Uint8Array — vault_key (v2 only), zeroed on lock
+  #faceR        = null;   // Uint8Array — face_R from last OPEN, for device enrollment
+  #pendingTxHash= null;
 
   constructor(vaultId) {
     this.#vaultId = vaultId;
@@ -33,17 +41,8 @@ class BioVault {
 
   get id() { return this.#vaultId; }
 
-  // ── TX commitment (pre-sign causal anchor) ───────────────────────────────
+  // ── TX commitment (P6) ────────────────────────────────────────────────────
 
-  /**
-   * Commit a transaction before the second biometric scan.
-   * Returns an 8-hex-char fingerprint shown to the user; the user must manually
-   * type the first 4 characters into the confirm modal before the second scan.
-   * This binds the physical user attention to the exact tx being signed.
-   *
-   * @param {object} tx  — the transaction object (same fields as sign())
-   * @returns {string}   — 8-character hex fingerprint (SHA-256(canonical(tx))[:8])
-   */
   async commitTx(tx) {
     const canonical = JSON.stringify(tx, Object.keys(tx).sort());
     const hashBuf   = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
@@ -52,25 +51,10 @@ class BioVault {
     return hex.slice(0, 8);
   }
 
-  /** Cancel a pending tx commit without locking the vault (user dismissed confirm modal). */
-  cancelCommit() {
-    this.#pendingTxHash = null;
-  }
+  cancelCommit() { this.#pendingTxHash = null; }
 
-  // ── Biometric event ───────────────────────────────────────────────────────
+  // ── Biometric capture ─────────────────────────────────────────────────────
 
-  /**
-   * Face capture succeeded → token issued.
-   * Called by the app directly after bio_capture.
-   *
-   * In the SIGN flow, `userInput` must contain the first 4 chars the user
-   * typed from the fingerprint display. If #pendingTxHash is set and
-   * userInput doesn't match its first 4 chars → TX_MISMATCH (blocks substitution).
-   *
-   * @param {Float32Array} embedding   — FaceNet 512-dim output
-   * @param {Uint8Array}   P           — fuzzy extractor helper (public)
-   * @param {string|null}  userInput   — manually typed fingerprint prefix (SIGN only)
-   */
   async onBioCapture(embedding, P, userInput = null) {
     if (this.#pendingTxHash !== null && userInput !== null) {
       if (userInput !== this.#pendingTxHash.slice(0, 4)) {
@@ -82,115 +66,188 @@ class BioVault {
     this.#chain.issue(R, this.#vaultId, this.#pendingTxHash);
   }
 
-  // ── Vault creation (once, on first launch) ───────────────────────────────
+  // ── Vault creation ────────────────────────────────────────────────────────
 
-  /**
-   * @param {Float32Array} embedding — enrollment scan (5x averaged)
-   * @returns {{ encryptedVault: ArrayBuffer, P: Uint8Array, vaultId: string }}
-   */
-  static async create(embedding) {
+  static async create(embedding, devicePrf = null, credentialId = null, prfSalt = null) {
     const seed = crypto.getRandomValues(new Uint8Array(32));
     try {
-      return await BioVault._encryptSeed(seed, embedding);
-    } finally {
-      seed.fill(0);
-    }
+      return await BioVault._encryptSeed(seed, embedding, devicePrf, credentialId, prfSalt);
+    } finally { seed.fill(0); }
   }
 
-  // ── Seed import (existing BIP39 mnemonic → new vault) ───────────────────
-
-  /**
-   * Import an existing 24-word mnemonic into a biometric vault.
-   * seedBytes is zeroed via fill(0) in the finally block.
-   * @param {string}       mnemonic  — 24-word BIP39 phrase (space-separated)
-   * @param {Float32Array} embedding — enrollment scan (5x averaged)
-   */
   static async importFromMnemonic(mnemonic, embedding) {
     const seedBytes = mnemonicToSeed(mnemonic);
     try {
       return await BioVault._encryptSeed(seedBytes, embedding);
-    } finally {
-      seedBytes.fill(0);
-    }
+    } finally { seedBytes.fill(0); }
   }
 
-  /**
-   * Internal helper: 32-byte seed → encrypted vault (new key derived from embedding).
-   * @param {Uint8Array}   seedBytes
-   * @param {Float32Array} embedding
-   */
-  static async _encryptSeed(seedBytes, embedding) {
-    const vaultId   = crypto.randomUUID();
-    const { R, P }  = await fuzzyCommit(embedding);
-    const salt      = crypto.getRandomValues(new Uint8Array(32));
-    const cryptoKey = await deriveKey(R, salt);
+  static async _encryptSeed(seedBytes, embedding, devicePrf = null, credentialId = null, prfSalt = null) {
+    const vaultId  = crypto.randomUUID();
+    const { R, P } = await fuzzyCommit(embedding);
+    const salt     = crypto.getRandomValues(new Uint8Array(32));
 
-    const plaintext = encode({ seed: toHex(seedBytes), accounts: [], vaultId, created: Date.now() });
-    const { iv, ciphertext } = await aesEncrypt(cryptoKey, plaintext);
-
-    return { vaultId, P, encryptedVault: pack({ salt, iv, ciphertext }) };
-  }
-
-  // ── OPEN ─────────────────────────────────────────────────────────────────
-
-  /**
-   * @param {ArrayBuffer} encryptedVault
-   * @param {Uint8Array}  P
-   */
-  async open(encryptedVault, P) {
-    // Causal gate — R directly from token (P1–P4)
-    const R = this.#chain.gate('OPEN', this.#vaultId);
-
-    const { salt, iv, ciphertext } = unpack(encryptedVault);
-    this.#cryptoKey  = await deriveKey(R, salt);
-
+    const vaultKeyRaw = crypto.getRandomValues(new Uint8Array(32));
     try {
-      const plaintext  = await aesDecrypt(this.#cryptoKey, iv, ciphertext);
-      this.#vaultData  = decode(plaintext);
-    } catch {
-      this.lock();
-      throw new DCCError('BIO_MISMATCH', 'OPEN');
-    }
+      const vaultKey  = await importRawKey(vaultKeyRaw);
+      const plaintext = encode({ seed: toHex(seedBytes), accounts: [], vaultId, created: Date.now() });
+      const { iv, ciphertext } = await aesEncrypt(vaultKey, plaintext);
 
-    // Derive Ethereum address (for display — seed stays in memory)
-    const seedBytes = fromHex(this.#vaultData.seed);
-    const address   = await seedToAddress(seedBytes);
-    seedBytes.fill(0);
+      const faceAesKey = await deriveKey(R, salt);
+      const faceWrap   = await wrapBytes(faceAesKey, vaultKeyRaw);
 
-    return { address };
+      let deviceWrap = null;
+      if (devicePrf && credentialId && prfSalt) {
+        const devKey = await deriveKeyDevice(R, devicePrf, salt);
+        deviceWrap = {
+          ...await wrapBytes(devKey, vaultKeyRaw),
+          credentialId: toHex(new Uint8Array(credentialId)),
+          prfSalt:      toHex(new Uint8Array(prfSalt)),
+        };
+      }
+
+      const v2 = {
+        v: 2, vaultId,
+        salt: toHex(salt),
+        iv:   toHex(iv),
+        ct:   toHex(new Uint8Array(ciphertext)),
+        faceWrap,
+        deviceWrap,
+      };
+
+      return { vaultId, P, encryptedVault: new TextEncoder().encode(JSON.stringify(v2)).buffer };
+    } finally { vaultKeyRaw.fill(0); }
   }
 
-  // ── SIGN ─────────────────────────────────────────────────────────────────
+  // ── OPEN ──────────────────────────────────────────────────────────────────
 
-  /**
-   * Sign a transaction — strictest TTL (10s), auto-lock after.
-   * Verifies that the tx matches the hash committed in commitTx() (P_TX).
-   * @param {object} tx
-   */
-  async sign(tx) {
-    if (!this.#cryptoKey || !this.#vaultData) {
-      throw new DCCError('VAULT_LOCKED', 'SIGN');
+  async open(encryptedVault, P, devicePrf = null) {
+    const R = this.#chain.gate('OPEN', this.#vaultId);
+    this.#faceR = R.slice();
+
+    if (isV2(encryptedVault)) {
+      const v2   = JSON.parse(new TextDecoder().decode(encryptedVault));
+      const salt = fromHex(v2.salt);
+
+      let vaultKeyRaw  = null;
+      let usedDevice   = false;
+
+      if (devicePrf && v2.deviceWrap) {
+        try {
+          const devKey = await deriveKeyDevice(R, devicePrf, salt);
+          vaultKeyRaw  = await unwrapBytes(devKey, v2.deviceWrap);
+          usedDevice   = true;
+        } catch { /* fall through to face path */ }
+      }
+
+      if (!vaultKeyRaw) {
+        const faceKey = await deriveKey(R, salt);
+        try {
+          vaultKeyRaw = await unwrapBytes(faceKey, v2.faceWrap);
+        } catch {
+          this.lock();
+          throw new DCCError('BIO_MISMATCH', 'OPEN');
+        }
+      }
+
+      this.#vaultKeyRaw = vaultKeyRaw;
+      this.#cryptoKey   = await importRawKey(vaultKeyRaw);
+      this.#vaultFormat = v2;
+
+      try {
+        const plaintext = await crypto.subtle.decrypt(
+          { name: AES_MODE, iv: fromHex(v2.iv) }, this.#cryptoKey, fromHex(v2.ct)
+        );
+        this.#vaultData = decode(plaintext);
+      } catch {
+        this.lock();
+        throw new DCCError('BIO_MISMATCH', 'OPEN');
+      }
+
+      const seedBytes = fromHex(this.#vaultData.seed);
+      const address   = await seedToAddress(seedBytes);
+      seedBytes.fill(0);
+
+      return { address, hasDevice: !!v2.deviceWrap, usedDevice };
+
+    } else {
+      // v1 legacy
+      const { salt, iv, ciphertext } = unpack(encryptedVault);
+      this.#cryptoKey = await deriveKey(R, salt);
+      try {
+        const plaintext = await aesDecrypt(this.#cryptoKey, iv, ciphertext);
+        this.#vaultData = decode(plaintext);
+      } catch {
+        this.lock();
+        throw new DCCError('BIO_MISMATCH', 'OPEN');
+      }
+
+      const seedBytes = fromHex(this.#vaultData.seed);
+      const address   = await seedToAddress(seedBytes);
+      seedBytes.fill(0);
+
+      return { address, hasDevice: false, usedDevice: false };
+    }
+  }
+
+  // ── Device enrollment / re-enrollment ────────────────────────────────────
+
+  async enrollDevice(devicePrf, credentialId, prfSalt) {
+    if (!this.#vaultData || !this.#faceR) throw new DCCError('VAULT_LOCKED', 'ENROLL_DEVICE');
+
+    const R   = this.#faceR;
+    let salt, faceWrap, iv, ct;
+
+    if (!this.#vaultFormat) {
+      // v1 vault: generate new vault_key and re-encrypt data
+      salt = crypto.getRandomValues(new Uint8Array(32));
+      const vaultKeyRaw = crypto.getRandomValues(new Uint8Array(32));
+      try {
+        const vaultKey  = await importRawKey(vaultKeyRaw);
+        const { iv: _iv, ciphertext } = await aesEncrypt(vaultKey, encode(this.#vaultData));
+        iv       = toHex(_iv);
+        ct       = toHex(new Uint8Array(ciphertext));
+        faceWrap = await wrapBytes(await deriveKey(R, salt), vaultKeyRaw);
+        this.#vaultKeyRaw = vaultKeyRaw.slice();
+        this.#cryptoKey   = await importRawKey(this.#vaultKeyRaw);
+        vaultKeyRaw.fill(0);
+      } catch (e) { throw e; }
+    } else {
+      salt     = fromHex(this.#vaultFormat.salt);
+      faceWrap = this.#vaultFormat.faceWrap;
+      iv       = this.#vaultFormat.iv;
+      ct       = this.#vaultFormat.ct;
     }
 
-    // Compute hash of the tx to verify against the token-bound hash (P_TX)
+    const devKey    = await deriveKeyDevice(R, new Uint8Array(devicePrf), salt);
+    const deviceWrap = {
+      ...await wrapBytes(devKey, this.#vaultKeyRaw),
+      credentialId: toHex(new Uint8Array(credentialId)),
+      prfSalt:      toHex(new Uint8Array(prfSalt)),
+    };
+
+    const vaultId = this.#vaultFormat?.vaultId ?? this.#vaultId;
+    const v2 = { v: 2, vaultId, salt: toHex(salt), iv, ct, faceWrap, deviceWrap };
+    this.#vaultFormat = v2;
+
+    return new TextEncoder().encode(JSON.stringify(v2)).buffer;
+  }
+
+  // ── SIGN ──────────────────────────────────────────────────────────────────
+
+  async sign(tx) {
+    if (!this.#cryptoKey || !this.#vaultData) throw new DCCError('VAULT_LOCKED', 'SIGN');
     const canonical = JSON.stringify(tx, Object.keys(tx).sort());
     const hashBuf   = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
     const txHash    = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
-
-    // New biometric scan required for every signing (P5); gate also checks TX_MISMATCH
     this.#chain.gate('SIGN', this.#vaultId, txHash);
     this.#pendingTxHash = null;
-
     const seed   = fromHex(this.#vaultData.seed);
     const signed = await signEthTx(tx, seed);
-
     seed.fill(0);
-    this.lock();   // P7: auto-lock
-
+    this.lock();
     return signed;
   }
-
-  // ── PERSONAL SIGN (WalletConnect personal_sign) ──────────────────────────
 
   async personalSign(message) {
     if (!this.#cryptoKey || !this.#vaultData) throw new DCCError('VAULT_LOCKED', 'SIGN');
@@ -198,31 +255,20 @@ class BioVault {
     const seed = fromHex(this.#vaultData.seed);
     const sig  = await signPersonal(message, seed);
     seed.fill(0);
-    this.lock();   // P7: auto-lock
+    this.lock();
     return sig;
   }
 
-  // ── Paper formula (Phase 9.1b — P never enters the app) ─────────────────
+  // ── Paper recovery ────────────────────────────────────────────────────────
 
-  /**
-   * Generate raw recovery data:
-   *   raw_A_j = (i_j - r_j) mod 2048
-   *
-   * P (personal number) is NOT included — applied in the offline ENCODE step.
-   * The 24 words NEVER leave this function.
-   * Requires EXPORT gate (5s TTL), auto-lock after.
-   *
-   * @returns {Promise<{ rawA: number[], r: number[] }>}
-   */
   async makeRecoveryFormula() {
     if (!this.#vaultData) throw new DCCError('VAULT_LOCKED', 'EXPORT');
     this.#chain.gate('EXPORT', this.#vaultId);
-
     const entropy = fromHex(this.#vaultData.seed);
     try {
       const indices = await entropyToIndices(entropy);
       const r       = await fetchRandomOffsets(24, false);
-      const rawA    = computeRawPaper(indices, r);   // P nélkül
+      const rawA    = computeRawPaper(indices, r);
       return { rawA, r };
     } finally {
       entropy.fill(0);
@@ -230,13 +276,16 @@ class BioVault {
     }
   }
 
-  // ── LOCK ─────────────────────────────────────────────────────────────────
+  // ── LOCK (P7) ─────────────────────────────────────────────────────────────
 
   lock() {
     this.#chain.revoke();
     this.#cryptoKey     = null;
     this.#vaultData     = null;
     this.#pendingTxHash = null;
+    this.#vaultFormat   = null;
+    if (this.#vaultKeyRaw) { this.#vaultKeyRaw.fill(0); this.#vaultKeyRaw = null; }
+    if (this.#faceR)       { this.#faceR.fill(0);       this.#faceR = null; }
   }
 
   chainStatus() { return this.#chain.status(); }
@@ -245,16 +294,39 @@ class BioVault {
 // ── Crypto helpers ────────────────────────────────────────────────────────
 
 async function deriveKey(R, salt) {
-  // argon2-wasm needed here (Phase 2), PBKDF2 placeholder with the same API
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw', R, 'PBKDF2', false, ['deriveKey']
-  );
+  const km = await crypto.subtle.importKey('raw', R, 'PBKDF2', false, ['deriveKey']);
   return crypto.subtle.deriveKey(
     { name: 'PBKDF2', salt, iterations: 300_000, hash: 'SHA-256' },
-    keyMaterial,
-    { name: AES_MODE, length: 256 },
-    false, ['encrypt', 'decrypt']
+    km, { name: AES_MODE, length: 256 }, false, ['encrypt', 'decrypt']
   );
+}
+
+async function deriveKeyDevice(R, devicePrf, salt) {
+  const ikm = new Uint8Array(R.length + devicePrf.length);
+  ikm.set(R); ikm.set(devicePrf, R.length);
+  const km = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveKey']);
+  ikm.fill(0);
+  return crypto.subtle.deriveKey(
+    { name: 'HKDF', hash: 'SHA-256', salt, info: DEVICE_PRF_INFO },
+    km, { name: AES_MODE, length: 256 }, false, ['encrypt', 'decrypt']
+  );
+}
+
+async function importRawKey(raw) {
+  return crypto.subtle.importKey('raw', raw, AES_MODE, false, ['encrypt', 'decrypt']);
+}
+
+async function wrapBytes(key, bytes) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: AES_MODE, iv }, key, bytes);
+  return { wIv: toHex(iv), wCt: toHex(new Uint8Array(ct)) };
+}
+
+async function unwrapBytes(key, wrap) {
+  const raw = await crypto.subtle.decrypt(
+    { name: AES_MODE, iv: fromHex(wrap.wIv) }, key, fromHex(wrap.wCt)
+  );
+  return new Uint8Array(raw);
 }
 
 async function aesEncrypt(key, plaintext) {
@@ -267,21 +339,20 @@ async function aesDecrypt(key, iv, ciphertext) {
   return crypto.subtle.decrypt({ name: AES_MODE, iv }, key, ciphertext);
 }
 
+function isV2(buf) {
+  try { return new Uint8Array(buf)[0] === 0x7b; } // '{'
+  catch { return false; }
+}
 
 function pack({ salt, iv, ciphertext }) {
   const buf = new Uint8Array(32 + 12 + ciphertext.byteLength);
-  buf.set(salt, 0);
-  buf.set(iv, 32);
-  buf.set(new Uint8Array(ciphertext), 44);
+  buf.set(salt, 0); buf.set(iv, 32); buf.set(new Uint8Array(ciphertext), 44);
   return buf.buffer;
 }
 
 function unpack(buf) {
-  const b          = new Uint8Array(buf);
-  const salt       = b.slice(0, 32);
-  const iv         = b.slice(32, 44);
-  const ciphertext = b.slice(44);
-  return { salt, iv, ciphertext };
+  const b = new Uint8Array(buf);
+  return { salt: b.slice(0, 32), iv: b.slice(32, 44), ciphertext: b.slice(44) };
 }
 
 const encode = (v) => new TextEncoder().encode(typeof v === 'string' ? v : JSON.stringify(v));
