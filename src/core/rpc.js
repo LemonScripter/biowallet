@@ -110,3 +110,35 @@ export function weiToEth(wei) {
 export function isValidAddress(addr) {
   return /^0x[0-9a-fA-F]{40}$/.test(addr);
 }
+
+/** ENS név → ETH cím (Mainnet-only). null ha nem található. */
+export async function resolveENS(name) {
+  if (!name || !name.includes('.')) return null;
+  try {
+    const provider = new window.ethers.JsonRpcProvider(NETWORKS.mainnet.rpc);
+    return await provider.resolveName(name);
+  } catch {
+    return null;
+  }
+}
+
+/** ERC-20 balanceOf(address) — raw eth_call. Visszaad: BigInt (wei-egyenérték). */
+export async function getTokenBalance(tokenAddress, walletAddress, rpcUrl) {
+  const data = '0x70a08231' + walletAddress.slice(2).padStart(64, '0');
+  const result = await rpcCall(rpcUrl, 'eth_call', [{ to: tokenAddress, data }, 'latest']);
+  return BigInt(result);
+}
+
+/** ERC-20 tokenek decimálisa. */
+export async function getTokenDecimals(tokenAddress, rpcUrl) {
+  const result = await rpcCall(rpcUrl, 'eth_call', [{ to: tokenAddress, data: '0x313ce567' }, 'latest']);
+  return parseInt(result, 16);
+}
+
+/** BigInt token mennyiség → emberi olvasható string (pl. "1234.56"). */
+export function formatToken(amount, decimals) {
+  const d = BigInt(10) ** BigInt(decimals);
+  const whole = amount / d;
+  const frac  = (amount % d).toString().padStart(decimals, '0').slice(0, 2);
+  return `${whole}.${frac}`;
+}

@@ -10,12 +10,12 @@ import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_captu
 import {
   NETWORKS, getBalance, getNonce,
   getFeeData, estimateGas, broadcastTx,
-  ethToWei, weiToEth, isValidAddress,
-} from '../core/rpc.js?v=11';
+  ethToWei, weiToEth, isValidAddress, resolveENS,
+} from '../core/rpc.js?v=14';
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
-const worker  = new Worker('./vault_worker.js?v=12', { type: 'module' });
+const worker  = new Worker('./vault_worker.js?v=14', { type: 'module' });
 let _nextId   = 0;
 const _pending = new Map();
 
@@ -72,6 +72,10 @@ const sendToInput    = document.getElementById('send-to');
 const sendAmountInput= document.getElementById('send-amount');
 const txResult       = document.getElementById('tx-result');
 const txLink         = document.getElementById('tx-link');
+const btnQR          = document.getElementById('btn-qr');
+const qrWrap         = document.getElementById('qr-wrap');
+const qrCanvas       = document.getElementById('qr-canvas');
+const ensHint        = document.getElementById('ens-hint');
 
 const dots = [0,1,2,3,4].map(i => document.getElementById(`dot-${i}`));
 
@@ -80,6 +84,7 @@ let stream         = null;
 let timerID        = null;
 let currentNetwork = NETWORKS.sepolia;
 let vaultReady     = false;   // worker-ben van-e aktív vault
+let ensResolved    = null;    // ENS → ETH cím (ha feloldva)
 
 // ── Init ──────────────────────────────────────────────────────────────────
 (async () => {
@@ -538,7 +543,7 @@ btnScan.addEventListener('click', async () => {
 
 // ── ETH küldése ───────────────────────────────────────────────────────────
 btnSign.addEventListener('click', async () => {
-  const toAddr    = sendToInput.value.trim();
+  const toAddr    = ensResolved || sendToInput.value.trim();
   const amountStr = sendAmountInput.value.trim().replace(',', '.');
   const address   = ethAddress.textContent;
 
@@ -704,6 +709,48 @@ btnRefresh.addEventListener('click', () => {
   if (addr && addr !== '—') fetchBalance(addr);
 });
 
+// ── QR kód toggle (C1) ────────────────────────────────────────────────────
+btnQR.addEventListener('click', async () => {
+  if (qrWrap.style.display !== 'none') {
+    qrWrap.style.display = 'none';
+    return;
+  }
+  const addr = ethAddress.textContent;
+  if (!addr || addr === '—') return;
+  try {
+    await window.QRCode.toCanvas(qrCanvas, addr, {
+      width: 200,
+      color: { dark: '#e8e8f0', light: '#16161a' },
+      errorCorrectionLevel: 'M',
+    });
+    qrWrap.style.display = 'block';
+  } catch { /* QR lib nem töltött be — offline PWA */ }
+});
+
+// ── ENS feloldás (C3) — debounce 600ms ───────────────────────────────────
+let _ensTimer = null;
+sendToInput.addEventListener('input', () => {
+  ensResolved = null;
+  ensHint.style.display = 'none';
+  clearTimeout(_ensTimer);
+  const val = sendToInput.value.trim();
+  if (!val.includes('.')) return;
+  _ensTimer = setTimeout(async () => {
+    ensHint.style.cssText = 'display:block;font-size:0.7rem;margin-top:0.3rem;color:#6b6b80;';
+    ensHint.textContent = 'ENS feloldás…';
+    const addr = await resolveENS(val);
+    if (addr) {
+      ensResolved = addr;
+      ensHint.style.cssText = 'display:block;font-size:0.7rem;margin-top:0.3rem;color:#4CAF50;font-family:monospace;';
+      ensHint.textContent = `→ ${addr}`;
+    } else {
+      ensResolved = null;
+      ensHint.style.cssText = 'display:block;font-size:0.7rem;margin-top:0.3rem;color:#ff4757;';
+      ensHint.textContent = 'ENS nem található';
+    }
+  }, 600);
+});
+
 async function fetchBalance(address) {
   try {
     ethBalance.textContent = '…';
@@ -811,6 +858,9 @@ function showPanel(name) {
     sendAmountInput.value   = '';
     sendToInput.classList.remove('error');
     sendAmountInput.classList.remove('error');
+    ensResolved             = null;
+    ensHint.style.display   = 'none';
+    qrWrap.style.display    = 'none';
   }
 }
 
