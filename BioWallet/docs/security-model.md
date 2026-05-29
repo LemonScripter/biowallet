@@ -14,9 +14,15 @@ Your private key (seed) never leaves the browser's background Worker thread in p
 
 ### 1. Biometric encryption at rest
 
-Your seed is encrypted with **AES-256-GCM** and stored locally in the browser. The decryption key is derived from your face scan using a fuzzy extractor and a 300,000-iteration PBKDF2-SHA256 key derivation function. Without your face — captured live, in the right lighting, at the right angle — the vault cannot be opened.
+Your seed is encrypted with **AES-256-GCM** and stored locally in the browser. The vault format determines how the decryption key is derived:
 
-There is no password, no PIN, no recovery phrase stored in the app. The only key is your face plus the helper data stored alongside the vault.
+**v3 vault (default for all new wallets since v26):** The faceWrap decryption key is derived from `PBKDF2(face_R ‖ PIN_bytes, salt, 300,000 iterations)` — your biometric secret and your PIN are concatenated before key derivation. Opening the vault on a new or unenrolled device requires both a face scan and the PIN. On an enrolled device the device path is used instead (see section 3 below), which never requires a PIN.
+
+**v2 vault (wallets created before v26):** The decryption key is derived from `PBKDF2(face_R, salt, 300,000 iterations)` — face-only, no PIN required. These vaults remain fully functional without migration.
+
+**v1 vault (legacy binary format):** Face-only single-factor. Automatically upgraded to v2 upon device enrollment.
+
+The PIN is never stored anywhere. It is supplied by the user at open time, immediately concatenated with the biometric secret `face_R`, fed into PBKDF2, and discarded. There is no PIN database, no PIN hash, no PIN check — a wrong PIN produces the wrong AES key, and AES-GCM decryption fails silently (the vault reports `BIO_MISMATCH`, identical to a failed face scan).
 
 ### 2. The DCC Causal Chain
 
@@ -55,11 +61,33 @@ And three behavioural rules that shape the full sequence:
 
 **What this means in practice:** Any attempt to trigger a signing operation — whether from the page, from injected code, or from a simulated UI event — hits the DCC gate. The gate requires a valid token bound to the correct transaction. The token only exists for 10 seconds after a real face capture, and it carries the hash of exactly the transaction the user typed a fingerprint prefix for. Without that physical anchor, the chain stops.
 
-### 3. Worker thread isolation
+### 3. Device factor (WebAuthn PRF)
+
+On an enrolled device, the vault can be opened without typing a PIN. The browser's **platform authenticator** — a fingerprint sensor, Face ID, or a FIDO2/WebAuthn security key — provides a deterministic 32-byte secret via the **PRF extension** (`navigator.credentials.get` with `extensions: { prf: ... }`). This secret is device-bound and credential-bound: it only exists on the specific authenticator that enrolled it.
+
+The device-path key is derived independently of the PIN:
+
+```
+device_key = HKDF(face_R ‖ device_prf, salt, info="biowallet-device-v2")
+```
+
+**Open paths for v3 vaults:**
+
+| Scenario | Method | What is required |
+|---|---|---|
+| Enrolled device | Device path | Face scan + platform authenticator (fingerprint / Face ID) |
+| New / unenrolled device | Face path | Face scan + PIN |
+| Device path fails (fallback) | Face path | Face scan + PIN |
+
+Device enrollment happens after the initial setup: scan your face to open the vault, then tap **Enroll this device**. Enrollment can be revoked from the settings panel at any time — removing `deviceWrap` from the vault data and reverting to face + PIN on all subsequent opens.
+
+**The device factor does not replace the biometric.** The face scan is always required first — the device PRF is an additional layer on top. An attacker who has the physical device (and can present their own fingerprint) still cannot open the vault because their face scan produces a different `face_R`, and the device-path key derivation starts from `face_R`.
+
+### 4. Worker thread isolation
 
 All cryptographic operations run in a dedicated **Module Worker** (`vault_worker.js`). The main page thread cannot read the Worker's memory. After signing, the seed bytes are explicitly zeroed in memory before auto-lock.
 
-### 4. No plaintext seed, ever
+### 5. No plaintext seed, ever
 
 There is no "show seed phrase" button. The 24-word mnemonic never appears in the UI. It exists in Worker memory only for the milliseconds needed to sign a transaction.
 
@@ -156,6 +184,7 @@ These are hard guarantees, verifiable in the source code:
 - **Never shows the 24-word mnemonic in the UI** — there is no reveal function
 - **Never includes your personal number P in the app** — P is applied only offline, in `recovery_tool.html`
 - **Never uses a cloud service for key operations** — all cryptography runs locally in the Worker
+- **Never stores the PIN** — the PIN is mixed into PBKDF2 key material at open/enroll time and immediately discarded; there is no stored PIN representation, hash, or check anywhere in the system
 - **Never keeps the vault open after signing** — P7 auto-lock is unconditional and cannot be disabled
 - **Never signs a transaction that wasn't committed before the second scan** — P6 binds the signing token to the exact transaction hash; any substitution is rejected at the gate
 
@@ -212,8 +241,11 @@ After the first load, BioWallet runs entirely from its PWA cache. Disconnect fro
 
 | Threat | Protected? | How |
 |---|---|---|
-| Stolen / lost device | ✅ Yes | Vault encrypted; face required to derive key |
-| Stolen `localStorage` contents | ✅ Yes | AES-GCM encrypted blob; key not stored |
+| Stolen / lost device (unenrolled) | ✅ Yes | v3 vault: attacker needs face + PIN; neither is stored |
+| Stolen / lost device (enrolled) | ✅ Yes | Attacker's fingerprint produces different `face_R`; vault rejects |
+| Stolen `localStorage` + P.json (no device) | ✅ Yes | v3: still needs face + PIN; v2: still needs face |
+| Cross-device attack (vault + P.json on new machine) | ✅ Yes | v3: face + PIN both required on any unenrolled device |
+| Stolen `localStorage` contents | ✅ Yes | AES-GCM encrypted blob; decryption key never stored |
 | Brute-force face spoofing | ✅ Yes | Escalating cooldown after 3 failures |
 | Replay attack on signed transaction | ✅ Yes | Single-use DCC token (P3) + transaction nonce |
 | Injected code or simulated UI events | ✅ Yes | DCC requires real biometric; no face = no token |
@@ -226,3 +258,4 @@ After the first load, BioWallet runs entirely from its PWA cache. Disconnect fro
 | Physical coercion | ❌ No | Cryptography cannot stop physical force |
 | recovery_tool used on a connected machine | ⚠️ Limited | Use air-gapped only |
 | Forgotten personal number P | ❌ No recovery | P is never stored anywhere |
+| Forgotten PIN (v3 vault, no enrolled device) | ❌ No recovery | PIN is not stored; wrong PIN = wrong key; use paper recovery |

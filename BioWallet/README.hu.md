@@ -36,6 +36,8 @@ A legtöbb tárca azt mondja: bízz bennünk. A BioWallet megmutatja a bizonyít
 | Az arc-adat visszafejthetetlen a kulcshoz | BCH(63,51,t=6) fuzzy extractor + HKDF — egyirányú deriválás | [src/core/fuzzy_extractor.js](src/core/fuzzy_extractor.js) |
 | A vault kulcsa minden művelet után törlődik | DCC auto-lock: `SIGN → LOCK` azonos kauzális láncban | [DCC-4 formális bizonyíték](tests/verify_biowallet.py) |
 | Vault nem nyílik meg friss biometrikus token nélkül | Token TTL = 30 s, egyszer használatos, Z3-mal verifikált | [DCC-1, DCC-2](tests/verify_biowallet.py) |
+| Más eszközről csak arc + PIN-nel nyitható | v3 vault: `PBKDF2(face_R ‖ PIN, salt, 300k)` — helytelen PIN helytelen kulcsot ad, megkülönböztethetetlen a rossz arctól | [src/core/vault.js](src/core/vault.js) |
+| Regisztrált eszközön PIN nélkül nyitható | WebAuthn PRF: `HKDF(face_R ‖ device_prf, salt)` — az eszközfaktor kiegészítő, nem helyettesíti a biometriát | [src/core/vault.js](src/core/vault.js) |
 | Shamir GF(2⁸) aritmetika bizonyítottan helyes | Z3 BitVec, 196 608 kimerítő eset verifikálva | [tests/verify_sss_gf256.py](tests/verify_sss_gf256.py) |
 | Futásidőben nem töltődik le külső kód | Minden vendor bundlolva, SHA-256 build-ujjlenyomat | [src/vendor/](src/vendor/) |
 | Offline visszaállítás a seed phrase feltárása nélkül | Kétlépéses papírképlet — a P-érték soha nem kerül az alkalmazásba | [recovery\_tool.html](recovery_tool.html) |
@@ -125,6 +127,10 @@ Eredmény: 13 / 13  PASS ✓
 | C6 | WalletConnect v2 — dApp-munkamenetek, `eth_sendTransaction`, `personal_sign`, `wallet_switchEthereumChain` |
 | C7 | Tranzakciótörténet a Blockscout API v2-n keresztül |
 | v13 | Több hálózat: 8 beépített EVM-lánc + egyéni hálózat-hozzáadás |
+| v22 | Kétnyelvű felület (HU / EN) — nyelvváltó gomb a fejlécben |
+| v23 | P6 TX Commitment Invariant — 8 karakteres ujjlenyomat kötve a tranzakció hash-éhez; a második scanelés előtt a felhasználónak be kell gépelni az első 4 karaktert |
+| v25 | WebAuthn PRF eszközfaktor — platformhitelesítő (ujjlenyomat / Face ID) regisztrálható eszközönként; regisztrált eszközön PIN nélkül nyitja a vaultot |
+| v26 | PIN kötelező 2FA — v3 vault: `PBKDF2(face_R ‖ PIN, salt, 300k)`; új/nem regisztrált eszközön a PIN kötelező; eszközös útvonal mindig PIN nélküli |
 
 ---
 

@@ -40,24 +40,73 @@ The `.P.json` file contains the syndrome `s` and the seed `W_seed`. These do not
 
 ---
 
-## 2. Vault encryption — AES-256-GCM
+## 2. Vault encryption — AES-256-GCM with wrapped key
+
+### Key architecture
+
+BioWallet does not derive the vault key directly from the biometric. Instead, a **random vault key** is generated at enrollment and wrapped (AES-GCM encrypted) by one or two derived keys. This separation allows the device factor to be added or revoked without re-enrolling the face.
 
 ```
-Encryption (enrollment):
-  vault_key (256-bit)
-  IV = crypto.getRandomValues(12 bytes)
-  ciphertext = AES-256-GCM(key=vault_key, iv=IV, plaintext=JSON(seed+embedding))
-  .biowallet = IV || ciphertext
+Enrollment (v2 / v3):
+  vault_key    = crypto.getRandomValues(32 bytes)    // random, never stored
+  salt         = crypto.getRandomValues(32 bytes)    // stored in vault JSON
 
-Decryption (unlock):
-  IV = .biowallet[0..11]
-  ciphertext = .biowallet[12..]
-  plaintext = AES-256-GCM-decrypt(key=vault_key, iv=IV, ciphertext)
+  // Encrypt the seed with the random key:
+  iv           = crypto.getRandomValues(12 bytes)
+  ct           = AES-256-GCM( key=vault_key, iv, plaintext=JSON({ seed, vaultId, ... }) )
+
+  // Wrap the vault key with the face-derived key:
+  faceKey      = PBKDF2-SHA-256( ikm=face_R [‖ PIN_bytes],  salt, 300 000 )  // v3 appends PIN
+  faceWrap     = { wIv, wCt } = AES-256-GCM( key=faceKey,   iv=random, plaintext=vault_key )
+
+  // Optionally wrap with device key:
+  deviceKey    = HKDF-SHA-256( ikm=face_R ‖ device_prf, salt, info="biowallet-device-v2" )
+  deviceWrap   = { wIv, wCt, credentialId, prfSalt } = AES-256-GCM( key=deviceKey, ... )
+
+  Stored: JSON{ v, vaultId, salt, iv, ct, faceWrap, deviceWrap? }
+
+Unlock — device path (enrolled device):
+  device_prf   ← WebAuthn PRF extension (authenticator-bound secret)
+  deviceKey    = HKDF-SHA-256( ikm=face_R ‖ device_prf, salt, info="biowallet-device-v2" )
+  vault_key    = AES-256-GCM-decrypt( key=deviceKey, deviceWrap )
+
+Unlock — face path (v3, new / unenrolled device):
+  faceKey      = PBKDF2-SHA-256( ikm=face_R ‖ PIN_bytes, salt, 300 000 )
+  vault_key    = AES-256-GCM-decrypt( key=faceKey, faceWrap )
+
+Unlock — face path (v2, no PIN):
+  faceKey      = PBKDF2-SHA-256( ikm=face_R, salt, 300 000 )
+  vault_key    = AES-256-GCM-decrypt( key=faceKey, faceWrap )
+
+Unlock — v1 legacy:
+  vault_key    = PBKDF2-SHA-256( ikm=face_R, salt, 300 000 )
+  plaintext    = AES-256-GCM-decrypt( key=vault_key, iv, ct )  // binary format
 ```
 
-AES-GCM provides both confidentiality and authenticity. An incorrect vault key (wrong face, wrong person) causes a GCM authentication tag failure — the decryption throws before any plaintext is exposed.
+AES-GCM provides both confidentiality and authenticity. A wrong face, wrong PIN, or wrong device PRF produces a wrong derived key; the GCM authentication tag fails before any plaintext is exposed. There is no separate PIN check — the tag failure is the only signal.
 
-Implementation: `crypto.subtle.decrypt()` — the browser's native Web Cryptography API. No custom AES implementation.
+Implementation: `crypto.subtle.encrypt/decrypt()` — the browser's native Web Cryptography API. No custom AES implementation.
+
+### PIN key derivation (v3)
+
+The PIN is never stored and never hashed independently. It is concatenated byte-for-byte with the biometric secret before PBKDF2:
+
+```
+ikm = face_R (32 bytes) || TextEncoder(PIN)
+faceKey = PBKDF2-SHA-256( ikm, salt, 300 000 iterations, key_length=256 bits )
+```
+
+A 4-character PIN adds 32 bits of entropy to the key material. A wrong PIN changes every output bit of PBKDF2, making brute-force indistinguishable from a biometric mismatch.
+
+### Device factor key derivation (v2 / v3)
+
+```
+ikm      = face_R (32 bytes) || device_prf (32 bytes)
+info     = "biowallet-device-v2"  (UTF-8)
+deviceKey = HKDF-SHA-256( ikm, salt, info, key_length=256 bits )
+```
+
+`device_prf` is a 32-byte deterministic secret provided by the platform authenticator via the WebAuthn PRF extension. It is bound to the specific credential ID and can only be reproduced on the enrolling authenticator. The face scan is still required — `face_R` is part of the HKDF input, so an attacker with only the device cannot derive the correct key.
 
 ---
 

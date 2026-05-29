@@ -466,7 +466,8 @@ btnEnroll.addEventListener('click', async () => {
       'ENROLL', { embedding, pin }, [embedding.buffer]
     );
 
-    localStorage.setItem('biowallet_meta', JSON.stringify({ vaultId, P }));
+    const vaultJson = new TextDecoder().decode(encryptedVault);
+    localStorage.setItem('biowallet_meta', JSON.stringify({ vaultId, P, vaultJson }));
     downloadBlob(encryptedVault, `${vaultId}.biowallet`);
     downloadBlob(JSON.stringify(P), `${vaultId}.P.json`);
 
@@ -703,7 +704,8 @@ btnImportEnroll.addEventListener('click', async () => {
       'IMPORT', { mnemonic: words.join(' '), embedding, pin }, [embedding.buffer]
     );
 
-    localStorage.setItem('biowallet_meta', JSON.stringify({ vaultId, P }));
+    const vaultJson = new TextDecoder().decode(encryptedVault);
+    localStorage.setItem('biowallet_meta', JSON.stringify({ vaultId, P, vaultJson }));
     downloadBlob(encryptedVault, `${vaultId}.biowallet`);
     downloadBlob(JSON.stringify(P), `${vaultId}.P.json`);
 
@@ -786,10 +788,11 @@ btnScan.addEventListener('click', async () => {
   setMsg(t('msg.open.scanning'), '');
 
   try {
-    const meta      = JSON.parse(localStorage.getItem('biowallet_meta'));
-    const vaultFile = await pickFile('.biowallet');
-    const embedding = await captureEmbedding(video);
+    const meta = JSON.parse(localStorage.getItem('biowallet_meta'));
 
+    // Face scan FIRST — before any file picker (file picker backgrounds the tab on mobile,
+    // suspending the camera stream and causing detection to fail on return)
+    const embedding = await captureEmbedding(video);
     await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
     bioSuccess();
 
@@ -803,7 +806,19 @@ btnScan.addEventListener('click', async () => {
       if (!devicePrf) setMsg(t('msg.device.fallback'), '');
     }
 
-    const encBuf = await vaultFile.arrayBuffer();
+    // Get vault: localStorage first (same device), file picker only on new/restored device
+    let encBuf;
+    if (meta.vaultJson) {
+      encBuf = new TextEncoder().encode(meta.vaultJson).buffer;
+    } else {
+      const vaultFile = await pickFile('.biowallet,application/octet-stream,*/*');
+      encBuf = await vaultFile.arrayBuffer();
+      // Cache JSON vault (v2/v3) for future opens — skips file picker on this device
+      if (new Uint8Array(encBuf)[0] === 0x7b) {
+        meta.vaultJson = new TextDecoder().decode(encBuf);
+        localStorage.setItem('biowallet_meta', JSON.stringify(meta));
+      }
+    }
 
     // v3 vault without device PRF → PIN required
     let pin = null;
@@ -1082,7 +1097,8 @@ btnDevice.addEventListener('click', async () => {
       prfSalt:      wa.prfSalt,
     });
 
-    meta.device = { credentialId: wa.credentialId, prfSalt: wa.prfSalt };
+    meta.device   = { credentialId: wa.credentialId, prfSalt: wa.prfSalt };
+    meta.vaultJson = new TextDecoder().decode(encryptedVault);
     localStorage.setItem('biowallet_meta', JSON.stringify(meta));
 
     downloadBlob(encryptedVault, `${meta.vaultId}.biowallet`);

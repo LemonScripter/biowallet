@@ -36,6 +36,8 @@ Most wallets tell you they are secure. BioWallet shows you the proof.
 | Face data cannot be reversed to the key | BCH(63,51,t=6) fuzzy extractor + HKDF — one-way derivation | [src/core/fuzzy_extractor.js](src/core/fuzzy_extractor.js) |
 | Vault key erased after every operation | DCC auto-lock: `SIGN → LOCK` in the same causal chain | [DCC-4 formal proof](tests/verify_biowallet.py) |
 | Vault cannot open without a fresh biometric token | Token TTL = 30 s, single-use, Z3-verified | [DCC-1, DCC-2](tests/verify_biowallet.py) |
+| Cross-device open requires face + PIN | v3 vault: `PBKDF2(face_R ‖ PIN, salt, 300k)` — wrong PIN = wrong key, indistinguishable from wrong face | [src/core/vault.js](src/core/vault.js) |
+| Enrolled device opens without PIN | WebAuthn PRF: `HKDF(face_R ‖ device_prf, salt)` — device factor is additional, not instead of biometric | [src/core/vault.js](src/core/vault.js) |
 | Shamir GF(2⁸) arithmetic is provably correct | Z3 BitVec, 196 608 exhaustive cases verified | [tests/verify_sss_gf256.py](tests/verify_sss_gf256.py) |
 | No third-party code fetched at runtime | All vendors bundled locally, SHA-256 build fingerprint | [src/vendor/](src/vendor/) |
 | Offline recovery without exposing the seed | Two-step paper formula — P value never enters the app | [recovery\_tool.html](recovery_tool.html) |
@@ -125,6 +127,10 @@ Result: 13 / 13  PASS ✓
 | C6 | WalletConnect v2 — dApp sessions, `eth_sendTransaction`, `personal_sign`, `wallet_switchEthereumChain` |
 | C7 | Transaction history via Blockscout API v2 |
 | v13 | Multi-network: 8 built-in EVM chains + custom network support |
+| v22 | Bilingual UI (HU / EN) — language toggle in the header |
+| v23 | P6 TX Commitment Invariant — 8-char fingerprint bound to transaction hash; user types first 4 chars before the second scan |
+| v25 | WebAuthn PRF device factor — platform authenticator (fingerprint / Face ID) enrolled per device; opens vault without PIN on enrolled device |
+| v26 | PIN mandatory 2FA — v3 vault: `PBKDF2(face_R ‖ PIN, salt, 300k)`; PIN required on new/unenrolled devices; device path is always PIN-free |
 
 ---
 

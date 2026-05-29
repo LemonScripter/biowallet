@@ -31,32 +31,61 @@ BioWallet is a single-origin, static web application. There is no BioWallet serv
 
 ---
 
-## Vault format (p3)
+## Vault format
 
-The `.biowallet` file is an AES-256-GCM encrypted blob. Its structure:
+The `.biowallet` file holds the encrypted seed. Three formats are in use; the parser auto-detects by checking whether the first byte is `{` (0x7b = JSON) or not (legacy binary).
+
+### v1 — legacy binary
 
 ```
-.biowallet =
-  GCM_IV (12 bytes)  ||
-  AES-256-GCM( vault_key, plaintext )
+.biowallet = salt (32 B) || IV (12 B) || AES-256-GCM( vault_key, plaintext )
 
-plaintext =
-  JSON {
-    version: "p3",
-    vaultId: uuid,
-    mnemonic: "<24 BIP39 words>",
-    embedding: Float32Array[128]   // enrolled face vector
-  }
-
-vault_key =
-  HKDF-SHA-256(
-    ikm  = BCH_correct(embedding_live, W_seed),
-    salt = syndrome,
-    info = "biowallet-v3"
-  )
+vault_key = PBKDF2-SHA-256( ikm=face_R, salt, iterations=300 000 )
 ```
 
-The `P` file (`.P.json`) contains only the BCH helper values (`W_seed`, `syndrome`) — never the vault key or the mnemonic.
+Still opened transparently. Upgraded to v2 on device enrollment.
+
+### v2 — JSON wrapped key (introduced v25)
+
+```json
+{
+  "v": 2,
+  "vaultId": "<uuid>",
+  "salt":  "<hex 32 B>",
+  "iv":    "<hex 12 B>",
+  "ct":    "<hex ciphertext>",
+  "faceWrap":   { "wIv": "<hex 12 B>", "wCt": "<hex 48 B>" },
+  "deviceWrap": { "wIv": "<hex>", "wCt": "<hex>",
+                  "credentialId": "<hex>", "prfSalt": "<hex>" }
+}
+```
+
+`vault_key` is a random 32-byte secret generated at enrollment. It is never stored directly — only AES-GCM wrapped by one of two derived keys:
+
+```
+faceWrap_key   = PBKDF2-SHA-256( ikm=face_R,               salt, 300 000 )
+deviceWrap_key = HKDF-SHA-256  ( ikm=face_R ‖ device_prf,  salt, info="biowallet-device-v2" )
+```
+
+`deviceWrap` is optional. If present, the vault can be opened via the device path without a PIN.
+
+### v3 — PIN mandatory (introduced v26, default for all new wallets)
+
+Identical JSON structure to v2 (`"v": 3`). The sole difference is in `faceWrap_key`:
+
+```
+faceWrap_key = PBKDF2-SHA-256( ikm=face_R ‖ PIN_bytes, salt, 300 000 )
+```
+
+The PIN is concatenated with `face_R` before key derivation. A wrong PIN produces a different AES key; the GCM tag fails identically to a wrong face scan. There is no separate PIN check and no PIN stored anywhere.
+
+### Plaintext structure (all versions)
+
+```json
+{ "seed": "<hex 32 B>", "accounts": [], "vaultId": "<uuid>", "created": <ms> }
+```
+
+The `P` file (`.P.json`) contains only the BCH helper values (`W_seed`, `syndrome`) — never the vault key, PIN, or seed.
 
 ---
 
@@ -109,16 +138,19 @@ Worker  →  Main thread
 { id, ok: false, error: "message" }
 
 Types:
-  INIT_VAULT   { vaultId }              → void
-  ENROLL       { embedding }            → { vaultId, P, encryptedVault }
-  IMPORT       { mnemonic, embedding }  → { vaultId, P, encryptedVault }
-  BIO_CAPTURE  { embedding, P }         → void (issues DCC token)
-  OPEN         { encryptedVault, P }    → { address }
-  SIGN         { tx }                   → { signed }
-  PERSONAL_SIGN { message }             → { signature }
-  RECOVERY_FORMULA {}                   → { rawA, r }
-  LOCK         {}                       → void
-  STATUS       {}                       → { state, age }
+  INIT_VAULT      { vaultId }                                    → void
+  ENROLL          { embedding, pin? }                            → { vaultId, P, encryptedVault }
+  IMPORT          { mnemonic, embedding, pin? }                  → { vaultId, P, encryptedVault }
+  COMMIT_TX       { tx }                                         → { fingerprint }   // 8-char SHA-256 prefix
+  CANCEL_TX       {}                                             → void
+  BIO_CAPTURE     { embedding, P, userInput? }                   → void  // issues DCC token; checks fingerprint if userInput present
+  OPEN            { encryptedVault, P, devicePrf?, pin? }        → { address, hasDevice, usedDevice }
+  ENROLL_DEVICE   { devicePrf, credentialId, prfSalt }           → { encryptedVault }
+  SIGN            { tx }                                         → { signed, from }
+  PERSONAL_SIGN   { message }                                    → { signature }
+  RECOVERY_FORMULA {}                                            → { rawA, r }
+  LOCK            {}                                             → void
+  STATUS          {}                                             → { state }
 ```
 
 The `embedding` (`Float32Array`) is transferred — not copied — via `postMessage(..., [embedding.buffer])`. After transfer the main thread's buffer is neutered (zero-length), making it impossible to retain the biometric data on the main side.
