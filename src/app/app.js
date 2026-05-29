@@ -937,11 +937,12 @@ async function fetchBalance(address) {
 }
 
 async function renderTxHistory(address) {
+  txHistoryCard.style.display = 'block';
   if (!currentNetwork.blockscout) {
-    txHistoryCard.style.display = 'none';
+    txHistoryList.innerHTML =
+      '<div style="font-size:0.75rem;color:var(--muted);padding:0.3rem 0;">TX history ezen a hálózaton nem elérhető</div>';
     return;
   }
-  txHistoryCard.style.display = 'block';
   txHistoryList.innerHTML =
     '<div style="font-size:0.75rem;color:var(--muted);padding:0.3rem 0;">…</div>';
 
