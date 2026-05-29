@@ -12,12 +12,13 @@ import {
   wcRespondOk, wcRespondError, wcGetSessions, wcDisconnect, wcReady,
 } from '../core/wc2.js';
 import {
-  NETWORKS, getBalance, getNonce,
+  BUILTIN_NETWORKS, getAllNetworks, saveCustomNetwork, deleteCustomNetwork,
+  getBalance, getNonce,
   getFeeData, estimateGas, broadcastTx,
   ethToWei, weiToEth, isValidAddress, resolveENS,
   getTokenBalance, formatToken, fetchTxHistory,
   tokenToRaw, encodeTransfer,
-} from '../core/rpc.js?v=20';
+} from '../core/rpc.js?v=21';
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
@@ -101,7 +102,7 @@ const dots = [0,1,2,3,4].map(i => document.getElementById(`dot-${i}`));
 // ── State ─────────────────────────────────────────────────────────────────
 let stream            = null;
 let timerID           = null;
-let currentNetwork    = NETWORKS.sepolia;
+let currentNetwork    = BUILTIN_NETWORKS.find(n => n.key === 'sepolia');
 let vaultReady        = false;      // worker-ben van-e aktív vault
 let ensResolved       = null;       // ENS → ETH cím (ha feloldva)
 let inCooldown        = false;      // brute-force védelem aktív
@@ -653,7 +654,7 @@ btnSign.addEventListener('click', async () => {
       setMsg('Érvénytelen összeg (pl.: 0.001).', 'error');
       return;
     }
-    confirmAmount = amountStr + ' ETH';
+    confirmAmount = amountStr + ' ' + currentNetwork.nativeSymbol;
   } else {
     // ERC-20 küldés
     let tokenAmount;
@@ -810,14 +811,7 @@ btnCopy.addEventListener('click', async () => {
 });
 
 // ── Hálózat választó ──────────────────────────────────────────────────────
-btnNetwork.addEventListener('click', () => {
-  currentNetwork = currentNetwork === NETWORKS.sepolia ? NETWORKS.mainnet : NETWORKS.sepolia;
-  btnNetwork.textContent = currentNetwork.name;
-  btnNetwork.classList.toggle('mainnet', currentNetwork === NETWORKS.mainnet);
-  updateTokenSelector();
-  const addr = ethAddress.textContent;
-  if (addr && addr !== '—') fetchBalance(addr);
-});
+btnNetwork.addEventListener('click', () => showNetworkModal());
 
 // ── Egyenleg frissítése ───────────────────────────────────────────────────
 btnRefresh.addEventListener('click', () => {
@@ -891,13 +885,42 @@ sendToInput.addEventListener('input', () => {
 // ERC-20 token lista — decimálisok hardcoded (nincs extra eth_call)
 const TOKEN_LIST = {
   mainnet: [
-    { symbol: 'USDC', address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', decimals: 6  },
-    { symbol: 'USDT', address: '0xdAC17F958D2ee523a2206206994597C13D831ec7', decimals: 6  },
-    { symbol: 'WETH', address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', decimals: 18 },
+    { symbol: 'USDC',  address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', decimals: 6  },
+    { symbol: 'USDT',  address: '0xdAC17F958D2ee523a2206206994597C13D831ec7', decimals: 6  },
+    { symbol: 'WETH',  address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', decimals: 18 },
+  ],
+  bsc: [
+    { symbol: 'USDT',  address: '0x55d398326f99059fF775485246999027B3197955', decimals: 18 },
+    { symbol: 'USDC',  address: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', decimals: 18 },
+    { symbol: 'WBNB',  address: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', decimals: 18 },
+  ],
+  polygon: [
+    { symbol: 'USDC',  address: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359', decimals: 6  },
+    { symbol: 'USDT',  address: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F', decimals: 6  },
+    { symbol: 'WETH',  address: '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619', decimals: 18 },
+  ],
+  arbitrum: [
+    { symbol: 'USDC',  address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', decimals: 6  },
+    { symbol: 'USDT',  address: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', decimals: 6  },
+    { symbol: 'WETH',  address: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1', decimals: 18 },
+  ],
+  base: [
+    { symbol: 'USDC',  address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6  },
+    { symbol: 'WETH',  address: '0x4200000000000000000000000000000000000006', decimals: 18 },
+  ],
+  optimism: [
+    { symbol: 'USDC',  address: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85', decimals: 6  },
+    { symbol: 'USDT',  address: '0x94b008aA00579c1307B0EF2c499aD98a8ce58e58', decimals: 6  },
+    { symbol: 'WETH',  address: '0x4200000000000000000000000000000000000006', decimals: 18 },
+  ],
+  avalanche: [
+    { symbol: 'USDC',  address: '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E', decimals: 6  },
+    { symbol: 'USDT.e',address: '0xc7198437980c041c805A1EDcbA50c1Ce5db95118', decimals: 6  },
+    { symbol: 'WAVAX', address: '0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7', decimals: 18 },
   ],
   sepolia: [
-    { symbol: 'USDC', address: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', decimals: 6  },
-    { symbol: 'WETH', address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14', decimals: 18 },
+    { symbol: 'USDC',  address: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', decimals: 6  },
+    { symbol: 'WETH',  address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14', decimals: 18 },
   ],
 };
 
@@ -905,7 +928,7 @@ async function fetchBalance(address) {
   try {
     ethBalance.textContent = '…';
     const bal = await getBalance(address, currentNetwork.rpc);
-    ethBalance.textContent = bal + ' ETH';
+    ethBalance.textContent = bal + ' ' + currentNetwork.nativeSymbol;
   } catch {
     ethBalance.textContent = '?';
   }
@@ -914,13 +937,16 @@ async function fetchBalance(address) {
 }
 
 async function renderTxHistory(address) {
-  const networkKey = currentNetwork === NETWORKS.mainnet ? 'mainnet' : 'sepolia';
+  if (!currentNetwork.blockscout) {
+    txHistoryCard.style.display = 'none';
+    return;
+  }
   txHistoryCard.style.display = 'block';
   txHistoryList.innerHTML =
     '<div style="font-size:0.75rem;color:var(--muted);padding:0.3rem 0;">…</div>';
 
   try {
-    const txs = await fetchTxHistory(address, networkKey);
+    const txs = await fetchTxHistory(address, currentNetwork);
     txHistoryList.innerHTML = '';
 
     if (!txs.length) {
@@ -944,7 +970,7 @@ async function renderTxHistory(address) {
 
       const amount = document.createElement('span');
       amount.style.cssText = `flex:1;font-family:monospace;color:${ok ? 'var(--text)' : 'var(--danger)'};`;
-      amount.textContent = (ok ? '' : '✗ ') + val + ' ETH';
+      amount.textContent = (ok ? '' : '✗ ') + val + ' ' + currentNetwork.nativeSymbol;
 
       const link = document.createElement('a');
       link.className = 'tx-hist-hash';
@@ -975,8 +1001,7 @@ function txAge(ts) {
 }
 
 async function fetchTokenBalances(address) {
-  const key    = currentNetwork === NETWORKS.mainnet ? 'mainnet' : 'sepolia';
-  const tokens = TOKEN_LIST[key] ?? [];
+  const tokens = TOKEN_LIST[currentNetwork.key] ?? [];
   tokenBalances.innerHTML = '';
   tokenBalanceCache.clear();
 
@@ -1027,7 +1052,7 @@ async function handleWCProposal(proposal) {
   const address = ethAddress.textContent;
   const approved = await showWCProposalModal(meta);
   if (approved) {
-    await wcApprove(proposal.id, address, currentNetwork.chainId);
+    await wcApprove(proposal.id, address, getAllNetworks().map(n => n.chainId));
     setMsg(`${meta.name ?? 'dApp'} csatlakoztatva.`, 'ok');
   } else {
     await wcRejectProposal(proposal.id);
@@ -1067,7 +1092,7 @@ async function dispatchWCRequest(topic, id, params) {
 
 async function handleWCSwitchChain(topic, id, { chainId: hexChain }) {
   const requested = parseInt(hexChain, 16);
-  const match = Object.values(NETWORKS).find(n => n.chainId === requested);
+  const match = getAllNetworks().find(n => n.chainId === requested);
   if (!match) {
     await wcRespondError(topic, id, `Nem támogatott hálózat: ${hexChain}`);
     setMsg(`dApp hálózatváltás elutasítva — chainId ${hexChain} nem ismert.`, 'error');
@@ -1075,7 +1100,7 @@ async function handleWCSwitchChain(topic, id, { chainId: hexChain }) {
   }
   currentNetwork = match;
   btnNetwork.textContent = currentNetwork.name;
-  btnNetwork.classList.toggle('mainnet', currentNetwork === NETWORKS.mainnet);
+  btnNetwork.classList.toggle('mainnet', !currentNetwork.testnet);
   await wcRespondOk(topic, id, null);
   await wcEmitChainChanged(topic, currentNetwork.chainId);
   setMsg(`Hálózat váltva: ${currentNetwork.name}`, 'ok');
@@ -1104,7 +1129,7 @@ async function handleWCEthSend(topic, id, wcTx) {
 
     const confirmed = await showConfirm({
       to:      txTo,
-      amount:  weiToEth(txValue.toString()) + ' ETH',
+      amount:  weiToEth(txValue.toString()) + ' ' + currentNetwork.nativeSymbol,
       gas:     `~${weiToEth((gasLimit * feeData.maxFeePerGas).toString())} ETH`,
       network: currentNetwork.name + ' (dApp)',
     });
@@ -1254,21 +1279,21 @@ function showWCSignModal(hexMsg) {
 }
 
 function updateTokenSelector() {
-  const key    = currentNetwork === NETWORKS.mainnet ? 'mainnet' : 'sepolia';
-  const tokens = TOKEN_LIST[key] ?? [];
+  const sym    = currentNetwork.nativeSymbol ?? 'ETH';
+  const tokens = TOKEN_LIST[currentNetwork.key] ?? [];
   tokenSelector.innerHTML = '';
 
-  for (const tok of [{ symbol: 'ETH' }, ...tokens]) {
-    const isEth    = tok.symbol === 'ETH';
-    const isActive = isEth ? selectedToken === null : selectedToken?.symbol === tok.symbol;
+  for (const tok of [{ symbol: sym }, ...tokens]) {
+    const isNative = tok.symbol === sym && !tok.address;
+    const isActive = isNative ? selectedToken === null : selectedToken?.symbol === tok.symbol;
     const btn      = document.createElement('button');
     btn.className  = 'token-pill' + (isActive ? ' active' : '');
     btn.textContent = tok.symbol;
     btn.addEventListener('click', () => {
-      selectedToken = isEth ? null : tok;
-      const label = selectedToken ? `${selectedToken.symbol} küldése` : 'ETH küldése';
+      selectedToken = isNative ? null : tok;
+      const label = selectedToken ? `${selectedToken.symbol} küldése` : `${sym} küldése`;
       sendCardLabel.textContent = label;
-      amountUnit.textContent    = selectedToken?.symbol ?? 'ETH';
+      amountUnit.textContent    = selectedToken?.symbol ?? sym;
       sendBtnLabel.textContent  = label;
       updateTokenSelector();
     });
@@ -1278,9 +1303,9 @@ function updateTokenSelector() {
   // Ha az aktuálisan kiválasztott token nem elérhető az új hálózaton
   if (selectedToken && !tokens.find(t => t.symbol === selectedToken.symbol)) {
     selectedToken = null;
-    sendCardLabel.textContent = 'ETH küldése';
-    amountUnit.textContent    = 'ETH';
-    sendBtnLabel.textContent  = 'ETH küldése';
+    sendCardLabel.textContent = `${sym} küldése`;
+    amountUnit.textContent    = sym;
+    sendBtnLabel.textContent  = `${sym} küldése`;
     updateTokenSelector();
   }
 }
@@ -1402,9 +1427,9 @@ function showPanel(name) {
     txHistoryCard.style.display = 'none';
     txHistoryList.innerHTML     = '';
     selectedToken               = null;
-    sendCardLabel.textContent   = 'ETH küldése';
-    amountUnit.textContent      = 'ETH';
-    sendBtnLabel.textContent    = 'ETH küldése';
+    sendCardLabel.textContent   = `${currentNetwork.nativeSymbol ?? 'ETH'} küldése`;
+    amountUnit.textContent      = currentNetwork.nativeSymbol ?? 'ETH';
+    sendBtnLabel.textContent    = `${currentNetwork.nativeSymbol ?? 'ETH'} küldése`;
     tokenSelector.innerHTML     = '';
     ensResolved                 = null;
     ensHint.style.display   = 'none';
@@ -1595,3 +1620,132 @@ document.addEventListener('click', e => {
   const btn = e.target.closest('[data-info]');
   if (btn) { e.stopPropagation(); showInfoModal(btn.dataset.info); }
 });
+
+// ── Hálózat választó modal ────────────────────────────────────────────────
+
+function showNetworkModal() {
+  const all = getAllNetworks();
+  const ov  = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;overflow-y:auto;';
+
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#16161a;border:1px solid #2a2a35;border-radius:16px;width:100%;max-width:380px;max-height:80vh;overflow-y:auto;';
+
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'padding:1rem 1.5rem 0.75rem;border-bottom:1px solid #2a2a35;font-size:0.95rem;font-weight:700;color:#e8e8f0;';
+  hdr.textContent = 'Hálózat választás';
+  box.appendChild(hdr);
+
+  for (const net of all) {
+    const isCurrent = net.chainId === currentNetwork.chainId;
+    const isCustom  = !BUILTIN_NETWORKS.find(b => b.chainId === net.chainId);
+
+    const row = document.createElement('div');
+    row.style.cssText = `display:flex;align-items:center;gap:0.75rem;padding:0.75rem 1rem;border-bottom:1px solid #1e1e24;cursor:pointer;${isCurrent ? 'background:#16162a;' : ''}`;
+
+    const info = document.createElement('div');
+    info.style.flex = '1';
+    const testnetLabel = net.testnet ? ' · Testnet' : '';
+    info.innerHTML =
+      `<div style="font-size:0.85rem;font-weight:${isCurrent ? '700' : '600'};color:#e8e8f0;">${net.name}</div>` +
+      `<div style="font-size:0.68rem;color:#6b6b80;">ChainID: ${net.chainId} · ${net.nativeSymbol ?? 'ETH'}${testnetLabel}</div>`;
+    row.appendChild(info);
+
+    if (isCurrent) {
+      const chk = document.createElement('span');
+      chk.style.cssText = 'color:#6c63ff;font-size:0.9rem;flex-shrink:0;';
+      chk.textContent = '✓';
+      row.appendChild(chk);
+    }
+
+    if (isCustom) {
+      const del = document.createElement('button');
+      del.textContent = '✕';
+      del.title = 'Törlés';
+      del.style.cssText = 'background:none;border:none;color:#ff4757;font-size:0.85rem;cursor:pointer;padding:0.2rem 0.5rem;flex-shrink:0;';
+      del.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!confirm(`Törölje: ${net.name}?`)) return;
+        deleteCustomNetwork(net.chainId);
+        if (currentNetwork.chainId === net.chainId) _switchNetwork(BUILTIN_NETWORKS.find(n => n.key === 'sepolia'));
+        ov.remove();
+      });
+      row.appendChild(del);
+    }
+
+    row.addEventListener('click', () => { _switchNetwork(net); ov.remove(); });
+    box.appendChild(row);
+  }
+
+  const addBtn = document.createElement('button');
+  addBtn.textContent = '+ Hálózat hozzáadása';
+  addBtn.style.cssText = 'width:100%;padding:0.75rem;border:none;background:none;color:#6c63ff;font-size:0.85rem;font-weight:600;cursor:pointer;border-top:1px solid #2a2a35;';
+  addBtn.addEventListener('click', async () => { ov.remove(); await showAddNetworkModal(); });
+  box.appendChild(addBtn);
+
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+  ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+}
+
+function _switchNetwork(net) {
+  currentNetwork = net;
+  btnNetwork.textContent = currentNetwork.name;
+  btnNetwork.classList.toggle('mainnet', !currentNetwork.testnet);
+  updateTokenSelector();
+  const addr = ethAddress.textContent;
+  if (addr && addr !== '—') fetchBalance(addr);
+}
+
+function showAddNetworkModal() {
+  return new Promise(resolve => {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;overflow-y:auto;';
+
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#16161a;border:1px solid #2a2a35;border-radius:16px;width:100%;max-width:380px;padding:1.5rem;';
+    box.innerHTML = `
+      <div style="font-size:0.95rem;font-weight:700;color:#e8e8f0;margin-bottom:1rem;">Egyéni hálózat hozzáadása</div>
+      <div style="font-size:0.72rem;color:#ffa502;background:rgba(255,165,2,0.07);border-left:2px solid #ffa502;
+                  padding:0.4rem 0.7rem;border-radius:0 6px 6px 0;margin-bottom:1rem;line-height:1.5;">
+        ⚠ Az egyéni hálózat RPC URL-je ismeretlen — a szerver CSP miatt kapcsolat problémák léphetnek fel.
+      </div>
+      ${['_cn_name:Hálózat neve', '_cn_chain:ChainID (szám)', '_cn_rpc:RPC URL (https://...)', '_cn_exp:Explorer TX URL (https://.../tx/)', '_cn_sym:Natív token szimbóluma (pl. ETH)'].map(f => {
+        const [id, label] = f.split(':');
+        return `<div style="margin-bottom:0.65rem;">
+          <div style="font-size:0.72rem;color:#6b6b80;margin-bottom:0.25rem;">${label}</div>
+          <input id="${id}" style="width:100%;background:#1e1e24;border:1px solid #2a2a35;border-radius:8px;
+            padding:0.5rem 0.7rem;color:#e8e8f0;font-size:0.82rem;outline:none;" />
+        </div>`;
+      }).join('')}
+      <div id="_cn_err" style="font-size:0.72rem;color:#ff4757;min-height:1rem;margin-bottom:0.5rem;"></div>
+      <div style="display:flex;gap:0.75rem;">
+        <button id="_cn_cancel" style="flex:1;padding:0.7rem;border-radius:10px;border:1px solid #2a2a35;background:#1e1e24;color:#e8e8f0;font-size:0.85rem;font-weight:600;cursor:pointer;">Mégse</button>
+        <button id="_cn_add"    style="flex:1;padding:0.7rem;border-radius:10px;border:none;background:#6c63ff;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;">Hozzáadás</button>
+      </div>`;
+
+    ov.appendChild(box);
+    document.body.appendChild(ov);
+
+    const err = box.querySelector('#_cn_err');
+    box.querySelector('#_cn_cancel').addEventListener('click', () => { ov.remove(); resolve(); });
+    box.querySelector('#_cn_add').addEventListener('click', () => {
+      const name    = box.querySelector('#_cn_name').value.trim();
+      const chainId = parseInt(box.querySelector('#_cn_chain').value.trim(), 10);
+      const rpc     = box.querySelector('#_cn_rpc').value.trim();
+      const explorer= box.querySelector('#_cn_exp').value.trim();
+      const sym     = box.querySelector('#_cn_sym').value.trim() || 'ETH';
+
+      if (!name)                         { err.textContent = 'Hálózat neve kötelező.'; return; }
+      if (!chainId || isNaN(chainId))    { err.textContent = 'Érvénytelen ChainID.'; return; }
+      if (!rpc.startsWith('https://'))   { err.textContent = 'RPC URL https://-vel kell kezdődjön.'; return; }
+      if (!explorer.startsWith('https://')) { err.textContent = 'Explorer URL https://-vel kell kezdődjön.'; return; }
+
+      const net = { key: `custom_${chainId}`, name, chainId, rpc, explorer, nativeSymbol: sym, blockscout: null, testnet: false };
+      saveCustomNetwork(net);
+      ov.remove();
+      resolve(net);
+    });
+    ov.addEventListener('click', e => { if (e.target === ov) { ov.remove(); resolve(); } });
+  });
+}
