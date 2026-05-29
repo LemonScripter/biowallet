@@ -14,14 +14,14 @@ A face scan produces a `Float32Array[128]` embedding vector (FaceNet / face-api.
 
 ### Solution: BCH error-correcting fuzzy extractor
 
-BioWallet quantises the 128-dimensional embedding to a compact binary string and applies a **BCH error-correcting code** to bridge the gap between enrollment and authentication scans.
+BioWallet quantises the 128-dimensional embedding to a compact binary string and applies a **BCH error-correcting code** over GF(2⁸) to bridge the gap between enrollment and authentication scans.
 
 | Parameter | Value | Meaning |
 |-----------|-------|---------|
-| Code length | n = 63 | 63-bit codeword |
-| Message length | k = 51 | 51 bits of biometric entropy |
-| Error correction | t = 6 | Tolerates up to 6 bit-flips between scans |
-| Min. Hamming distance | d = 13 | Two different faces must differ by ≥ 13 bits |
+| Code length | n = 255 | 255-bit codeword over GF(2⁸), primitive poly 0x11D |
+| Message length | k = 55 | 55 bits of biometric entropy |
+| Error correction | t = 25 | Tolerates up to 25 bit-flips between scans |
+| Min. Hamming distance | d ≥ 51 | Two different faces must differ by ≥ 51 bits |
 
 **Enrollment:** the quantised codeword `b` is BCH-encoded to produce a syndrome `s`. The syndrome is stored in the `.P.json` helper file.
 

@@ -12,27 +12,29 @@ A face scan produces a `Float32Array[128]` embedding vector. Two scans of the sa
 
 ### Construction
 
-BioWallet uses a BCH(63, 51, t=6) fuzzy extractor:
+BioWallet uses a BCH(255, 55, t=25) fuzzy extractor over GF(2⁸):
 
 ```
 Enrollment:
-  embedding_raw  →  quantize to 63 bits  →  b (codeword)
-  BCH encode b   →  syndrome s
+  embedding_raw  →  quantize to 256 bits  →  b (255 bits into BCH + 1 extra_bit)
+  BCH encode b[0..254]  →  syndrome s
   HKDF(b, salt=s, info="biowallet-v3")  →  vault_key
-  Store: { syndrome: s, W_seed: b_quantized }  →  .P.json
+  Store: { syndrome: s, W_seed, extra_bit, salt, version: 'p3' }  →  .P.json
 
 Authentication:
-  embedding_live  →  quantize to 63 bits  →  b'
-  BCH decode (b', syndrome)  →  b  (corrects up to t=6 bit errors)
+  embedding_live  →  quantize to 256 bits  →  b'
+  BCH decode (b'[0..254], syndrome)  →  b  (corrects up to t=25 bit errors)
+  Restore b[255] from extra_bit
   HKDF(b, salt=s, info="biowallet-v3")  →  vault_key  (same key as enrollment)
 ```
 
 | Parameter | Value | Meaning |
 |---|---|---|
-| Code length | n = 63 | 63-bit codeword |
-| Message length | k = 51 | 51 bits of entropy |
-| Error correction | t = 6 | Tolerates up to 6 bit-flips between scans |
-| Min. Hamming distance | d = 2t+1 = 13 | Two different faces must differ by ≥ 13 bits |
+| Code length | n = 255 | 255-bit codeword over GF(2⁸), primitive poly 0x11D |
+| Message length | k = 55 | 55 bits of biometric entropy |
+| Error correction | t = 25 | Tolerates up to 25 bit-flips between scans |
+| Min. Hamming distance | d ≥ 51 | Two different faces must differ by ≥ 51 bits |
+| extra_bit | 1 bit | Bit 255 stored separately (outside BCH domain) |
 
 ### Security note
 
@@ -167,18 +169,21 @@ The paper recovery system ensures that the seed phrase can be reconstructed offl
 
 ```
 Step 1 — export (online, in-app, after biometric verification):
-  Generate random r_j  (one per seed word position)
-  raw_A_j = wordIndex(mnemonic[j]) XOR r_j  (mod 2048)
+  Generate random r_j  (one per seed word position, 0..2047)
+  raw_A_j = (wordIndex(mnemonic[j]) − r_j) mod 2048
   Output: [raw_A_j] (Nyers Papír A) + [r_j] (Papír B)
 
 Step 2 — finalise (offline, in recovery_tool.html):
   User provides personal number P
-  final_A_j = raw_A_j XOR hash(P, j)  (Végleges Papír A)
+  p_j      = SHA-256(P || "|" || j) first 2 bytes as uint16, mod 2048
+  final_A_j = (raw_A_j − p_j) mod 2048   (Végleges Papír A)
 
 Recovery:
-  wordIndex = final_A_j XOR r_j XOR hash(P, j)
-  mnemonic = BIP39_word(wordIndex) × 24
+  wordIndex = (final_A_j + r_j + p_j) mod 2048
+  mnemonic  = BIP39_word(wordIndex) × 24
 ```
+
+Note: the formula uses modular arithmetic (mod 2048 addition/subtraction over Z₂₀₄₈), not XOR.
 
 **Security property:** Neither Nyers Papír A alone, nor Papír B alone, nor the app itself can reconstruct the mnemonic. Recovery requires both paper sheets *plus* the memorized P value.
 
