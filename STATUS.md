@@ -235,6 +235,41 @@ Bizonyíték: Böngésző DevTools → Network tab → biowallet.metaspace.bio
 | 🟢 5 | Brute-force védelem (cooldown) | Biztonság |
 | 🔵 6 | WalletConnect v2 | dApp integráció |
 
+#### Phase 10 — 2-of-3 Küszöb-P (hosszú táv, tervezett)
+
+**Alapelv:** P nem memorizált szám, hanem Shamir Secret Sharing (2-of-3) küszöbrendszer.  
+Bármelyik kettő elegendő a 3 faktorból; az elveszett faktor pótolható a másik kettővel.
+
+```
+Faktor 1 — ARC         biometria  (már implementálva: face-api.js fuzzy extractor)
+Faktor 2 — UJJLENYOMAT biometria  (WebAuthn platform authenticator: Touch ID, Windows Hello)
+Faktor 3 — VAS         hardware   (WebAuthn roaming authenticator: YubiKey, FIDO2 token)
+
+2-of-3 kombináció → Shamir reconstruct → P
+```
+
+| Kombináció | Vault nyitható? | Paper recovery? |
+|---|---|---|
+| Arc + Ujj | ✓ | ✓ |
+| Arc + Vas | ✓ | ✓ |
+| Ujj + Vas | ✓ (arc nélkül is) | ✓ |
+| Csak Arc | ✗ (Phase 10-ben) | ✗ |
+
+**Trade-off:** „Csak papír" (eszköz nélküli) recovery megszűnik — cserébe memorizált P sem kell.  
+**Megjegyzés:** A papír visszafejtéshez is 2 faktor kell. Tudatos döntés.
+
+**Implementációs terv:**
+
+| # | Feladat | Részlet |
+|---|---------|---------|
+| P10.1 | **SSS (2,3) könyvtár** | Pure-JS Shamir (pl. `secrets.js`) — CDN-mentes bundle |
+| P10.2 | **WebAuthn enrollment** | `navigator.credentials.create()` — ujj + vas regisztráció |
+| P10.3 | **Share titkosítás** | S_ujj és S_vas WebAuthn assertion-nel védve |
+| P10.4 | **vault formátum v4** | `.biowallet` kibővítve: 3 titkosított share + WebAuthn credential IDs |
+| P10.5 | **recovery_tool.html** | WebAuthn mód: 2-of-3 faktorral P rekonstruálás → offline decode |
+| P10.6 | **Z3 invariánsok** | SSS-P1: 1 share → P nem rekonstruálható; SSS-P2: 2 share → igen |
+| P10.7 | **Faktor-pótlás flow** | Ha vas elvész: arc + ujj → P → új vas share generálás |
+
 #### Phase D — Hitelességi réteg (hosszú táv)
 
 | # | Feladat |
@@ -257,6 +292,7 @@ Bizonyíték: Böngésző DevTools → Network tab → biowallet.metaspace.bio
 | 2026-05-27 | v0.6 | Phase 6: face-api.js lokális bundle (vendor/face-api.min.js) + modell súlyok (models/, ~6.8MB); bio_capture.js CDN-mentes; teljes CSP 'self' kompatibilitás |
 | 2026-05-27 | v0.7 | Phase 9.0: Papír-képlet generátor (c_j, r_j) implementálva; EXPORT gomb és seed-kijelzés eltávolítva; Z3 38/38 PASS; E2E math teszt PASS |
 | 2026-05-28 | v0.8 | Phase 9.0 COMPLETE: recovery_tool.html offline visszafejtő, teljes 2048-szavas BIP39 szólista beágyazva (ethers.js verifikált); .gitignore fix; Gemini-katasztrófa utáni visszaállítás |
+| 2026-05-28 | v0.9 | Phase 9.1a: SW bekapcsolva (PWA offline, biowallet-v2 cache, 22 fájl); Phase 9.1b: kétfázisú papír (P soha nem kerül app-ba, rawA+r → recovery_tool ENCODE); Z3 39/39 PASS |
 
 ---
 
