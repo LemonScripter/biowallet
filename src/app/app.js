@@ -952,7 +952,7 @@ async function renderTxHistory(address) {
 
     if (!txs.length) {
       txHistoryList.innerHTML =
-        '<div style="font-size:0.75rem;color:var(--muted);padding:0.3rem 0;">Nincs tranzakció</div>';
+        '<div style="font-size:0.75rem;color:var(--muted);padding:0.3rem 0;">Még nincsenek tranzakciók</div>';
       return;
     }
 
