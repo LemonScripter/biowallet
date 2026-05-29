@@ -16,7 +16,7 @@ import {
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
-const worker  = new Worker('./vault_worker.js?v=14', { type: 'module' });
+const worker  = new Worker('./vault_worker.js?v=17', { type: 'module' });
 let _nextId   = 0;
 const _pending = new Map();
 
@@ -250,15 +250,33 @@ function showRecoveryPaperModal(rawA, r) {
     overlay.innerHTML = `
       <style>
         @media print {
+          html, body { overflow:visible !important; height:auto !important; }
           body > *:not(#paper-overlay) { display:none !important; }
-          #paper-overlay { position:static; background:#fff !important;
-                           overflow:visible; padding:0; }
+          #paper-overlay {
+            position:static !important;
+            inset:auto !important;
+            overflow:visible !important;
+            background:#fff !important;
+            padding:0 !important;
+            height:auto !important;
+            display:block !important;
+          }
+          #paper-overlay > div {
+            max-width:560px !important;
+            margin:0 auto !important;
+            background:#fff !important;
+            border:none !important;
+            border-radius:0 !important;
+            padding:1cm !important;
+            box-shadow:none !important;
+          }
           #paper-overlay * { color:#000 !important; background:#fff !important;
-                             border-color:#000 !important; }
+                             border-color:#ccc !important; }
           .no-print { display:none !important; }
-          .paper-section { page-break-inside:avoid; padding:1cm !important;
-                           border:2px solid #000 !important; margin:0.5cm 0 !important; }
-          .paper-cut { display:block; }
+          .paper-section { page-break-inside:avoid; padding:0.5cm !important;
+                           border:2px solid #000 !important; margin:0.3cm 0 !important;
+                           border-radius:0 !important; }
+          .paper-cut { display:block !important; }
         }
         .paper-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:0.3rem; }
         .paper-row { display:flex; gap:0.4rem; align-items:baseline;
