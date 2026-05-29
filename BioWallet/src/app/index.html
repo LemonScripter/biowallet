@@ -711,17 +711,27 @@
         <span class="balance-value" id="eth-balance">—</span>
         <button class="refresh-btn" id="btn-refresh" title="Egyenleg frissítése">↻</button>
       </div>
-      <button class="copy-btn" id="btn-copy">
-        ⎘ Cím másolása
-      </button>
+      <div style="display:flex;align-items:center;gap:1rem;">
+        <button class="copy-btn" id="btn-copy">
+          ⎘ Cím másolása
+        </button>
+        <button class="copy-btn" id="btn-qr">
+          ▦ QR kód
+        </button>
+      </div>
+      <div id="qr-wrap" style="display:none;margin-top:0.75rem;text-align:center;">
+        <canvas id="qr-canvas" style="border-radius:8px;"></canvas>
+      </div>
     </div>
 
     <!-- ETH küldő form -->
     <div class="card">
       <div class="card-label">ETH küldése</div>
       <input class="tx-input" id="send-to" type="text"
-             placeholder="0x… fogadó cím"
+             placeholder="0x… vagy name.eth"
              autocomplete="off" spellcheck="false">
+      <div id="ens-hint" style="display:none;font-size:0.7rem;margin-top:0.3rem;
+                                 font-family:'SF Mono','Fira Code',monospace;"></div>
       <div class="amount-row">
         <input class="tx-input" id="send-amount" type="text"
                placeholder="0.001" autocomplete="off">
@@ -942,8 +952,9 @@
   </div>
 </div>
 
+<script src="../vendor/qrcode.min.js"></script>
 <script src="../vendor/face-api.min.js"></script>
 <script src="../vendor/ethers.umd.min.js"></script>
-<script type="module" src="app.js?v=13"></script>
+<script type="module" src="app.js?v=14"></script>
 </body>
 </html>
