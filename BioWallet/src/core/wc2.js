@@ -6,7 +6,7 @@
  */
 
 // ▶ Töltsd ki a saját Project ID-ddel (cloud.walletconnect.com):
-export const WC_PROJECT_ID = '';
+export const WC_PROJECT_ID = 'fdf425d1424d316dc22882ae63c23901';
 
 const WC_METADATA = {
   name:        'BioWallet',
