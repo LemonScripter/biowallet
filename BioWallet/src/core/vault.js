@@ -68,21 +68,21 @@ class BioVault {
 
   // ── Vault creation ────────────────────────────────────────────────────────
 
-  static async create(embedding, devicePrf = null, credentialId = null, prfSalt = null) {
+  static async create(embedding, pin = null, devicePrf = null, credentialId = null, prfSalt = null) {
     const seed = crypto.getRandomValues(new Uint8Array(32));
     try {
-      return await BioVault._encryptSeed(seed, embedding, devicePrf, credentialId, prfSalt);
+      return await BioVault._encryptSeed(seed, embedding, pin, devicePrf, credentialId, prfSalt);
     } finally { seed.fill(0); }
   }
 
-  static async importFromMnemonic(mnemonic, embedding) {
+  static async importFromMnemonic(mnemonic, embedding, pin = null) {
     const seedBytes = mnemonicToSeed(mnemonic);
     try {
-      return await BioVault._encryptSeed(seedBytes, embedding);
+      return await BioVault._encryptSeed(seedBytes, embedding, pin);
     } finally { seedBytes.fill(0); }
   }
 
-  static async _encryptSeed(seedBytes, embedding, devicePrf = null, credentialId = null, prfSalt = null) {
+  static async _encryptSeed(seedBytes, embedding, pin = null, devicePrf = null, credentialId = null, prfSalt = null) {
     const vaultId  = crypto.randomUUID();
     const { R, P } = await fuzzyCommit(embedding);
     const salt     = crypto.getRandomValues(new Uint8Array(32));
@@ -93,7 +93,7 @@ class BioVault {
       const plaintext = encode({ seed: toHex(seedBytes), accounts: [], vaultId, created: Date.now() });
       const { iv, ciphertext } = await aesEncrypt(vaultKey, plaintext);
 
-      const faceAesKey = await deriveKey(R, salt);
+      const faceAesKey = await deriveKey(R, salt, pin);
       const faceWrap   = await wrapBytes(faceAesKey, vaultKeyRaw);
 
       let deviceWrap = null;
@@ -106,8 +106,8 @@ class BioVault {
         };
       }
 
-      const v2 = {
-        v: 2, vaultId,
+      const vault = {
+        v: pin ? 3 : 2, vaultId,
         salt: toHex(salt),
         iv:   toHex(iv),
         ct:   toHex(new Uint8Array(ciphertext)),
@@ -115,13 +115,13 @@ class BioVault {
         deviceWrap,
       };
 
-      return { vaultId, P, encryptedVault: new TextEncoder().encode(JSON.stringify(v2)).buffer };
+      return { vaultId, P, encryptedVault: new TextEncoder().encode(JSON.stringify(vault)).buffer };
     } finally { vaultKeyRaw.fill(0); }
   }
 
   // ── OPEN ──────────────────────────────────────────────────────────────────
 
-  async open(encryptedVault, P, devicePrf = null) {
+  async open(encryptedVault, P, devicePrf = null, pin = null) {
     const R = this.#chain.gate('OPEN', this.#vaultId);
     this.#faceR = R.slice();
 
@@ -141,7 +141,8 @@ class BioVault {
       }
 
       if (!vaultKeyRaw) {
-        const faceKey = await deriveKey(R, salt);
+        // v3 vault: faceWrap key = PBKDF2(face_R ‖ PIN, salt) — PIN required on new devices
+        const faceKey = await deriveKey(R, salt, v2.v === 3 ? pin : null);
         try {
           vaultKeyRaw = await unwrapBytes(faceKey, v2.faceWrap);
         } catch {
@@ -226,11 +227,12 @@ class BioVault {
       prfSalt:      toHex(new Uint8Array(prfSalt)),
     };
 
-    const vaultId = this.#vaultFormat?.vaultId ?? this.#vaultId;
-    const v2 = { v: 2, vaultId, salt: toHex(salt), iv, ct, faceWrap, deviceWrap };
-    this.#vaultFormat = v2;
+    const vaultId  = this.#vaultFormat?.vaultId ?? this.#vaultId;
+    const vVersion = this.#vaultFormat?.v ?? 2;
+    const vaultJSON = { v: vVersion, vaultId, salt: toHex(salt), iv, ct, faceWrap, deviceWrap };
+    this.#vaultFormat = vaultJSON;
 
-    return new TextEncoder().encode(JSON.stringify(v2)).buffer;
+    return new TextEncoder().encode(JSON.stringify(vaultJSON)).buffer;
   }
 
   // ── SIGN ──────────────────────────────────────────────────────────────────
@@ -293,8 +295,18 @@ class BioVault {
 
 // ── Crypto helpers ────────────────────────────────────────────────────────
 
-async function deriveKey(R, salt) {
-  const km = await crypto.subtle.importKey('raw', R, 'PBKDF2', false, ['deriveKey']);
+async function deriveKey(R, salt, pin = null) {
+  let material = R;
+  let combined = null;
+  if (pin) {
+    const pinBytes = new TextEncoder().encode(pin);
+    combined = new Uint8Array(R.length + pinBytes.length);
+    combined.set(R);
+    combined.set(pinBytes, R.length);
+    material = combined;
+  }
+  const km = await crypto.subtle.importKey('raw', material, 'PBKDF2', false, ['deriveKey']);
+  if (combined) combined.fill(0);
   return crypto.subtle.deriveKey(
     { name: 'PBKDF2', salt, iterations: 300_000, hash: 'SHA-256' },
     km, { name: AES_MODE, length: 256 }, false, ['encrypt', 'decrypt']

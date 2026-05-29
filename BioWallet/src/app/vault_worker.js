@@ -26,7 +26,7 @@
 import * as _ethersLib from '../vendor/ethers.bundle.js';
 self.ethers = _ethersLib;
 
-import { BioVault } from '../core/vault.js?v=12';
+import { BioVault } from '../core/vault.js?v=13';
 
 let vault = null;
 
@@ -48,13 +48,13 @@ async function handle(type, p) {
     }
 
     case 'ENROLL': {
-      const res = await BioVault.create(p.embedding);
+      const res = await BioVault.create(p.embedding, p.pin ?? null);
       vault = new BioVault(res.vaultId);
       return { vaultId: res.vaultId, P: res.P, encryptedVault: res.encryptedVault };
     }
 
     case 'IMPORT': {
-      const res = await BioVault.importFromMnemonic(p.mnemonic, p.embedding);
+      const res = await BioVault.importFromMnemonic(p.mnemonic, p.embedding, p.pin ?? null);
       vault = new BioVault(res.vaultId);
       return { vaultId: res.vaultId, P: res.P, encryptedVault: res.encryptedVault };
     }
@@ -79,7 +79,7 @@ async function handle(type, p) {
     case 'OPEN': {
       if (!vault) throw new Error('No vault initialised');
       const devicePrf = p.devicePrf ? new Uint8Array(p.devicePrf) : null;
-      const { address, hasDevice, usedDevice } = await vault.open(p.encryptedVault, p.P, devicePrf);
+      const { address, hasDevice, usedDevice } = await vault.open(p.encryptedVault, p.P, devicePrf, p.pin ?? null);
       return { address, hasDevice, usedDevice };
     }
 
