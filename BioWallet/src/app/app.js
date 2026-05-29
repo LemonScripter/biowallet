@@ -6,7 +6,7 @@
  * Confirm overlay before every send.
  */
 
-import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=11';
+import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
 import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=11';
 import {
   WC_PROJECT_ID, initWC, wcPair, wcApprove, wcRejectProposal, wcEmitChainChanged,
@@ -364,6 +364,121 @@ function showPinModal(mode) {
   });
 }
 
+// ── File save (showSaveFilePicker on desktop, <a download> fallback) ────────
+
+async function saveFile(data, filename) {
+  if (window.showSaveFilePicker) {
+    try {
+      const isJson = filename.endsWith('.json');
+      const fh = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [{
+          description: isJson ? 'JSON' : 'BioWallet vault',
+          accept: isJson
+            ? { 'application/json': ['.json'] }
+            : { 'application/octet-stream': ['.biowallet'] },
+        }],
+      });
+      const w = await fh.createWritable();
+      await w.write(data);
+      await w.close();
+      return true;
+    } catch (e) {
+      if (e.name === 'AbortError') return false;
+    }
+  }
+  downloadBlob(data, filename);
+  return true;
+}
+
+// ── Save modal ─────────────────────────────────────────────────────────────
+
+function showSaveModal(vaultData, pJsonStr, context, existingName) {
+  return new Promise(resolve => {
+    const isDevice = context === 'device';
+    const dfltName = (existingName || 'biowallet').replace(/[^a-zA-Z0-9_-]/g, '-');
+
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:2000;display:flex;align-items:start;justify-content:center;padding:1.5rem;overflow-y:auto;';
+
+    const rowS  = 'display:flex;align-items:center;gap:0.6rem;background:#1e1e24;border:1px solid #2a2a35;border-radius:10px;padding:0.75rem;margin-bottom:0.5rem;';
+    const keepS = 'flex-shrink:0;font-size:0.65rem;font-weight:700;color:#ffa502;background:#2a1f00;border-radius:4px;padding:2px 6px;';
+    const btnS  = 'flex-shrink:0;padding:0.45rem 0.7rem;border-radius:8px;border:none;background:#6c63ff;color:#fff;font-size:0.8rem;font-weight:600;cursor:pointer;';
+    const okS   = 'flex-shrink:0;font-size:0.82rem;color:#4CAF50;font-weight:700;display:none;';
+    const descS = 'font-size:0.72rem;color:#6b6b80;margin-top:0.18rem;line-height:1.4;';
+    const inpS  = 'width:100%;background:#1e1e24;border:1px solid #2a2a35;border-radius:10px;padding:0.65rem 0.75rem;color:#e8e8f0;font-size:1rem;outline:none;box-sizing:border-box;margin-bottom:0.75rem;';
+
+    ov.innerHTML = `
+      <div style="background:#16161a;border:1px solid #2a2a35;border-radius:16px;width:100%;max-width:380px;padding:1.5rem;margin-top:1rem;">
+        <div style="font-size:1rem;font-weight:700;color:#6c63ff;margin-bottom:1rem;">${t('save.title')}</div>
+        <div style="font-size:0.72rem;color:#a0a0b0;margin-bottom:0.3rem;">${t('save.name.label')}</div>
+        <input id="_sn" type="text" style="${inpS}" placeholder="${t('save.name.ph')}" value="${dfltName}" autocomplete="off" spellcheck="false">
+        <div style="${rowS}">
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
+              <span id="_fn_v" style="font-size:0.82rem;font-weight:600;color:#e8e8f0;word-break:break-all;">${dfltName}.biowallet</span>
+              <span style="${keepS}">${t('save.vault.keep')}</span>
+            </div>
+            <div style="${descS}">${t('save.vault.desc')}</div>
+          </div>
+          <button id="_sv" style="${btnS}">${t('save.btn.download')}</button>
+          <span id="_sv_ok" style="${okS}">${t('save.saved')}</span>
+        </div>
+        ${!isDevice ? `
+        <div style="${rowS}">
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
+              <span id="_fn_p" style="font-size:0.82rem;font-weight:600;color:#e8e8f0;word-break:break-all;">${dfltName}.P.json</span>
+              <span style="${keepS}">${t('save.pjson.keep')}</span>
+            </div>
+            <div style="${descS}">${t('save.pjson.desc')}</div>
+          </div>
+          <button id="_sp" style="${btnS}">${t('save.btn.download')}</button>
+          <span id="_sp_ok" style="${okS}">${t('save.saved')}</span>
+        </div>
+        ` : `
+        <div id="_sw_warn" style="font-size:0.72rem;color:#ffa502;background:#1a1500;border:1px solid #3a2f00;border-radius:8px;padding:0.6rem 0.75rem;margin-bottom:0.75rem;line-height:1.5;">
+          ${t('save.device.warn', { name: dfltName })}
+        </div>
+        `}
+        <button id="_sd" style="width:100%;margin-top:0.25rem;padding:0.75rem;border-radius:10px;border:none;background:#2a2a35;color:#e8e8f0;font-size:0.9rem;font-weight:600;cursor:pointer;">${t('save.btn.done')}</button>
+      </div>`;
+
+    document.body.appendChild(ov);
+
+    const nameInp = ov.querySelector('#_sn');
+    const fnV     = ov.querySelector('#_fn_v');
+    const fnP     = ov.querySelector('#_fn_p');
+    const svBtn   = ov.querySelector('#_sv');
+    const svOk    = ov.querySelector('#_sv_ok');
+    const spBtn   = ov.querySelector('#_sp');
+    const spOk    = ov.querySelector('#_sp_ok');
+    const warnEl  = ov.querySelector('#_sw_warn');
+    const doneBtn = ov.querySelector('#_sd');
+
+    const getName = () => (nameInp.value.trim().replace(/[^a-zA-Z0-9_-]/g, '-') || 'biowallet');
+
+    nameInp.addEventListener('input', () => {
+      const n = getName();
+      fnV.textContent = `${n}.biowallet`;
+      if (fnP)    fnP.textContent    = `${n}.P.json`;
+      if (warnEl) warnEl.innerHTML   = t('save.device.warn', { name: n });
+    });
+
+    svBtn.addEventListener('click', async () => {
+      const saved = await saveFile(vaultData, `${getName()}.biowallet`);
+      if (saved) { svBtn.style.display = 'none'; svOk.style.display = 'inline'; }
+    });
+
+    spBtn?.addEventListener('click', async () => {
+      const saved = await saveFile(pJsonStr, `${getName()}.P.json`);
+      if (saved) { spBtn.style.display = 'none'; spOk.style.display = 'inline'; }
+    });
+
+    doneBtn.addEventListener('click', () => { ov.remove(); resolve(getName()); });
+  });
+}
+
 function _getVaultVersion(buf) {
   try {
     if (new Uint8Array(buf)[0] !== 0x7b) return 1;
@@ -492,9 +607,12 @@ btnEnroll.addEventListener('click', async () => {
     );
 
     const vaultJson = new TextDecoder().decode(encryptedVault);
-    localStorage.setItem('biowallet_meta', JSON.stringify({ vaultId, P, vaultJson }));
-    downloadBlob(encryptedVault, `${vaultId}.biowallet`);
-    downloadBlob(JSON.stringify(P), `${vaultId}.P.json`);
+    const newMeta = { vaultId, P, vaultJson };
+    localStorage.setItem('biowallet_meta', JSON.stringify(newMeta));
+
+    const walletName = await showSaveModal(encryptedVault, JSON.stringify(P), 'create');
+    newMeta.walletName = walletName;
+    localStorage.setItem('biowallet_meta', JSON.stringify(newMeta));
 
     vaultReady = true;
     setMsg(t('msg.wallet.created'), 'ok');
@@ -730,9 +848,12 @@ btnImportEnroll.addEventListener('click', async () => {
     );
 
     const vaultJson = new TextDecoder().decode(encryptedVault);
-    localStorage.setItem('biowallet_meta', JSON.stringify({ vaultId, P, vaultJson }));
-    downloadBlob(encryptedVault, `${vaultId}.biowallet`);
-    downloadBlob(JSON.stringify(P), `${vaultId}.P.json`);
+    const newMeta = { vaultId, P, vaultJson };
+    localStorage.setItem('biowallet_meta', JSON.stringify(newMeta));
+
+    const walletName = await showSaveModal(encryptedVault, JSON.stringify(P), 'import');
+    newMeta.walletName = walletName;
+    localStorage.setItem('biowallet_meta', JSON.stringify(newMeta));
 
     vaultReady = true;
     setMsg(t('msg.wallet.imported'), 'ok');
@@ -1126,7 +1247,10 @@ btnDevice.addEventListener('click', async () => {
     meta.vaultJson = new TextDecoder().decode(encryptedVault);
     localStorage.setItem('biowallet_meta', JSON.stringify(meta));
 
-    downloadBlob(encryptedVault, `${meta.vaultId}.biowallet`);
+    const walletName = await showSaveModal(encryptedVault, null, 'device', meta.walletName || 'biowallet');
+    meta.walletName = walletName;
+    localStorage.setItem('biowallet_meta', JSON.stringify(meta));
+
     _updateDeviceRow(true, true);
     setMsg(t('msg.device.enrolled'), 'ok');
   } catch (e) {

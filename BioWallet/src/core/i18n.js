@@ -79,8 +79,8 @@ const STRINGS = {
     'msg.first.launch':       'Első indítás — hozzon létre walletot.',
     'msg.scanning.face':      'Tartsa arcát a keretben...',
     'msg.scan.progress':      'Beolvasás {n}/5...',
-    'msg.wallet.created':     'Wallet létrehozva! Mentse el a letöltött fájlokat.',
-    'msg.wallet.imported':    'Wallet importálva! Mentse el a letöltött fájlokat.',
+    'msg.wallet.created':     'Wallet létrehozva!',
+    'msg.wallet.imported':    'Wallet importálva!',
     'msg.vault.open':         'Vault nyitva.',
     'msg.vault.locked':       'Vault zárolva. Privát kulcs törölve.',
     'msg.address.copied':     '✓ Másolva!',
@@ -148,9 +148,22 @@ const STRINGS = {
     /* ── Device messages ───────────────────────────────────────────── */
     'msg.device.auth':        'Eszközhitelesítés folyamatban...',
     'msg.device.fallback':    'Eszköz kihagyva — arc-alapú belépés.',
-    'msg.device.enrolled':    'Eszköz regisztrálva! Mentse el az új .biowallet fájlt.',
+    'msg.device.enrolled':    'Eszköz regisztrálva!',
     'msg.device.offer':       'Regisztrálja ezt az eszközt második faktorként? (ujjlenyomat / Windows Hello)',
-    'msg.device.removed':     'Eszköz eltávolítva. Mentse el az új .biowallet fájlt.',
+    'msg.device.removed':     'Eszköz eltávolítva.',
+
+    /* ── Save modal ────────────────────────────────────────────────── */
+    'save.title':         'Fájlok mentése',
+    'save.name.label':    'Tárca neve',
+    'save.name.ph':       'pl. sajat-tarca',
+    'save.vault.desc':    'Titkosított tárca — minden eszközön szükséges a megnyitáshoz.',
+    'save.vault.keep':    'MEGŐRZENDŐ',
+    'save.pjson.desc':    'Arcadat helper — új eszközön kell az arc-alapú feloldáshoz.',
+    'save.pjson.keep':    'MEGŐRZENDŐ',
+    'save.device.warn':   'A korábbi <strong>{name}.biowallet</strong> (eszköz nélküli) mostantól törölhető — az új fájl mindkét megnyitási módot tartalmazza.',
+    'save.btn.download':  '↓ Letöltés',
+    'save.btn.done':      'Kész',
+    'save.saved':         '✓ Mentve',
 
     /* ── Confirm modal ─────────────────────────────────────────────── */
     'confirm.title':    'Tranzakció megerősítése',
@@ -319,8 +332,8 @@ const STRINGS = {
     'msg.first.launch':       'First launch — create a wallet.',
     'msg.scanning.face':      'Keep your face in the frame...',
     'msg.scan.progress':      'Scanning {n}/5...',
-    'msg.wallet.created':     'Wallet created! Save the downloaded files.',
-    'msg.wallet.imported':    'Wallet imported! Save the downloaded files.',
+    'msg.wallet.created':     'Wallet created!',
+    'msg.wallet.imported':    'Wallet imported!',
     'msg.vault.open':         'Vault open.',
     'msg.vault.locked':       'Vault locked. Private key erased.',
     'msg.address.copied':     '✓ Copied!',
@@ -388,9 +401,22 @@ const STRINGS = {
     /* ── Device messages ───────────────────────────────────────────── */
     'msg.device.auth':        'Device authentication in progress...',
     'msg.device.fallback':    'Device skipped — face-only unlock.',
-    'msg.device.enrolled':    'Device enrolled! Save the new .biowallet file.',
+    'msg.device.enrolled':    'Device enrolled!',
     'msg.device.offer':       'Register this device as a second factor? (fingerprint / Windows Hello)',
-    'msg.device.removed':     'Device removed. Save the new .biowallet file.',
+    'msg.device.removed':     'Device removed.',
+
+    /* ── Save modal ────────────────────────────────────────────────── */
+    'save.title':         'Save files',
+    'save.name.label':    'Wallet name',
+    'save.name.ph':       'e.g. my-wallet',
+    'save.vault.desc':    'Encrypted vault — required on every device to open the wallet.',
+    'save.vault.keep':    'KEEP',
+    'save.pjson.desc':    'Face data helper — required on a new device for face unlock.',
+    'save.pjson.keep':    'KEEP',
+    'save.device.warn':   'The previous <strong>{name}.biowallet</strong> (without device) can now be deleted — the new file covers both unlock paths.',
+    'save.btn.download':  '↓ Download',
+    'save.btn.done':      'Done',
+    'save.saved':         '✓ Saved',
 
     /* ── Confirm modal ─────────────────────────────────────────────── */
     'confirm.title':    'Confirm transaction',
@@ -597,108 +623,166 @@ const GUIDE_HTML = {
   hu: `
     <div class="guide-section">
       <div class="guide-h2">Mi a BioWallet?</div>
-      <p class="guide-p">A BioWallet egy biometrikailag védett Ethereum-tárca. A privát kulcsát <strong>nem jelszó, hanem az Ön arca</strong> védi — a titkosítókulcs kizárólag az Ön arcából keletkezik, és soha nem tárolódik lemezen.</p>
-      <p class="guide-p">Technológia: BCH(255,55,25) hibajavító kód + DCC kauzális lánc + AES-256-GCM + Web Worker kripto-sandbox. Formálisan bizonyított: Z3 SMT solver, <strong>51/51 invariáns PASS</strong>.</p>
+      <p class="guide-p">A BioWallet biometrikailag védett Ethereum-tárca. A privát kulcsát <strong>az Ön arca + egy PIN-kód</strong> védi — a titkosítókulcs soha nem tárolódik lemezen, kizárólag arc-scan + PIN kombinációjából keletkezik.</p>
+      <p class="guide-p">Technológia: BCH hibajavító kód · DCC kauzális lánc · AES-256-GCM · WebAuthn PRF · Web Worker kripto-sandbox. Formálisan bizonyított: Z3 SMT solver.</p>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
       <div class="guide-h2">1. Wallet létrehozása</div>
-      <ol class="guide-ol"><li>Kattintson a <strong>Wallet létrehozása</strong> gombra.</li><li>Nézzen egyenesen a kamerába, tartsa stabilan a fejét.</li><li>A rendszer 5 arc-scant végez (~10 másodperc).</li><li>A böngésző automatikusan letölt két fájlt:</li></ol>
+      <ol class="guide-ol"><li>Kattintson a <strong>Wallet létrehozása</strong> gombra.</li><li>Nézzen egyenesen a kamerába — 5 arc-scan (~10 mp).</li><li>Adjon meg egy <strong>PIN-kódot</strong> (min. 4 karakter) — más eszközön az arc-scan mellé szükséges. Jegyezze meg, nem tárolódik!</li><li>Megjelenik a <strong>mentési modal</strong> — adjon nevet a tárcának, majd töltse le mindkét fájlt:</li></ol>
       <table class="guide-table" style="margin-top:0.6rem"><thead><tr><th>Fájl</th><th>Tartalom</th><th>Tárolás</th></tr></thead><tbody>
-        <tr><td><code style="font-size:0.75rem">*.biowallet</code></td><td>Titkosított kulcstartó (AES-256-GCM)</td><td>Kötelező</td></tr>
-        <tr><td><code style="font-size:0.75rem">*.P.json</code></td><td>Biometriai segédadat — BCH szindróma, NEM arc-kép</td><td>Kötelező</td></tr>
+        <tr><td><code style="font-size:0.75rem">*.biowallet</code></td><td>Titkosított kulcstartó (AES-256-GCM)</td><td>MEGŐRZENDŐ</td></tr>
+        <tr><td><code style="font-size:0.75rem">*.P.json</code></td><td>Arcadat helper — BCH szindróma, NEM arc-kép</td><td>MEGŐRZENDŐ</td></tr>
       </tbody></table>
-      <div class="guide-note">⚠ Mentse mindkét fájlt biztonságos helyre. Ha elveszíti őket és nincs seed phrase backup, a wallet visszaállíthatatlan.</div>
+      <div class="guide-note">⚠ Mentse mindkét fájlt biztonságos helyre. Elvesztésük esetén — seed phrase backup nélkül — a wallet visszaállíthatatlan.</div>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
       <div class="guide-h2">2. Vault megnyitása</div>
-      <ol class="guide-ol"><li>Kattintson a <strong>Megnyitás arc-scannel</strong> gombra.</li><li>Válassza ki a <code style="font-size:0.75rem">*.biowallet</code> fájlt.</li><li>Nézzen a kamerába — 3 scan (~5 másodperc).</li><li>Sikeres egyezés esetén <strong>30 másodperces időablak</strong> nyílik.</li></ol>
-      <div class="guide-ok">✓ Az időablakot a TTL-csíkok mutatják valós időben.</div>
+      <p class="guide-p" style="font-weight:600;color:#a0a0b0;font-size:0.78rem;margin-bottom:0.4rem;">Ugyanaz az eszköz (első megnyitás után):</p>
+      <ol class="guide-ol"><li>Arc-scan (3 scan, ~5 mp).</li><li>PIN megadása — <em>vagy eszközbiometria, ha regisztrálva (lásd 3. pont)</em>.</li><li>A vault automatikusan betöltődik — nincs fájlválasztás.</li></ol>
+      <p class="guide-p" style="font-weight:600;color:#a0a0b0;font-size:0.78rem;margin:0.6rem 0 0.4rem;">Új eszköz / böngésző:</p>
+      <ol class="guide-ol"><li>Setup → <strong>Meglévő wallet visszaállítása</strong> → töltse be a <code style="font-size:0.75rem">*.P.json</code> fájlt → 5 arc-scan.</li><li>Lock panel: arc-scan + PIN + <code style="font-size:0.75rem">*.biowallet</code> kiválasztása.</li></ol>
+      <div class="guide-ok">✓ Az időablakot a TTL-csíkok mutatják valós időben. Sikeres egyezés esetén 30 mp-es ablak nyílik.</div>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">3. ETH küldése</div>
-      <ol class="guide-ol"><li>Válassza ki a hálózatot (<strong>Sepolia</strong> = testnet, <strong>Mainnet</strong> = éles).</li><li>Adja meg a fogadó Ethereum-cím (0x… vagy ENS).</li><li>Adja meg az összeget ETH-ben.</li><li>Kattintson az <strong>ETH küldése</strong> gombra — díjbecslés + egyenlegellenőrzés.</li><li>Egy <strong>megerősítő ablak</strong> jelenik meg a tranzakció részleteivel és egy <strong>8 karakteres ujjlenyomattal</strong>.</li><li>Írja be az ujjlenyomat első <strong>4 karakterét</strong> a mezőbe — ez kriptográfiailag a tranzakcióhoz köti az aláírást.</li><li>Kattintson a <strong>Küldés</strong> gombra, majd végezzen el egy újabb arc-scant — 10 másodperces aláírási ablak.</li><li>A vault automatikusan <strong>zárolódik</strong>.</li></ol>
+      <div class="guide-h2">3. Eszköz regisztrálása (opcionális)</div>
+      <p class="guide-p">PIN helyett <strong>Windows Hello / Touch ID / ujjlenyomat</strong> is lehet második faktor — csak ezen az eszközön érvényes.</p>
+      <ol class="guide-ol"><li>Vault megnyitása → <strong>Eszköz hozzáadása</strong> gomb.</li><li>Végezze el a platformbiometrikus azonosítást (Windows Hello / Touch ID / ujjlenyomat).</li><li>Megjelenik a mentési modal — töltse le az <strong>új .biowallet fájlt</strong> (tartalmazza az eszközadatot).</li></ol>
+      <div class="guide-note">⚠ A korábbi .biowallet (eszköz nélküli) mostantól törölhető — az új fájl mindkét megnyitási módot tartalmazza.</div>
+      <div class="guide-ok">✓ Ezután ezen az eszközön PIN nélkül, csak arc-scannel megnyílik a vault.</div>
+    </div>
+    <hr class="guide-sep">
+    <div class="guide-section">
+      <div class="guide-h2">4. ETH küldése</div>
+      <ol class="guide-ol"><li>Válassza ki a hálózatot (<strong>Sepolia</strong> = testnet, <strong>Mainnet</strong> = éles).</li><li>Adja meg a fogadó Ethereum-cím (0x… vagy ENS).</li><li>Adja meg az összeget ETH-ben.</li><li>Kattintson az <strong>ETH küldése</strong> gombra — díjbecslés + egyenlegellenőrzés.</li><li>Egy <strong>megerősítő ablak</strong> jelenik meg a tranzakció részleteivel és egy <strong>8 karakteres ujjlenyomattal</strong>.</li><li>Írja be az ujjlenyomat első <strong>4 karakterét</strong> — ez kriptográfiailag a tranzakcióhoz köti az aláírást.</li><li>Kattintson a <strong>Küldés</strong> gombra, majd végezzen el egy újabb arc-scant — 10 mp-es aláírási ablak.</li><li>A vault automatikusan <strong>zárolódik</strong>.</li></ol>
       <div class="guide-note">⚠ Sepolia = ingyenes tesztnet. Mainnet használatához valódi ETH szükséges.</div>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">4. Biztonsági útmutató</div>
+      <div class="guide-h2">5. Biztonsági útmutató</div>
       <table class="guide-table"><thead><tr><th>Adat</th><th>Hol tárolja?</th><th>Nyilvános?</th></tr></thead><tbody>
         <tr><td><code style="font-size:0.75rem">*.biowallet</code></td><td>Pendrive / titkosított felhő</td><td>NEM</td></tr>
         <tr><td><code style="font-size:0.75rem">*.P.json</code></td><td>Pendrive / titkosított felhő</td><td>NEM</td></tr>
+        <tr><td>PIN-kód</td><td>Fejben — soha ne írja le digitálisan</td><td>SOHA</td></tr>
         <tr><td>Seed phrase (24 szó)</td><td>Papír, páncélszekrény</td><td>SOHA</td></tr>
         <tr><td>Ethereum cím</td><td>Bárhol</td><td>Igen</td></tr>
       </tbody></table>
+      <div class="guide-note" style="margin-top:0.6rem">⚠ Elfelejtett PIN esetén — ha nincs regisztrált eszköz — a vault csak a seed phrase importálásával (+ új PIN) állítható vissza. Ezért fontos a <strong>Papírképlet</strong> biztonsági mentés (vault panel → Papírképlet készítése).</div>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">5. Hibaelhárítás</div>
-      <table class="guide-table"><thead><tr><th>Hibaüzenet</th><th>Teendő</th></tr></thead><tbody>
+      <div class="guide-h2">6. Hibaelhárítás</div>
+      <table class="guide-table"><thead><tr><th>Hibaüzenet / jelenség</th><th>Teendő</th></tr></thead><tbody>
         <tr><td><span class="guide-badge badge-err">FE_DECODE_FAIL</span></td><td>Jobb megvilágítás, egyenes tartás, próbálja újra</td></tr>
         <tr><td><span class="guide-badge badge-err">EXPIRED</span></td><td>Az időablak lejárt — indítson új arc-scant</td></tr>
-        <tr><td><span class="guide-badge badge-err">BIO_MISMATCH</span></td><td>Az arc nem egyezik — különböző kulcs keletkezett</td></tr>
-        <tr><td><span class="guide-badge badge-err">TX_MISMATCH</span></td><td>Az ujjlenyomat nem egyezett — a tranzakció módosult. Az aláírás blokkolva.</td></tr>
+        <tr><td><span class="guide-badge badge-err">BIO_MISMATCH</span></td><td>Arc nem egyezik — ugyanabban a böngészőben próbálja (Firefox ↔ Chrome eltérő feldolgozás)</td></tr>
+        <tr><td><span class="guide-badge badge-err">TX_MISMATCH</span></td><td>Ujjlenyomat nem egyezett — tranzakció módosult, aláírás blokkolva</td></tr>
+        <tr><td>Vault nem nyílik / "rossz PIN"</td><td>Ellenőrizze a PIN-kódot — ugyanazt kell megadni, amit létrehozáskor beállított</td></tr>
         <tr><td><span class="guide-badge badge-err">Kamera hiba</span></td><td>HTTPS szükséges; helyi tesztnél: <code style="font-size:0.72rem">http://localhost:3333</code></td></tr>
       </tbody></table>
       <div class="guide-ok" style="margin-top:0.7rem">✓ Tipp: egyenes tartás, közvetlen fényforrás szemből, kerülje az erős háttérvilágítást.</div>
     </div>
     <hr class="guide-sep">
-    <p style="font-size:0.68rem;color:var(--muted);text-align:center;line-height:1.6">MetaSpace.Bio Logic Engine | metaspace.bio</p>`,
+    <div class="guide-section">
+      <div class="guide-h2">7. PWA telepítés</div>
+      <p class="guide-p">A BioWallet elérhető és közvetlenül a böngészőből telepíthető alkalmazásként (PWA):</p>
+      <p class="guide-p" style="text-align:center;margin:0.5rem 0"><a href="https://biowallet.metaspace.bio" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:700;font-size:1rem;">https://biowallet.metaspace.bio</a></p>
+      <table class="guide-table" style="margin-top:0.4rem"><thead><tr><th>Platform</th><th>Telepítés</th></tr></thead><tbody>
+        <tr><td>Chrome / Edge (asztali)</td><td>Telepítés ikon (⊕) a böngésző-sávban → Telepítés</td></tr>
+        <tr><td>Chrome (Android)</td><td>Menü (⋮) → Hozzáadás a kezdőképernyőhöz</td></tr>
+        <tr><td>iOS Safari</td><td>Megosztás (□↑) → Hozzáadás a főképernyőhöz</td></tr>
+      </tbody></table>
+      <div class="guide-ok" style="margin-top:0.5rem">✓ PWA módban offline is működik — arc-scan + vault megnyitás internet nélkül is. (ETH küldés, egyenleglekérdezés internetkapcsolatot igényel.)</div>
+    </div>
+    <hr class="guide-sep">
+    <p style="font-size:0.75rem;color:var(--muted);text-align:center;line-height:1.9">
+      Nyílt forráskód · <a href="https://github.com/LemonScripter/biowallet" target="_blank" rel="noopener" style="color:#6c63ff;">github.com/LemonScripter/biowallet</a><br>
+      <span style="font-size:0.68rem">MetaSpace.Bio Logic Engine · metaspace.bio</span>
+    </p>`,
 
   en: `
     <div class="guide-section">
       <div class="guide-h2">What is BioWallet?</div>
-      <p class="guide-p">BioWallet is a biometrically protected Ethereum wallet. Your private key is protected <strong>not by a password, but by your face</strong> — the encryption key is derived solely from your face scan and is never stored on disk.</p>
-      <p class="guide-p">Technology: BCH(255,55,25) error-correcting code + DCC causal chain + AES-256-GCM + Web Worker crypto sandbox. Formally verified: Z3 SMT solver, <strong>51/51 invariants PASS</strong>.</p>
+      <p class="guide-p">BioWallet is a biometrically protected Ethereum wallet. Your private key is protected by <strong>your face + a PIN code</strong> — the encryption key is derived solely from your face scan combined with your PIN, and is never stored on disk.</p>
+      <p class="guide-p">Technology: BCH error-correcting code · DCC causal chain · AES-256-GCM · WebAuthn PRF · Web Worker crypto sandbox. Formally verified: Z3 SMT solver.</p>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
       <div class="guide-h2">1. Create wallet</div>
-      <ol class="guide-ol"><li>Click the <strong>Create wallet</strong> button.</li><li>Look straight into the camera, hold your head still.</li><li>The system performs 5 face scans (~10 seconds).</li><li>The browser automatically downloads two files:</li></ol>
+      <ol class="guide-ol"><li>Click the <strong>Create wallet</strong> button.</li><li>Look straight into the camera — 5 face scans (~10 seconds).</li><li>Set a <strong>PIN code</strong> (min. 4 characters) — required alongside the face scan on a new device. Remember it — it is never stored!</li><li>A <strong>save dialog</strong> appears — name your wallet and download both files:</li></ol>
       <table class="guide-table" style="margin-top:0.6rem"><thead><tr><th>File</th><th>Contents</th><th>Storage</th></tr></thead><tbody>
-        <tr><td><code style="font-size:0.75rem">*.biowallet</code></td><td>Encrypted key store (AES-256-GCM)</td><td>Required</td></tr>
-        <tr><td><code style="font-size:0.75rem">*.P.json</code></td><td>Biometric helper data — BCH syndrome, NOT a face image</td><td>Required</td></tr>
+        <tr><td><code style="font-size:0.75rem">*.biowallet</code></td><td>Encrypted key store (AES-256-GCM)</td><td>KEEP</td></tr>
+        <tr><td><code style="font-size:0.75rem">*.P.json</code></td><td>Biometric helper data — BCH syndrome, NOT a face image</td><td>KEEP</td></tr>
       </tbody></table>
-      <div class="guide-note">⚠ Save both files to a secure location. If lost without a seed phrase backup, the wallet is unrecoverable.</div>
+      <div class="guide-note">⚠ Save both files to a secure location. Without them — and without a seed phrase backup — the wallet is unrecoverable.</div>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
       <div class="guide-h2">2. Open vault</div>
-      <ol class="guide-ol"><li>Click the <strong>Unlock with face scan</strong> button.</li><li>Select the <code style="font-size:0.75rem">*.biowallet</code> file.</li><li>Look into the camera — 3 scans (~5 seconds).</li><li>On success, a <strong>30-second window</strong> opens.</li></ol>
-      <div class="guide-ok">✓ The TTL bars show the remaining time in real time.</div>
+      <p class="guide-p" style="font-weight:600;color:#a0a0b0;font-size:0.78rem;margin-bottom:0.4rem;">Same device (after first open):</p>
+      <ol class="guide-ol"><li>Face scan (3 scans, ~5 seconds).</li><li>Enter PIN — <em>or device biometrics if enrolled (see step 3)</em>.</li><li>The vault loads automatically — no file picker.</li></ol>
+      <p class="guide-p" style="font-weight:600;color:#a0a0b0;font-size:0.78rem;margin:0.6rem 0 0.4rem;">New device / browser:</p>
+      <ol class="guide-ol"><li>Setup → <strong>Restore existing wallet</strong> → load your <code style="font-size:0.75rem">*.P.json</code> → 5 face scans.</li><li>Lock panel: face scan + PIN + select <code style="font-size:0.75rem">*.biowallet</code>.</li></ol>
+      <div class="guide-ok">✓ The TTL bars show the remaining time in real time. A 30-second window opens on success.</div>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">3. Send ETH</div>
-      <ol class="guide-ol"><li>Select the network (<strong>Sepolia</strong> = testnet, <strong>Mainnet</strong> = live).</li><li>Enter the recipient Ethereum address (0x… or ENS).</li><li>Enter the amount in ETH.</li><li>Click <strong>Send ETH</strong> — fee estimation + balance check.</li><li>A <strong>confirmation dialog</strong> appears with the transaction details and an <strong>8-character fingerprint</strong>.</li><li>Type the first <strong>4 characters</strong> of the fingerprint into the field — this cryptographically binds the signature to the exact transaction.</li><li>Click <strong>Send</strong>, then perform another face scan — 10-second signing window.</li><li>The vault auto-<strong>locks</strong>.</li></ol>
+      <div class="guide-h2">3. Register device (optional)</div>
+      <p class="guide-p">Use <strong>Windows Hello / Touch ID / fingerprint</strong> as second factor instead of PIN — valid on this device only.</p>
+      <ol class="guide-ol"><li>Open vault → click <strong>Add this device</strong> button.</li><li>Complete the platform biometric authentication (Windows Hello / Touch ID / fingerprint).</li><li>A save dialog appears — download the <strong>new .biowallet file</strong> (includes device data).</li></ol>
+      <div class="guide-note">⚠ The previous .biowallet (without device) can now be deleted — the new file covers both unlock paths.</div>
+      <div class="guide-ok">✓ On this device the vault now opens with face scan only — no PIN required.</div>
+    </div>
+    <hr class="guide-sep">
+    <div class="guide-section">
+      <div class="guide-h2">4. Send ETH</div>
+      <ol class="guide-ol"><li>Select the network (<strong>Sepolia</strong> = testnet, <strong>Mainnet</strong> = live).</li><li>Enter the recipient Ethereum address (0x… or ENS).</li><li>Enter the amount in ETH.</li><li>Click <strong>Send ETH</strong> — fee estimation + balance check.</li><li>A <strong>confirmation dialog</strong> appears with the transaction details and an <strong>8-character fingerprint</strong>.</li><li>Type the first <strong>4 characters</strong> of the fingerprint — this cryptographically binds the signature to the exact transaction.</li><li>Click <strong>Send</strong>, then perform another face scan — 10-second signing window.</li><li>The vault auto-<strong>locks</strong>.</li></ol>
       <div class="guide-note">⚠ Sepolia = free testnet. Real ETH is required for Mainnet.</div>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">4. Security guide</div>
+      <div class="guide-h2">5. Security guide</div>
       <table class="guide-table"><thead><tr><th>Data</th><th>Where to store</th><th>Public?</th></tr></thead><tbody>
         <tr><td><code style="font-size:0.75rem">*.biowallet</code></td><td>USB drive / encrypted cloud</td><td>NO</td></tr>
         <tr><td><code style="font-size:0.75rem">*.P.json</code></td><td>USB drive / encrypted cloud</td><td>NO</td></tr>
+        <tr><td>PIN code</td><td>In your head — never write it digitally</td><td>NEVER</td></tr>
         <tr><td>Seed phrase (24 words)</td><td>Paper, fireproof safe</td><td>NEVER</td></tr>
         <tr><td>Ethereum address</td><td>Anywhere</td><td>Yes</td></tr>
       </tbody></table>
+      <div class="guide-note" style="margin-top:0.6rem">⚠ Forgotten PIN: without an enrolled device, the vault is only recoverable by re-importing the seed phrase with a new PIN. This is why creating a <strong>Paper recovery</strong> backup is important (vault panel → Generate paper recovery).</div>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">5. Troubleshooting</div>
-      <table class="guide-table"><thead><tr><th>Error</th><th>Action</th></tr></thead><tbody>
+      <div class="guide-h2">6. Troubleshooting</div>
+      <table class="guide-table"><thead><tr><th>Error / symptom</th><th>Action</th></tr></thead><tbody>
         <tr><td><span class="guide-badge badge-err">FE_DECODE_FAIL</span></td><td>Better lighting, hold head straight, try again</td></tr>
         <tr><td><span class="guide-badge badge-err">EXPIRED</span></td><td>Window expired — start a new face scan</td></tr>
-        <tr><td><span class="guide-badge badge-err">BIO_MISMATCH</span></td><td>Face does not match — different key generated</td></tr>
-        <tr><td><span class="guide-badge badge-err">TX_MISMATCH</span></td><td>Fingerprint mismatch — the transaction was altered. Signing blocked.</td></tr>
+        <tr><td><span class="guide-badge badge-err">BIO_MISMATCH</span></td><td>Face does not match — use the same browser as enrollment (Firefox ↔ Chrome differ)</td></tr>
+        <tr><td><span class="guide-badge badge-err">TX_MISMATCH</span></td><td>Fingerprint mismatch — transaction was altered, signing blocked</td></tr>
+        <tr><td>Vault won't open / wrong PIN</td><td>Check your PIN — it must match what you set at wallet creation</td></tr>
         <tr><td><span class="guide-badge badge-err">Camera error</span></td><td>HTTPS required; for local testing: <code style="font-size:0.72rem">http://localhost:3333</code></td></tr>
       </tbody></table>
       <div class="guide-ok" style="margin-top:0.7rem">✓ Tip: hold head straight, direct front lighting, avoid strong backlight.</div>
     </div>
     <hr class="guide-sep">
-    <p style="font-size:0.68rem;color:var(--muted);text-align:center;line-height:1.6">MetaSpace.Bio Logic Engine | metaspace.bio</p>`,
+    <div class="guide-section">
+      <div class="guide-h2">7. Install as PWA</div>
+      <p class="guide-p">BioWallet is available and installable directly from the browser (PWA):</p>
+      <p class="guide-p" style="text-align:center;margin:0.5rem 0"><a href="https://biowallet.metaspace.bio" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:700;font-size:1rem;">https://biowallet.metaspace.bio</a></p>
+      <table class="guide-table" style="margin-top:0.4rem"><thead><tr><th>Platform</th><th>How to install</th></tr></thead><tbody>
+        <tr><td>Chrome / Edge (desktop)</td><td>Install icon (⊕) in the address bar → Install</td></tr>
+        <tr><td>Chrome (Android)</td><td>Menu (⋮) → Add to home screen</td></tr>
+        <tr><td>iOS Safari</td><td>Share (□↑) → Add to Home Screen</td></tr>
+      </tbody></table>
+      <div class="guide-ok" style="margin-top:0.5rem">✓ Works offline in PWA mode — face scan + vault open without internet. (ETH send and balance queries require a connection.)</div>
+    </div>
+    <hr class="guide-sep">
+    <p style="font-size:0.75rem;color:var(--muted);text-align:center;line-height:1.9">
+      Open source · <a href="https://github.com/LemonScripter/biowallet" target="_blank" rel="noopener" style="color:#6c63ff;">github.com/LemonScripter/biowallet</a><br>
+      <span style="font-size:0.68rem">MetaSpace.Bio Logic Engine · metaspace.bio</span>
+    </p>`,
 };
 
 /* ── Public API ───────────────────────────────────────────────────────── */
