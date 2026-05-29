@@ -23,7 +23,7 @@ import {
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
-const worker  = new Worker('./vault_worker.js?v=21', { type: 'module' });
+const worker  = new Worker('./vault_worker.js?v=22', { type: 'module' });
 let _nextId   = 0;
 const _pending = new Map();
 
@@ -294,6 +294,83 @@ async function showVersionHash() {
   } catch { /* offline or fetch error — hash not displayed */ }
 }
 
+// ── PIN modal ─────────────────────────────────────────────────────────────
+
+function showPinModal(mode) {
+  const isSetup = mode === 'setup';
+  return new Promise(resolve => {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;';
+
+    const inputStyle = [
+      'width:100%', 'background:#1e1e24', 'border:1px solid #2a2a35',
+      'border-radius:10px', 'padding:0.65rem 0.75rem', 'color:#e8e8f0',
+      'font-size:1.1rem', 'letter-spacing:0.25em', 'outline:none',
+      'box-sizing:border-box', 'margin-bottom:0.5rem',
+    ].join(';');
+
+    ov.innerHTML = `
+      <div style="background:#16161a;border:1px solid #2a2a35;border-radius:16px;
+                  width:100%;max-width:340px;padding:1.5rem;">
+        <div style="font-size:1rem;font-weight:700;color:#6c63ff;margin-bottom:0.5rem;">
+          ${t(isSetup ? 'pin.setup.title' : 'pin.open.title')}
+        </div>
+        <div style="font-size:0.78rem;color:#6b6b80;margin-bottom:1rem;line-height:1.5;">
+          ${t(isSetup ? 'pin.setup.desc' : 'pin.open.desc')}
+        </div>
+        <div style="font-size:0.72rem;color:#a0a0b0;margin-bottom:0.3rem;">${t('pin.label')}</div>
+        <input id="_pin1" type="password" autocomplete="off" style="${inputStyle}" placeholder="••••">
+        ${isSetup ? `
+          <div style="font-size:0.72rem;color:#a0a0b0;margin-bottom:0.3rem;">${t('pin.confirm.label')}</div>
+          <input id="_pin2" type="password" autocomplete="off" style="${inputStyle}" placeholder="••••">
+        ` : ''}
+        <div id="_pin_err" style="font-size:0.72rem;color:#ff4757;min-height:1.2em;margin-bottom:0.6rem;"></div>
+        <div style="display:flex;gap:0.75rem;">
+          <button id="_pin_cancel" style="flex:1;padding:0.75rem;border-radius:10px;
+            border:1px solid #2a2a35;background:#1e1e24;color:#e8e8f0;
+            font-size:0.9rem;font-weight:600;cursor:pointer;">${t('pin.btn.cancel')}</button>
+          <button id="_pin_ok" style="flex:1;padding:0.75rem;border-radius:10px;
+            border:none;background:#6c63ff;color:#fff;
+            font-size:0.9rem;font-weight:600;cursor:pointer;">
+            ${t(isSetup ? 'pin.btn.set' : 'pin.btn.open')}
+          </button>
+        </div>
+      </div>`;
+
+    document.body.appendChild(ov);
+
+    const pin1   = ov.querySelector('#_pin1');
+    const pin2   = ov.querySelector('#_pin2');
+    const errEl  = ov.querySelector('#_pin_err');
+    const okBtn  = ov.querySelector('#_pin_ok');
+
+    setTimeout(() => pin1.focus(), 80);
+
+    const submit = () => {
+      const v1 = pin1.value;
+      if (v1.length < 4) { errEl.textContent = t('pin.min.hint'); return; }
+      if (isSetup && pin2 && v1 !== pin2.value) {
+        errEl.textContent = t('pin.mismatch');
+        pin2.focus();
+        return;
+      }
+      ov.remove();
+      resolve(v1);
+    };
+
+    okBtn.addEventListener('click', submit);
+    ov.querySelector('#_pin_cancel').addEventListener('click', () => { ov.remove(); resolve(null); });
+    [pin1, pin2].filter(Boolean).forEach(inp => inp.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); }));
+  });
+}
+
+function _getVaultVersion(buf) {
+  try {
+    if (new Uint8Array(buf)[0] !== 0x7b) return 1;
+    return JSON.parse(new TextDecoder().decode(buf)).v ?? 2;
+  } catch { return 1; }
+}
+
 // ── WebAuthn PRF helpers ──────────────────────────────────────────────────
 
 async function enrollWebAuthn() {
@@ -360,14 +437,33 @@ btnEnroll.addEventListener('click', async () => {
   enrollDots.style.display = 'flex';
   setMsg(t('msg.scanning.face'), '');
 
+  let embedding;
   try {
-    const embedding = await enrollEmbedding(video, (n) => {
+    embedding = await enrollEmbedding(video, (n) => {
       dots.forEach((d, i) => d.classList.toggle('done', i < n));
       setMsg(t('msg.scan.progress', { n }), '');
     });
+  } catch (e) {
+    setScanning(false);
+    enrollDots.style.display = 'none';
+    setMsg(e.message, 'error');
+    btnEnroll.disabled = false;
+    return;
+  }
 
+  setScanning(false);
+  enrollDots.style.display = 'none';
+
+  const pin = await showPinModal('setup');
+  if (!pin) {
+    setMsg('', '');
+    btnEnroll.disabled = false;
+    return;
+  }
+
+  try {
     const { vaultId, P, encryptedVault } = await callWorker(
-      'ENROLL', { embedding }, [embedding.buffer]
+      'ENROLL', { embedding, pin }, [embedding.buffer]
     );
 
     localStorage.setItem('biowallet_meta', JSON.stringify({ vaultId, P }));
@@ -375,13 +471,9 @@ btnEnroll.addEventListener('click', async () => {
     downloadBlob(JSON.stringify(P), `${vaultId}.P.json`);
 
     vaultReady = true;
-    setScanning(false);
-    enrollDots.style.display = 'none';
     setMsg(t('msg.wallet.created'), 'ok');
     showPanel('lock');
   } catch (e) {
-    setScanning(false);
-    enrollDots.style.display = 'none';
     setMsg(e.message, 'error');
     btnEnroll.disabled = false;
   }
@@ -582,14 +674,33 @@ btnImportEnroll.addEventListener('click', async () => {
   enrollDots.style.display = 'flex';
   setMsg(t('msg.import.scanning'), '');
 
+  let embedding;
   try {
-    const embedding = await enrollEmbedding(video, (n) => {
+    embedding = await enrollEmbedding(video, (n) => {
       dots.forEach((d, i) => d.classList.toggle('done', i < n));
       setMsg(t('msg.scan.progress', { n }), '');
     });
+  } catch (e) {
+    setScanning(false);
+    enrollDots.style.display = 'none';
+    setMsg(friendlyError(e.message), 'error');
+    btnImportEnroll.disabled = false;
+    return;
+  }
 
+  setScanning(false);
+  enrollDots.style.display = 'none';
+
+  const pin = await showPinModal('setup');
+  if (!pin) {
+    setMsg('', '');
+    btnImportEnroll.disabled = false;
+    return;
+  }
+
+  try {
     const { vaultId, P, encryptedVault } = await callWorker(
-      'IMPORT', { mnemonic: words.join(' '), embedding }, [embedding.buffer]
+      'IMPORT', { mnemonic: words.join(' '), embedding, pin }, [embedding.buffer]
     );
 
     localStorage.setItem('biowallet_meta', JSON.stringify({ vaultId, P }));
@@ -597,14 +708,10 @@ btnImportEnroll.addEventListener('click', async () => {
     downloadBlob(JSON.stringify(P), `${vaultId}.P.json`);
 
     vaultReady = true;
-    setScanning(false);
-    enrollDots.style.display = 'none';
     setMsg(t('msg.wallet.imported'), 'ok');
     showPanel('lock');
     await showPostImportChecklist();
   } catch (e) {
-    setScanning(false);
-    enrollDots.style.display = 'none';
     importPhrase.value = '';
     setMsg(friendlyError(e.message), 'error');
     btnImportEnroll.disabled = false;
@@ -697,9 +804,22 @@ btnScan.addEventListener('click', async () => {
     }
 
     const encBuf = await vaultFile.arrayBuffer();
+
+    // v3 vault without device PRF → PIN required
+    let pin = null;
+    if (!devicePrf && _getVaultVersion(encBuf) === 3) {
+      setMsg(t('msg.pin.required'), '');
+      pin = await showPinModal('open');
+      if (pin === null) {
+        setScanning(false);
+        btnScan.disabled = false;
+        return;
+      }
+    }
+
     const { address, hasDevice, usedDevice } = await callWorker(
       'OPEN',
-      { encryptedVault: encBuf, P: meta.P, devicePrf },
+      { encryptedVault: encBuf, P: meta.P, devicePrf, pin },
       [encBuf]
     );
 

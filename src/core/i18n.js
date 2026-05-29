@@ -131,6 +131,21 @@ const STRINGS = {
     'msg.tx.no.blockscout':   'TX history ezen a hálózaton nem elérhető',
     'msg.tx.empty':           'Még nincsenek tranzakciók',
     'msg.tx.unavailable':     'Nem elérhető',
+    /* ── PIN modal ────────────────────────────────────────────────── */
+    'pin.setup.title':  'PIN beállítása',
+    'pin.setup.desc':   'Ez a PIN-kód szükséges másik eszközről való megnyitáshoz. Sehol nem tárolódik — csak Ön tudja.',
+    'pin.open.title':   'PIN megadása',
+    'pin.open.desc':    'Adja meg PIN-kódját az arc-scan mellé.',
+    'pin.label':        'PIN kód',
+    'pin.confirm.label':'Megerősítés',
+    'pin.min.hint':     'Minimum 4 karakter',
+    'pin.mismatch':     'A két PIN nem egyezik.',
+    'pin.btn.set':      'PIN beállítása',
+    'pin.btn.open':     'Megnyitás',
+    'pin.btn.cancel':   'Mégse',
+    'msg.pin.required': 'Adja meg PIN-kódját az arc-scan mellé.',
+
+    /* ── Device messages ───────────────────────────────────────────── */
     'msg.device.auth':        'Eszközhitelesítés folyamatban...',
     'msg.device.fallback':    'Eszköz kihagyva — arc-alapú belépés.',
     'msg.device.enrolled':    'Eszköz regisztrálva! Mentse el az új .biowallet fájlt.',
@@ -356,6 +371,21 @@ const STRINGS = {
     'msg.tx.no.blockscout':   'TX history not available on this network',
     'msg.tx.empty':           'No transactions yet',
     'msg.tx.unavailable':     'Unavailable',
+    /* ── PIN modal ────────────────────────────────────────────────── */
+    'pin.setup.title':  'Set PIN',
+    'pin.setup.desc':   'This PIN is required to open the wallet on a new device. It is never stored — only you know it.',
+    'pin.open.title':   'Enter PIN',
+    'pin.open.desc':    'Enter your PIN alongside the face scan.',
+    'pin.label':        'PIN code',
+    'pin.confirm.label':'Confirm',
+    'pin.min.hint':     'Minimum 4 characters',
+    'pin.mismatch':     'The two PINs do not match.',
+    'pin.btn.set':      'Set PIN',
+    'pin.btn.open':     'Open',
+    'pin.btn.cancel':   'Cancel',
+    'msg.pin.required': 'Enter your PIN alongside the face scan.',
+
+    /* ── Device messages ───────────────────────────────────────────── */
     'msg.device.auth':        'Device authentication in progress...',
     'msg.device.fallback':    'Device skipped — face-only unlock.',
     'msg.device.enrolled':    'Device enrolled! Save the new .biowallet file.',
