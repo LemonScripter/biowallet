@@ -73,3 +73,14 @@ export async function signEthTx(tx, seedBytes) {
   const signed = await wallet.signTransaction(fullTx);
   return { tx: fullTx, from: child.address, signed };
 }
+
+/** personal_sign — sign a hex or UTF-8 message (\x19Ethereum Signed Message prefix). */
+export async function signPersonal(hexMessage, seedBytes) {
+  const e      = eth();
+  const hex    = '0x' + Array.from(seedBytes).map(b => b.toString(16).padStart(2,'0')).join('');
+  const wallet = new e.Wallet(e.HDNodeWallet.fromSeed(hex).derivePath(ETH_PATH).privateKey);
+  const bytes  = (typeof hexMessage === 'string' && hexMessage.startsWith('0x'))
+    ? e.getBytes(hexMessage)
+    : hexMessage;
+  return wallet.signMessage(bytes);
+}

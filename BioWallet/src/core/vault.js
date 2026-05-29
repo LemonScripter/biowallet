@@ -1,11 +1,11 @@
 /**
  * BioWallet — AES-256-GCM Vault
  *
- * Minden vault-művelet causal gate mögött fut.
- * A bio_key soha nem kerül ki a memóriából.
- * Signing után auto-lock (P7).
+ * Every vault operation runs behind a causal gate.
+ * The bio_key never leaves memory.
+ * Auto-lock after signing (P7).
  *
- * Külső függőség: causal_chain.js, fuzzy_extractor.js
+ * External dependencies: causal_chain.js, fuzzy_extractor.js
  */
 
 import { CausalChain, DCCError } from './causal_chain.js?v=11';
@@ -22,7 +22,7 @@ const AES_MODE = 'AES-GCM';
 class BioVault {
   #chain;
   #vaultId;
-  #cryptoKey = null;    // WebCrypto CryptoKey — memóriában él, auto-null lock után
+  #cryptoKey = null;    // WebCrypto CryptoKey — lives in memory, auto-nulled after lock
   #vaultData = null;    // { seed, accounts, metadata } — decrypted state
 
   constructor(vaultId) {
@@ -32,23 +32,23 @@ class BioVault {
 
   get id() { return this.#vaultId; }
 
-  // ── Biometriai esemény ────────────────────────────────────────────────────
+  // ── Biometric event ───────────────────────────────────────────────────────
 
   /**
-   * Face capture sikeres → token kiadása.
-   * Ezt az app hívja közvetlenül a bio_capture után.
+   * Face capture succeeded → token issued.
+   * Called by the app directly after bio_capture.
    * @param {Float32Array} embedding — FaceNet 512-dim output
-   * @param {Uint8Array}   P         — fuzzy extractor helper (publikus)
+   * @param {Uint8Array}   P         — fuzzy extractor helper (public)
    */
   async onBioCapture(embedding, P) {
     const R = await fuzzyExtract(embedding, P);   // stabil kulcs → tokenbe
     this.#chain.issue(R, this.#vaultId);           // vault-kötés: vaultId egyezés (P4)
   }
 
-  // ── Vault létrehozása (egyszer, első indításkor) ──────────────────────────
+  // ── Vault creation (once, on first launch) ───────────────────────────────
 
   /**
-   * @param {Float32Array} embedding — enrollment scan (5x átlagolt)
+   * @param {Float32Array} embedding — enrollment scan (5x averaged)
    * @returns {{ encryptedVault: ArrayBuffer, P: Uint8Array, vaultId: string }}
    */
   static async create(embedding) {
@@ -60,13 +60,13 @@ class BioVault {
     }
   }
 
-  // ── Seed importálás (meglévő BIP39 mnemonic → új vault) ─────────────────
+  // ── Seed import (existing BIP39 mnemonic → new vault) ───────────────────
 
   /**
-   * Meglévő 24 szavas mnemonic importálása biometriai vault-ba.
-   * A seedBytes-t fill(0) törli a finally-ban.
-   * @param {string}       mnemonic  — 24 szavas BIP39 phrase (szóközzel)
-   * @param {Float32Array} embedding — enrollment scan (5x átlagolt)
+   * Import an existing 24-word mnemonic into a biometric vault.
+   * seedBytes is zeroed via fill(0) in the finally block.
+   * @param {string}       mnemonic  — 24-word BIP39 phrase (space-separated)
+   * @param {Float32Array} embedding — enrollment scan (5x averaged)
    */
   static async importFromMnemonic(mnemonic, embedding) {
     const seedBytes = mnemonicToSeed(mnemonic);
@@ -78,7 +78,7 @@ class BioVault {
   }
 
   /**
-   * Belső helper: 32 bájt seed → titkosított vault (embedding alapján új kulcs).
+   * Internal helper: 32-byte seed → encrypted vault (new key derived from embedding).
    * @param {Uint8Array}   seedBytes
    * @param {Float32Array} embedding
    */
@@ -101,7 +101,7 @@ class BioVault {
    * @param {Uint8Array}  P
    */
   async open(encryptedVault, P) {
-    // Kauzális kapu — R közvetlenül a tokenből (P1–P4)
+    // Causal gate — R directly from token (P1–P4)
     const R = this.#chain.gate('OPEN', this.#vaultId);
 
     const { salt, iv, ciphertext } = unpack(encryptedVault);
@@ -115,7 +115,7 @@ class BioVault {
       throw new DCCError('BIO_MISMATCH', 'OPEN');
     }
 
-    // Ethereum cím deriválása (megjelenítéshez — seed memóriában marad)
+    // Derive Ethereum address (for display — seed stays in memory)
     const seedBytes = fromHex(this.#vaultData.seed);
     const address   = await seedToAddress(seedBytes);
     seedBytes.fill(0);
@@ -126,15 +126,15 @@ class BioVault {
   // ── SIGN ─────────────────────────────────────────────────────────────────
 
   /**
-   * Tranzakció aláírása — legszigorúbb TTL (10s), auto-lock után.
+   * Sign a transaction — strictest TTL (10s), auto-lock after.
    * @param {object} tx
    */
   async sign(tx) {
     if (!this.#cryptoKey || !this.#vaultData) {
       throw new DCCError('VAULT_LOCKED', 'SIGN');
     }
-    // Új biometriai scan szükséges minden aláíráshoz (P5)
-    // gate() visszadobja R-t — itt nem kell a KDF-hez, csak a kauzális ellenőrzés
+    // New biometric scan required for every signing (P5)
+    // gate() returns R — not needed for KDF here, only causal check
     this.#chain.gate('SIGN', this.#vaultId);
 
     const seed   = fromHex(this.#vaultData.seed);
@@ -158,15 +158,15 @@ class BioVault {
     return sig;
   }
 
-  // ── Papírképlet (Phase 9.1b — P soha nem kerül az app-ba) ──────────────
+  // ── Paper formula (Phase 9.1b — P never enters the app) ─────────────────
 
   /**
-   * Nyers visszanyerési adatok generálása:
+   * Generate raw recovery data:
    *   raw_A_j = (i_j - r_j) mod 2048
    *
-   * P (személyes szám) NEM kerül be — az offline ENCODE lépés alkalmazza.
-   * A 24 szó SOHA nem hagyja el ezt a függvényt.
-   * EXPORT gate (5s TTL) szükséges, auto-lock után.
+   * P (personal number) is NOT included — applied in the offline ENCODE step.
+   * The 24 words NEVER leave this function.
+   * Requires EXPORT gate (5s TTL), auto-lock after.
    *
    * @returns {Promise<{ rawA: number[], r: number[] }>}
    */
@@ -200,7 +200,7 @@ class BioVault {
 // ── Crypto helpers ────────────────────────────────────────────────────────
 
 async function deriveKey(R, salt) {
-  // argon2-wasm kellene ide (Phase 2), PBKDF2 placeholder ugyanolyan API-val
+  // argon2-wasm needed here (Phase 2), PBKDF2 placeholder with the same API
   const keyMaterial = await crypto.subtle.importKey(
     'raw', R, 'PBKDF2', false, ['deriveKey']
   );

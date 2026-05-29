@@ -1,9 +1,9 @@
 /**
- * BioWallet — RPC réteg (Phase 5 / EIP-1559)
+ * BioWallet — RPC layer (Phase 5 / EIP-1559)
  *
- * Raw JSON-RPC 2.0 — nincs CDN függőség.
- * Multi-network EVM támogatás: 8 builtin lánc + egyéni hálózatok.
- * EIP-1559: eth_feeHistory alapú maxFeePerGas / maxPriorityFeePerGas.
+ * Raw JSON-RPC 2.0 — no CDN dependency.
+ * Multi-network EVM support: 8 built-in chains + custom networks.
+ * EIP-1559: maxFeePerGas / maxPriorityFeePerGas via eth_feeHistory.
  */
 
 export const BUILTIN_NETWORKS = [
@@ -41,7 +41,7 @@ export const NETWORKS = {
   sepolia: BUILTIN_NETWORKS.find(n => n.key === 'sepolia'),
 };
 
-// ── JSON-RPC alap ─────────────────────────────────────────────────────────
+// ── JSON-RPC base ─────────────────────────────────────────────────────────
 
 async function rpcCall(rpcUrl, method, params = []) {
   const res = await fetch(rpcUrl, {
@@ -55,9 +55,9 @@ async function rpcCall(rpcUrl, method, params = []) {
   return result;
 }
 
-// ── Lekérdezések ──────────────────────────────────────────────────────────
+// ── Queries ───────────────────────────────────────────────────────────────
 
-/** Cím egyenlege ETH-ben (6 tizedesjegy). */
+/** Address balance in ETH (6 decimal places). */
 export async function getBalance(address, rpcUrl) {
   const hex = await rpcCall(rpcUrl, 'eth_getBalance', [address, 'latest']);
   const wei = BigInt(hex);
@@ -65,15 +65,15 @@ export async function getBalance(address, rpcUrl) {
   return eth.toFixed(6);
 }
 
-/** Következő nonce. */
+/** Next nonce. */
 export async function getNonce(address, rpcUrl) {
   const hex = await rpcCall(rpcUrl, 'eth_getTransactionCount', [address, 'latest']);
   return parseInt(hex, 16);
 }
 
 /**
- * EIP-1559 gasbecslés — eth_feeHistory + eth_maxPriorityFeePerGas.
- * Visszaad: { maxFeePerGas: BigInt, maxPriorityFeePerGas: BigInt }
+ * EIP-1559 gas estimate — eth_feeHistory + eth_maxPriorityFeePerGas.
+ * Returns: { maxFeePerGas: BigInt, maxPriorityFeePerGas: BigInt }
  */
 export async function getFeeData(rpcUrl) {
   const [feeHistory, priorityHex] = await Promise.all([
@@ -83,14 +83,14 @@ export async function getFeeData(rpcUrl) {
 
   const baseFees = feeHistory.baseFeePerGas ?? [];
   const lastBase = baseFees.length > 0 ? BigInt(baseFees[baseFees.length - 1]) : 1000000000n;
-  const baseNext = lastBase * 5n / 4n;   // +25% puffer következő blokkhoz
+  const baseNext = lastBase * 5n / 4n;   // +25% buffer for next block
 
   const maxPrio = priorityHex ? BigInt(priorityHex) : 1500000000n;  // 1.5 Gwei fallback
 
   return { maxFeePerGas: baseNext + maxPrio, maxPriorityFeePerGas: maxPrio };
 }
 
-/** Gáz limit becslése — eth_estimateGas + 20% puffer. Fallback: 21000 (ETH) / 65000 (token). */
+/** Gas limit estimate — eth_estimateGas + 20% buffer. Fallback: 21000 (ETH) / 65000 (token). */
 export async function estimateGas(tx, rpcUrl, fallback = 21000n) {
   try {
     const hex = await rpcCall(rpcUrl, 'eth_estimateGas', [{
@@ -105,14 +105,14 @@ export async function estimateGas(tx, rpcUrl, fallback = 21000n) {
   }
 }
 
-/** Aláírt tranzakció broadcast — visszaad egy tx hash-t. */
+/** Broadcast signed transaction — returns a tx hash. */
 export async function broadcastTx(signedHex, rpcUrl) {
   return await rpcCall(rpcUrl, 'eth_sendRawTransaction', [signedHex]);
 }
 
-// ── Konverzió ─────────────────────────────────────────────────────────────
+// ── Conversion ────────────────────────────────────────────────────────────
 
-/** "0.001" ETH string → wei BigInt. Lebegőpontos hiba nélkül. */
+/** "0.001" ETH string → wei BigInt. No floating-point errors. */
 export function ethToWei(ethStr) {
   const clean = ethStr.trim().replace(',', '.');
   const [whole = '0', frac = ''] = clean.split('.');
@@ -120,18 +120,18 @@ export function ethToWei(ethStr) {
   return BigInt(whole) * BigInt('1000000000000000000') + BigInt(fracPadded);
 }
 
-/** wei BigInt → ETH string (6 tizedesjegy). */
+/** wei BigInt → ETH string (6 decimal places). */
 export function weiToEth(wei) {
   const eth = Number(BigInt(wei) * 10000n / BigInt(1e18)) / 10000;
   return eth.toFixed(6);
 }
 
-/** Cím validáció. */
+/** Address validation. */
 export function isValidAddress(addr) {
   return /^0x[0-9a-fA-F]{40}$/.test(addr);
 }
 
-/** ENS név → ETH cím (Mainnet-only). null ha nem található. */
+/** ENS name → ETH address (Mainnet-only). null if not found. */
 export async function resolveENS(name) {
   if (!name || !name.includes('.')) return null;
   try {
@@ -142,20 +142,20 @@ export async function resolveENS(name) {
   }
 }
 
-/** ERC-20 balanceOf(address) — raw eth_call. Visszaad: BigInt (wei-egyenérték). */
+/** ERC-20 balanceOf(address) — raw eth_call. Returns: BigInt (wei equivalent). */
 export async function getTokenBalance(tokenAddress, walletAddress, rpcUrl) {
   const data = '0x70a08231' + walletAddress.slice(2).padStart(64, '0');
   const result = await rpcCall(rpcUrl, 'eth_call', [{ to: tokenAddress, data }, 'latest']);
   return BigInt(result);
 }
 
-/** ERC-20 tokenek decimálisa. */
+/** ERC-20 token decimals. */
 export async function getTokenDecimals(tokenAddress, rpcUrl) {
   const result = await rpcCall(rpcUrl, 'eth_call', [{ to: tokenAddress, data: '0x313ce567' }, 'latest']);
   return parseInt(result, 16);
 }
 
-/** BigInt token mennyiség → emberi olvasható string (pl. "1234.56"). */
+/** BigInt token amount → human-readable string (e.g. "1234.56"). */
 export function formatToken(amount, decimals) {
   const d = BigInt(10) ** BigInt(decimals);
   const whole = amount / d;
@@ -163,7 +163,7 @@ export function formatToken(amount, decimals) {
   return `${whole}.${frac}`;
 }
 
-/** "1.5" token string → raw BigInt (decimals alapján). Lebegőpontos hiba nélkül. */
+/** "1.5" token string → raw BigInt (based on decimals). No floating-point errors. */
 export function tokenToRaw(amountStr, decimals) {
   const clean = amountStr.trim().replace(',', '.');
   const [whole = '0', frac = ''] = clean.split('.');
@@ -171,7 +171,7 @@ export function tokenToRaw(amountStr, decimals) {
   return BigInt(whole) * (BigInt(10) ** BigInt(decimals)) + BigInt(fracPadded || '0');
 }
 
-/** ERC-20 transfer(address,uint256) calldata — 0xa9059cbb + 64+64 byte ABI encoding. */
+/** ERC-20 transfer(address,uint256) calldata — 0xa9059cbb + 64+64 bytes ABI encoding. */
 export function encodeTransfer(to, amount) {
   return '0xa9059cbb'
     + to.slice(2).padStart(64, '0')
@@ -179,8 +179,8 @@ export function encodeTransfer(to, amount) {
 }
 
 /**
- * Blockscout API v2 — utolsó N tranzakció (nincs API key szükséges).
- * network: hálózat objektum (blockscout mező szükséges), vagy dob hibát.
+ * Blockscout API v2 — last N transactions (no API key required).
+ * network: network object (blockscout field required), otherwise throws.
  */
 export async function fetchTxHistory(address, network, limit = 5) {
   if (!network?.blockscout) throw new Error('TX history nem elérhető ezen a hálózaton');

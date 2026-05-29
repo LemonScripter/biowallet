@@ -1,11 +1,12 @@
 /**
- * BioWallet — App Controller (Phase 5)
+ * BioWallet — App Controller
  *
- * Kripto: vault_worker.js (Worker szál) — main thread nem látja a kulcsot.
- * EIP-1559: getFeeData() + estimateGas() — pontos gasbecslés.
- * Megerősítés: küldés előtt TX overlay.
+ * Crypto: vault_worker.js (Worker thread) — main thread never sees the key.
+ * EIP-1559: getFeeData() + estimateGas() — accurate gas estimation.
+ * Confirm overlay before every send.
  */
 
+import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=11';
 import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=11';
 import {
   WC_PROJECT_ID, initWC, wcPair, wcApprove, wcRejectProposal, wcEmitChainChanged,
@@ -59,6 +60,7 @@ const panelImport = document.getElementById('panel-import');
 const panelLock   = document.getElementById('panel-lock');
 const panelVault  = document.getElementById('panel-vault');
 
+const btnLang        = document.getElementById('btn-lang');
 const btnEnroll      = document.getElementById('btn-enroll');
 const btnImport       = document.getElementById('btn-import');
 const btnRestore      = document.getElementById('btn-restore');
@@ -103,12 +105,40 @@ const dots = [0,1,2,3,4].map(i => document.getElementById(`dot-${i}`));
 let stream            = null;
 let timerID           = null;
 let currentNetwork    = BUILTIN_NETWORKS.find(n => n.key === 'sepolia');
-let vaultReady        = false;      // worker-ben van-e aktív vault
-let ensResolved       = null;       // ENS → ETH cím (ha feloldva)
-let inCooldown        = false;      // brute-force védelem aktív
-let selectedToken       = null;       // null=ETH, egyéb={ symbol,address,decimals }
-const tokenBalanceCache = new Map(); // symbol → raw BigInt
-let pendingWCReq        = null;       // { topic, id, params } — WC kérés vault-lock esetén
+let vaultReady        = false;
+let ensResolved       = null;
+let inCooldown        = false;
+let selectedToken       = null;
+const tokenBalanceCache = new Map();
+let pendingWCReq        = null;
+
+// ── i18n init ─────────────────────────────────────────────────────────────
+applyI18n();
+document.getElementById('guide-modal-body').innerHTML = getGuideHTML();
+
+if (btnLang) {
+  btnLang.addEventListener('click', () => {
+    setLang(getLang() === 'hu' ? 'en' : 'hu');
+    applyI18n();
+    document.getElementById('guide-modal-body').innerHTML = getGuideHTML();
+    _refreshDynamicLabels();
+  });
+}
+
+function _refreshDynamicLabels() {
+  const sym = currentNetwork.nativeSymbol ?? 'ETH';
+  if (!selectedToken) {
+    const label = t('btn.send.token', { sym });
+    sendCardLabel.textContent = label;
+    sendBtnLabel.textContent  = label;
+    amountUnit.textContent    = sym;
+  } else {
+    const label = t('btn.send.token', { sym: selectedToken.symbol });
+    sendCardLabel.textContent = label;
+    sendBtnLabel.textContent  = label;
+    amountUnit.textContent    = selectedToken.symbol;
+  }
+}
 
 // ── Init ──────────────────────────────────────────────────────────────────
 (async () => {
@@ -118,7 +148,7 @@ let pendingWCReq        = null;       // { topic, id, params } — WC kérés va
   try {
     stream = await openCamera(video, m => setMsg(m, ''));
   } catch (e) {
-    setMsg(`Kamera hiba: ${e.message}`, 'error');
+    setMsg(t('msg.camera.error', { err: e.message }), 'error');
   }
 
   const stored = localStorage.getItem('biowallet_meta');
@@ -128,30 +158,30 @@ let pendingWCReq        = null;       // { topic, id, params } — WC kérés va
       if (meta.P?.version === 'p1') {
         localStorage.clear();
         showPanel('setup');
-        setMsg('Elavult vault formátum — regisztráljon újra.', 'error');
+        setMsg(t('msg.vault.outdated'), 'error');
       } else {
         await callWorker('INIT_VAULT', { vaultId: meta.vaultId });
         vaultReady = true;
         showPanel('lock');
-        setMsg('Vault betöltve — arc-scan a megnyitáshoz.', '');
+        setMsg(t('msg.vault.loaded'), '');
       }
     } catch {
       localStorage.clear();
       showPanel('setup');
-      setMsg('Sérült mentés — hozzon létre új walletot.', 'error');
+      setMsg(t('msg.vault.corrupted'), 'error');
     }
   } else {
     showPanel('setup');
-    setMsg('Első indítás — hozzon létre walletot.', '');
+    setMsg(t('msg.first.launch'), '');
   }
 
   startTimer();
   showVersionHash(); // non-blocking
 })();
 
-// ── Brute-force védelem (C5) ──────────────────────────────────────────────
-const BF_AFTER = 3;    // mismatch darabszám, ami után cooldown indul
-const BF_BASE  = 30;   // alap cooldown másodpercben
+// ── Brute-force protection (C5) ───────────────────────────────────────────
+const BF_AFTER = 3;
+const BF_BASE  = 30;
 
 function _bfGet() {
   try { return JSON.parse(localStorage.getItem('biowallet_bf') ?? 'null') ?? { n: 0, until: 0 }; }
@@ -162,7 +192,7 @@ function bioFail() {
   const s = _bfGet();
   s.n++;
   if (s.n % BF_AFTER === 0) {
-    const mult = Math.min(2 ** (s.n / BF_AFTER - 1), 8); // 30s → 60s → 120s → 240s (max)
+    const mult = Math.min(2 ** (s.n / BF_AFTER - 1), 8);
     s.until = Date.now() + BF_BASE * mult * 1000;
   }
   localStorage.setItem('biowallet_bf', JSON.stringify(s));
@@ -179,10 +209,10 @@ function cooldownMs() {
 function bioFailHint() {
   const s = _bfGet();
   const left = BF_AFTER - (s.n % BF_AFTER);
-  return s.n > 0 && left < BF_AFTER ? ` · még ${left} próba a zárolásig` : '';
+  return s.n > 0 && left < BF_AFTER ? t('bf.remaining', { n: left }) : '';
 }
 
-// ── Verzió hash (Phase 9.1e) — verifiable build fingerprint ──────────────
+// ── Version hash (verifiable build fingerprint) ───────────────────────────
 async function showVersionHash() {
   const FILES = [
     ['/app/index.html',           'index.html'],
@@ -217,7 +247,7 @@ async function showVersionHash() {
       'user-select:none',
     ].join(';');
     el.innerHTML = `Build <span id="fp-value" style="color:#52527a">${fp}</span>`;
-    el.title = 'Kattints a részletekért · SHA-256 ellenőrzés';
+    el.title = 'Click for details · SHA-256 verification';
 
     el.addEventListener('click', () => {
       const existing = document.getElementById('hash-detail-box');
@@ -245,7 +275,7 @@ async function showVersionHash() {
     });
 
     footer.appendChild(el);
-  } catch { /* offline vagy fetch hiba — hash nem jelenik meg */ }
+  } catch { /* offline or fetch error — hash not displayed */ }
 }
 
 // ── Enrollment ────────────────────────────────────────────────────────────
@@ -253,12 +283,12 @@ btnEnroll.addEventListener('click', async () => {
   btnEnroll.disabled = true;
   setScanning(true);
   enrollDots.style.display = 'flex';
-  setMsg('Tartsa arcát a keretben...', '');
+  setMsg(t('msg.scanning.face'), '');
 
   try {
     const embedding = await enrollEmbedding(video, (n) => {
       dots.forEach((d, i) => d.classList.toggle('done', i < n));
-      setMsg(`Beolvasás ${n}/5...`, '');
+      setMsg(t('msg.scan.progress', { n }), '');
     });
 
     const { vaultId, P, encryptedVault } = await callWorker(
@@ -272,7 +302,7 @@ btnEnroll.addEventListener('click', async () => {
     vaultReady = true;
     setScanning(false);
     enrollDots.style.display = 'none';
-    setMsg('Wallet létrehozva! Mentse el a letöltött fájlokat.', 'ok');
+    setMsg(t('msg.wallet.created'), 'ok');
     showPanel('lock');
   } catch (e) {
     setScanning(false);
@@ -282,7 +312,7 @@ btnEnroll.addEventListener('click', async () => {
   }
 });
 
-// ── Papírképlet megjelenítő modal (nyomtatható) ──────────────────────────
+// ── Paper recovery modal (printable) ─────────────────────────────────────
 function showRecoveryPaperModal(rawA, r) {
   return new Promise(resolve => {
     const overlay = document.createElement('div');
@@ -345,71 +375,61 @@ function showRecoveryPaperModal(rawA, r) {
                   width:100%;max-width:560px;margin:auto;padding:1.5rem;">
 
         <div style="color:#ffa502;font-size:0.72rem;font-weight:700;letter-spacing:0.08em;
-                    text-transform:uppercase;margin-bottom:0.3rem;">2 LÉPÉSES FOLYAMAT — 1. LÉPÉS</div>
+                    text-transform:uppercase;margin-bottom:0.3rem;">${t('paper.step.label')}</div>
         <div style="font-size:1.05rem;font-weight:700;color:#e8e8f0;margin-bottom:0.3rem;">
-          BioWallet — Papír Recovery (Nyers adatok)
+          ${t('paper.title')}
         </div>
         <div style="font-size:0.78rem;color:#6b6b80;margin-bottom:0.8rem;line-height:1.5;">
-          Írja le mindkét papírt, majd folytassa a <strong>recovery_tool.html ENCODE</strong>
-          módban — ott adja meg P-jét, és kapja meg a <strong>Végleges Papír A-t</strong>.
+          ${t('paper.desc')}
         </div>
 
-        <!-- Figyelmeztetés -->
         <div style="font-size:0.78rem;color:#ff4757;background:rgba(255,71,87,0.08);
                     border:1px solid rgba(255,71,87,0.4);border-radius:8px;
                     padding:0.6rem 0.8rem;margin-bottom:0.8rem;line-height:1.5;">
-          ⚠ Ez a NYERS Papír A — P-vel <strong>még nem véglegesítve</strong>!
-          Ne tárolja véglegesen — a 2. lépés után semmisítse meg és csak a Végleges Papír A-t őrizze.
+          ${t('paper.warn')}
         </div>
 
-        <!-- Nyers Paper A: raw_A_j -->
         <div class="paper-section" style="background:#1e1e24;border:1px solid #3a2a00;
                                           border-radius:10px;padding:1rem;margin-bottom:0.8rem;">
           <div style="font-size:0.8rem;font-weight:700;color:#ffa502;margin-bottom:0.6rem;">
-            NYERS PAPÍR A · (raw_A_j) — ideiglenes!
+            ${t('paper.a.title')}
           </div>
           <div class="paper-grid">${rows(rawA)}</div>
         </div>
 
         <div class="paper-cut">✂  ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─  ✂</div>
 
-        <!-- Paper B: r_j -->
         <div class="paper-section" style="background:#1e1e24;border:1px solid #2a2a35;
                                           border-radius:10px;padding:1rem;margin-bottom:0.8rem;">
           <div style="font-size:0.8rem;font-weight:700;color:#4CAF50;margin-bottom:0.6rem;">
-            PAPÍR B · Eltolások (r_j)
+            ${t('paper.b.title')}
           </div>
           <div class="paper-grid">${rows(r)}</div>
         </div>
 
         <div class="paper-cut">✂  ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─  ✂</div>
 
-        <!-- 2. lépés útmutató -->
         <div class="paper-section" style="background:#0d1a2b;border:1px solid #1a3a5c;
                                           border-radius:10px;padding:1rem;margin-bottom:0.8rem;
                                           font-size:0.78rem;line-height:1.6;color:#e8e8f0;">
           <div style="font-weight:700;color:#6c63ff;margin-bottom:0.5rem;">
-            2. LÉPÉS — Véglegesítés (offline)
+            ${t('paper.step2.title')}
           </div>
           <ol style="padding-left:1.3rem;margin-bottom:0.5rem;">
-            <li>Nyissa meg a <strong>recovery_tool.html</strong> oldalt <strong>offline</strong> (internet lekapcsolva)</li>
-            <li>Válassza az <strong>ENCODE</strong> fület</li>
-            <li>Írja be a Nyers Papír A számait + a fejben tartott <strong>P-jét</strong></li>
-            <li>A kapott <strong>Végleges Papír A-t</strong> nyomtassa ki és tárolja a Papír B-vel KÜLÖN helyen</li>
-            <li>Semmisítse meg a Nyers Papír A-t</li>
+            ${t('paper.step2.steps')}
           </ol>
           <p style="color:#4CAF50;font-size:0.74rem;">
-            ✓ A BioWallet soha nem tudja meg a P értékét — csak Ön és a recovery_tool.html offline kombinálhatja.
+            ${t('paper.step2.note')}
           </p>
         </div>
 
         <div class="no-print" style="display:flex;gap:0.75rem;margin-top:1rem;">
           <button id="_paper_print" style="flex:1;padding:0.75rem;border-radius:10px;
             border:none;background:#6c63ff;color:#fff;
-            font-size:0.9rem;font-weight:600;cursor:pointer;">🖨 Nyomtatás</button>
+            font-size:0.9rem;font-weight:600;cursor:pointer;">${t('paper.btn.print')}</button>
           <button id="_paper_close" style="flex:1;padding:0.75rem;border-radius:10px;
             border:1px solid #ff4757;background:#2b0a0a;color:#ff4757;
-            font-size:0.9rem;font-weight:600;cursor:pointer;">Bezárás · memória törlése</button>
+            font-size:0.9rem;font-weight:600;cursor:pointer;">${t('paper.btn.close')}</button>
         </div>
       </div>
     `;
@@ -419,17 +439,17 @@ function showRecoveryPaperModal(rawA, r) {
   });
 }
 
-// ── Wallet váltás (lock panelről → setup) ────────────────────────────────
+// ── Wallet switch (lock panel → setup) ───────────────────────────────────
 btnSwitchWallet.addEventListener('click', () => {
-  if (!confirm('A jelenlegi wallet törlődik ebből a böngészőből.\nA .biowallet fájl megmarad — bármikor újra betölthető.\n\nFolytatja?')) return;
+  if (!confirm(t('switch.wallet.confirm'))) return;
   localStorage.clear();
   vaultReady = false;
   callWorker('LOCK').catch(() => {});
   showPanel('setup');
-  setMsg('Hozzon létre új walletot vagy importáljon meglévőt.', '');
+  setMsg(t('msg.new.wallet'), '');
 });
 
-// ── Meglévő wallet visszaállítása (.P.json fájlból) ──────────────────────
+// ── Restore existing wallet (.P.json) ────────────────────────────────────
 btnRestore.addEventListener('click', async () => {
   try {
     const pFile = await pickFile('.json,application/json');
@@ -437,27 +457,23 @@ btnRestore.addEventListener('click', async () => {
     const P     = JSON.parse(text);
 
     if (!P.version || !['p2', 'p3'].includes(P.version)) {
-      setMsg('Érvénytelen .P.json fájl (rossz verzió).', 'error');
+      setMsg(t('msg.invalid.pjson.ver'), 'error');
       return;
     }
     if (!P.W_seed || !P.syndrome) {
-      setMsg('Érvénytelen .P.json fájl (hiányzó BCH adat).', 'error');
+      setMsg(t('msg.invalid.pjson.bch'), 'error');
       return;
     }
 
-    // .biowallet fájlnévből vaultId — vagy generálunk INIT-hez
-    // (a .P.json önmagában nem tartalmazza a vaultId-t, csak a BCH helper-t)
-    // A valódi vaultId csak a .biowallet visszafejtésekor derül ki — addig
-    // egy ideiglenes id-t használunk.
     const vaultId = pFile.name.replace(/\.P\.json$/i, '').replace(/^.*[/\\]/, '');
 
     localStorage.setItem('biowallet_meta', JSON.stringify({ vaultId, P }));
     await callWorker('INIT_VAULT', { vaultId });
     vaultReady = true;
     showPanel('lock');
-    setMsg('Wallet visszaállítva — arc-scan + .biowallet a megnyitáshoz.', 'ok');
+    setMsg(t('msg.restore.ok'), 'ok');
   } catch (e) {
-    setMsg(`Visszaállítás hiba: ${e.message}`, 'error');
+    setMsg(t('msg.restore.error', { err: e.message }), 'error');
   }
 });
 
@@ -465,7 +481,7 @@ btnRestore.addEventListener('click', async () => {
 btnImport.addEventListener('click', () => {
   importPhrase.value = '';
   showPanel('import');
-  setMsg('Adja meg a 24 szavas seed phrase-t.', '');
+  setMsg(t('msg.import.enter.phrase'), '');
   window.scrollTo({ top: 0, behavior: 'smooth' });
   setTimeout(() => importPhrase.focus(), 300);
 });
@@ -479,23 +495,22 @@ btnImportCancel.addEventListener('click', () => {
 btnImportEnroll.addEventListener('click', async () => {
   const words = importPhrase.value.trim().split(/\s+/).filter(Boolean);
   if (words.length !== 24) {
-    setMsg(`${words.length} szót adott meg — pontosan 24 szó szükséges.`, 'error');
+    setMsg(t('msg.import.word.count', { n: words.length }), 'error');
     return;
   }
 
-  // Szavak azonnal törlése — ne legyenek a képernyőn a scan alatt
   importPhrase.value = '';
   importPhrase.blur();
 
   btnImportEnroll.disabled = true;
   setScanning(true);
   enrollDots.style.display = 'flex';
-  setMsg('Tartsa arcát a keretben — biometriai regisztráció...', '');
+  setMsg(t('msg.import.scanning'), '');
 
   try {
     const embedding = await enrollEmbedding(video, (n) => {
       dots.forEach((d, i) => d.classList.toggle('done', i < n));
-      setMsg(`Beolvasás ${n}/5...`, '');
+      setMsg(t('msg.scan.progress', { n }), '');
     });
 
     const { vaultId, P, encryptedVault } = await callWorker(
@@ -509,7 +524,7 @@ btnImportEnroll.addEventListener('click', async () => {
     vaultReady = true;
     setScanning(false);
     enrollDots.style.display = 'none';
-    setMsg('Wallet importálva! Mentse el a letöltött fájlokat.', 'ok');
+    setMsg(t('msg.wallet.imported'), 'ok');
     showPanel('lock');
     await showPostImportChecklist();
   } catch (e) {
@@ -521,7 +536,7 @@ btnImportEnroll.addEventListener('click', async () => {
   }
 });
 
-// ── Post-import ellenőrzési lista ─────────────────────────────────────────
+// ── Post-import checklist ─────────────────────────────────────────────────
 function showPostImportChecklist() {
   return new Promise(resolve => {
     const overlay = document.createElement('div');
@@ -531,14 +546,8 @@ function showPostImportChecklist() {
       padding:1rem;overflow-y:auto;
     `;
 
-    const steps = [
-      ['Nyissa meg arc-scannel → ellenőrizze, hogy az ETH cím egyezik az eredeti tárcájával.', false],
-      ['Generáljon papír biztonsági mentést (Papírképlet gomb → recovery_tool.html ENCODE offline).', false],
-      ['Ha a papír backup kész és ellenőrzött: törölje az eredeti seed phrase papírját.', false],
-      ['Deaktiválja / törölje az eredeti tárcát (MetaMask / Ledger).', false],
-    ];
-
-    const stepHtml = steps.map(([text], i) => `
+    const steps = tArr('postimport.steps');
+    const stepHtml = steps.map((text, i) => `
       <label style="display:flex;gap:0.75rem;align-items:flex-start;
                     padding:0.65rem 0.5rem;border-bottom:1px solid #1e1e24;
                     cursor:pointer;font-size:0.82rem;line-height:1.5;color:#e8e8f0;">
@@ -553,13 +562,13 @@ function showPostImportChecklist() {
                   width:100%;max-width:480px;margin:auto;padding:1.5rem;">
         <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;
                     text-transform:uppercase;color:#4CAF50;margin-bottom:0.3rem;">
-          IMPORT SIKERES
+          ${t('postimport.badge')}
         </div>
         <div style="font-size:1rem;font-weight:700;color:#e8e8f0;margin-bottom:0.3rem;">
-          Következő lépések
+          ${t('postimport.title')}
         </div>
         <div style="font-size:0.76rem;color:#6b6b80;margin-bottom:1rem;line-height:1.5;">
-          A wallet biometriailag titkosítva tárolódik. Javasolt sorrendben hajtsa végre:
+          ${t('postimport.desc')}
         </div>
         <div style="border:1px solid #2a2a35;border-radius:10px;overflow:hidden;
                     margin-bottom:1rem;">
@@ -568,14 +577,13 @@ function showPostImportChecklist() {
         <div style="font-size:0.72rem;color:#ffa502;background:rgba(255,165,2,0.07);
                     border-left:2px solid #ffa502;padding:0.5rem 0.7rem;
                     border-radius:0 6px 6px 0;margin-bottom:1rem;line-height:1.5;">
-          ⚠ Az eredeti seed phrase-t csak akkor törölje, ha a papír biztonsági mentés elkészült
-          és ellenőrzött. Visszaút nincs.
+          ${t('postimport.warning')}
         </div>
         <button id="_postimport_ok"
                 style="width:100%;padding:0.85rem;border-radius:10px;border:none;
                        background:#6c63ff;color:#fff;font-size:0.9rem;
                        font-weight:600;cursor:pointer;">
-          Értettem — bezárás
+          ${t('postimport.ok')}
         </button>
       </div>
     `;
@@ -588,12 +596,12 @@ function showPostImportChecklist() {
   });
 }
 
-// ── Megnyitás ─────────────────────────────────────────────────────────────
+// ── Open vault (face scan) ────────────────────────────────────────────────
 btnScan.addEventListener('click', async () => {
   if (cooldownMs() > 0) return;
   btnScan.disabled = true;
   setScanning(true);
-  setMsg('Arc-scan folyamatban...', '');
+  setMsg(t('msg.open.scanning'), '');
 
   try {
     const meta      = JSON.parse(localStorage.getItem('biowallet_meta'));
@@ -610,7 +618,7 @@ btnScan.addEventListener('click', async () => {
     fetchBalance(address);
     updateTokenSelector();
     setScanning(false, true);
-    setMsg('Vault nyitva.', 'ok');
+    setMsg(t('msg.vault.open'), 'ok');
     showPanel('vault');
     ensureWCInit().catch(() => {});
     if (pendingWCReq) {
@@ -626,7 +634,7 @@ btnScan.addEventListener('click', async () => {
   }
 });
 
-// ── ETH / ERC-20 küldése ─────────────────────────────────────────────────
+// ── Send ETH / ERC-20 ────────────────────────────────────────────────────
 btnSign.addEventListener('click', async () => {
   if (cooldownMs() > 0) return;
 
@@ -636,39 +644,36 @@ btnSign.addEventListener('click', async () => {
 
   if (!isValidAddress(recipient)) {
     sendToInput.classList.add('error');
-    setMsg('Érvénytelen Ethereum cím.', 'error');
+    setMsg(t('msg.invalid.address'), 'error');
     return;
   }
   sendToInput.classList.remove('error');
 
-  // ── TX paraméterek (ETH vagy ERC-20 ág) ──────────────────────────────
   let txTo = recipient, txValue = 0n, txData = '0x', confirmAmount;
 
   if (!selectedToken) {
-    // ETH küldés
     try {
       txValue = ethToWei(amountStr);
       if (txValue <= 0n) throw new Error();
     } catch {
       sendAmountInput.classList.add('error');
-      setMsg('Érvénytelen összeg (pl.: 0.001).', 'error');
+      setMsg(t('msg.invalid.amount'), 'error');
       return;
     }
     confirmAmount = amountStr + ' ' + currentNetwork.nativeSymbol;
   } else {
-    // ERC-20 küldés
     let tokenAmount;
     try {
       tokenAmount = tokenToRaw(amountStr, selectedToken.decimals);
       if (tokenAmount <= 0n) throw new Error();
     } catch {
       sendAmountInput.classList.add('error');
-      setMsg(`Érvénytelen összeg (pl.: 1.5).`, 'error');
+      setMsg(t('msg.invalid.amount2'), 'error');
       return;
     }
     const cachedBal = tokenBalanceCache.get(selectedToken.symbol) ?? 0n;
     if (tokenAmount > cachedBal) {
-      setMsg(`Elégtelen ${selectedToken.symbol} egyenleg.`, 'error');
+      setMsg(t('msg.insuf.token', { sym: selectedToken.symbol }), 'error');
       return;
     }
     txTo          = selectedToken.address;
@@ -677,8 +682,7 @@ btnSign.addEventListener('click', async () => {
   }
   sendAmountInput.classList.remove('error');
 
-  // ── Hálózati díjak + gas ──────────────────────────────────────────────
-  setMsg('Hálózati adatok lekérdezése...', '');
+  setMsg(t('msg.network.fee'), '');
   let nonce, feeData, gasLimit;
   try {
     [nonce, feeData] = await Promise.all([
@@ -691,34 +695,32 @@ btnSign.addEventListener('click', async () => {
       currentNetwork.rpc, gasFallback,
     );
     const gasCost    = gasLimit * feeData.maxFeePerGas;
-    const ethNeeded  = txValue + gasCost;   // token küldésnél txValue=0n → csak gas
+    const ethNeeded  = txValue + gasCost;
     const balanceEth = parseFloat(ethBalance.textContent);
     if (Number(ethNeeded) / 1e18 > balanceEth + 0.000001) {
       const hint = selectedToken
-        ? `Gas díjhoz ~${weiToEth(gasCost)} ETH szükséges.`
-        : `Kell: ~${(Number(ethNeeded) / 1e18).toFixed(6)} ETH (összeg + gas).`;
-      setMsg(`Elégtelen ETH egyenleg. ${hint}`, 'error');
+        ? t('msg.gas.hint.token', { eth: weiToEth(gasCost) })
+        : t('msg.gas.hint.eth',   { eth: (Number(ethNeeded) / 1e18).toFixed(6) });
+      setMsg(t('msg.insuf.balance', { hint }), 'error');
       return;
     }
   } catch (e) {
-    setMsg(`Hálózati hiba: ${e.message}`, 'error');
+    setMsg(t('msg.network.error', { err: e.message }), 'error');
     return;
   }
 
-  // ── Megerősítő overlay ────────────────────────────────────────────────
   const confirmed = await showConfirm({
     to:      recipient,
     amount:  confirmAmount,
     gas:     `~${weiToEth(gasLimit * feeData.maxFeePerGas)} ETH`,
     network: currentNetwork.name,
   });
-  if (!confirmed) { setMsg('Küldés megszakítva.', ''); return; }
+  if (!confirmed) { setMsg(t('msg.tx.cancelled'), ''); return; }
 
-  // ── Arc-scan + aláírás ────────────────────────────────────────────────
   if (cooldownMs() > 0) return;
   btnSign.disabled = true;
   setScanning(true);
-  setMsg('Arc-scan az aláíráshoz (10 mp ablak)...', '');
+  setMsg(t('msg.signing'), '');
 
   try {
     const meta      = JSON.parse(localStorage.getItem('biowallet_meta'));
@@ -740,21 +742,21 @@ btnSign.addEventListener('click', async () => {
     });
 
     setScanning(false);
-    setMsg('Broadcast folyamatban...', '');
+    setMsg(t('msg.broadcast'), '');
 
     const txHash = await broadcastTx(signed, currentNetwork.rpc);
 
     txResult.style.display = 'block';
     txLink.href        = currentNetwork.explorer + txHash;
     txLink.textContent = txHash;
-    setMsg(`Küldés sikeres! TX: ${txHash.slice(0,10)}…`, 'ok');
+    setMsg(t('msg.tx.sent', { hash: txHash.slice(0,10) + '…' }), 'ok');
 
     setTimeout(async () => {
       await callWorker('LOCK');
       ethAddress.textContent = '—';
       ethBalance.textContent = '—';
       setScanning(false);
-      setMsg('Vault zárolva. Privát kulcs törölve.', '');
+      setMsg(t('msg.vault.locked'), '');
       showPanel('lock');
     }, 5000);
 
@@ -766,11 +768,11 @@ btnSign.addEventListener('click', async () => {
   }
 });
 
-// ── Papírképlet (Phase 9.1b — P soha nem kerül az app-ba) ────────────────
+// ── Paper recovery (Phase 9.1b — P never enters the app) ─────────────────
 btnPaper.addEventListener('click', async () => {
   if (cooldownMs() > 0) return;
   setScanning(true);
-  setMsg('Arc-scan a papírképlet generálásához (5 mp ablak)...', '');
+  setMsg(t('msg.paper.scanning'), '');
 
   try {
     const meta      = JSON.parse(localStorage.getItem('biowallet_meta'));
@@ -782,7 +784,7 @@ btnPaper.addEventListener('click', async () => {
 
     setScanning(false);
     await showRecoveryPaperModal(rawA, r);
-    setMsg('Papírképlet generálva. Vault zárolva.', 'ok');
+    setMsg(t('msg.paper.done'), 'ok');
     showPanel('lock');
   } catch (e) {
     setScanning(false);
@@ -791,35 +793,35 @@ btnPaper.addEventListener('click', async () => {
   }
 });
 
-// ── Zárolás ───────────────────────────────────────────────────────────────
+// ── Lock ──────────────────────────────────────────────────────────────────
 btnLock.addEventListener('click', async () => {
   await callWorker('LOCK');
   ethAddress.textContent = '—';
   ethBalance.textContent = '—';
   setScanning(false);
-  setMsg('Vault zárolva. Privát kulcs törölve.', '');
+  setMsg(t('msg.vault.locked'), '');
   showPanel('lock');
 });
 
-// ── Cím másolása ──────────────────────────────────────────────────────────
+// ── Copy address ──────────────────────────────────────────────────────────
 btnCopy.addEventListener('click', async () => {
   const addr = ethAddress.textContent;
   if (!addr || addr === '—') return;
   await navigator.clipboard.writeText(addr);
-  btnCopy.textContent = '✓ Másolva!';
-  setTimeout(() => { btnCopy.textContent = '⎘ Cím másolása'; }, 2000);
+  btnCopy.textContent = t('msg.address.copied');
+  setTimeout(() => { btnCopy.textContent = t('btn.copy'); }, 2000);
 });
 
-// ── Hálózat választó ──────────────────────────────────────────────────────
+// ── Network selector ──────────────────────────────────────────────────────
 btnNetwork.addEventListener('click', () => showNetworkModal());
 
-// ── Egyenleg frissítése ───────────────────────────────────────────────────
+// ── Balance refresh ───────────────────────────────────────────────────────
 btnRefresh.addEventListener('click', () => {
   const addr = ethAddress.textContent;
   if (addr && addr !== '—') fetchBalance(addr);
 });
 
-// ── QR kód toggle (C1) ────────────────────────────────────────────────────
+// ── QR code toggle ────────────────────────────────────────────────────────
 btnQR.addEventListener('click', async () => {
   if (qrWrap.style.display !== 'none') {
     qrWrap.style.display = 'none';
@@ -834,10 +836,10 @@ btnQR.addEventListener('click', async () => {
       errorCorrectionLevel: 'M',
     });
     qrWrap.style.display = 'block';
-  } catch { /* QR lib nem töltött be — offline PWA */ }
+  } catch { /* QR lib not loaded — offline PWA */ }
 });
 
-// ── WalletConnect gombok ──────────────────────────────────────────────────
+// ── WalletConnect buttons ─────────────────────────────────────────────────
 btnWc.addEventListener('click', async () => {
   const uri = await showWCPairModal();
   if (!uri) return;
@@ -845,9 +847,9 @@ btnWc.addEventListener('click', async () => {
     await ensureWCInit();
     if (!wcReady()) return;
     await wcPair(uri);
-    setMsg('WC párosítás folyamatban — várja a dApp jóváhagyási kérést...', '');
+    setMsg(t('msg.wc.pairing'), '');
   } catch (e) {
-    setMsg(`WC hiba: ${e?.message || e?.toString() || 'ismeretlen hiba'}`, 'error');
+    setMsg(t('msg.wc.error', { err: e?.message || e?.toString() || '' }), 'error');
   }
 });
 
@@ -855,10 +857,10 @@ btnWcDisc.addEventListener('click', async () => {
   const sessions = wcGetSessions();
   for (const s of sessions) await wcDisconnect(s.topic);
   updateWCBar();
-  setMsg('WalletConnect kapcsolat bontva.', '');
+  setMsg(t('msg.wc.disconnected'), '');
 });
 
-// ── ENS feloldás (C3) — debounce 600ms ───────────────────────────────────
+// ── ENS resolution (C3) — debounce 600ms ─────────────────────────────────
 let _ensTimer = null;
 sendToInput.addEventListener('input', () => {
   ensResolved = null;
@@ -868,7 +870,7 @@ sendToInput.addEventListener('input', () => {
   if (!val.includes('.')) return;
   _ensTimer = setTimeout(async () => {
     ensHint.style.cssText = 'display:block;font-size:0.7rem;margin-top:0.3rem;color:#6b6b80;';
-    ensHint.textContent = 'ENS feloldás…';
+    ensHint.textContent = t('msg.ens.resolving');
     const addr = await resolveENS(val);
     if (addr) {
       ensResolved = addr;
@@ -877,12 +879,12 @@ sendToInput.addEventListener('input', () => {
     } else {
       ensResolved = null;
       ensHint.style.cssText = 'display:block;font-size:0.7rem;margin-top:0.3rem;color:#ff4757;';
-      ensHint.textContent = 'ENS nem található';
+      ensHint.textContent = t('msg.ens.not.found');
     }
   }, 600);
 });
 
-// ERC-20 token lista — decimálisok hardcoded (nincs extra eth_call)
+// ERC-20 token list — decimals hardcoded (no extra eth_call needed)
 const TOKEN_LIST = {
   mainnet: [
     { symbol: 'USDC',  address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', decimals: 6  },
@@ -940,7 +942,7 @@ async function renderTxHistory(address) {
   txHistoryCard.style.display = 'block';
   if (!currentNetwork.blockscout) {
     txHistoryList.innerHTML =
-      '<div style="font-size:0.75rem;color:var(--muted);padding:0.3rem 0;">TX history ezen a hálózaton nem elérhető</div>';
+      `<div style="font-size:0.75rem;color:var(--muted);padding:0.3rem 0;">${t('msg.tx.no.blockscout')}</div>`;
     return;
   }
   txHistoryList.innerHTML =
@@ -952,7 +954,7 @@ async function renderTxHistory(address) {
 
     if (!txs.length) {
       txHistoryList.innerHTML =
-        '<div style="font-size:0.75rem;color:var(--muted);padding:0.3rem 0;">Még nincsenek tranzakciók</div>';
+        `<div style="font-size:0.75rem;color:var(--muted);padding:0.3rem 0;">${t('msg.tx.empty')}</div>`;
       return;
     }
 
@@ -989,16 +991,16 @@ async function renderTxHistory(address) {
     }
   } catch {
     txHistoryList.innerHTML =
-      '<div style="font-size:0.75rem;color:var(--muted);padding:0.3rem 0;">Nem elérhető</div>';
+      `<div style="font-size:0.75rem;color:var(--muted);padding:0.3rem 0;">${t('msg.tx.unavailable')}</div>`;
   }
 }
 
 function txAge(ts) {
   const s = (Date.now() - new Date(ts).getTime()) / 1000;
-  if (s < 60)    return `${Math.floor(s)}mp`;
-  if (s < 3600)  return `${Math.floor(s / 60)}p`;
-  if (s < 86400) return `${Math.floor(s / 3600)}ó`;
-  return `${Math.floor(s / 86400)}n`;
+  if (s < 60)    return `${Math.floor(s)}s`;
+  if (s < 3600)  return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
+  return `${Math.floor(s / 86400)}d`;
 }
 
 async function fetchTokenBalances(address) {
@@ -1018,7 +1020,7 @@ async function fetchTokenBalances(address) {
         `<span class="balance-label">${tok.symbol}:</span>` +
         `<span class="balance-value" style="color:#a78bfa">${formatToken(raw, tok.decimals)}</span>`;
       tokenBalances.appendChild(row);
-    } catch { /* ismeretlen token vagy RPC hiba — kihagyás */ }
+    } catch { /* unknown token or RPC error — skip */ }
   }));
 }
 
@@ -1027,7 +1029,7 @@ async function fetchTokenBalances(address) {
 async function ensureWCInit() {
   if (wcReady()) return;
   if (!WC_PROJECT_ID) {
-    setMsg('WalletConnect Project ID nincs beállítva (src/core/wc2.js).', 'error');
+    setMsg(t('msg.wc.no.project.id'), 'error');
     return;
   }
   await initWC({
@@ -1054,10 +1056,10 @@ async function handleWCProposal(proposal) {
   const approved = await showWCProposalModal(meta);
   if (approved) {
     await wcApprove(proposal.id, address, getAllNetworks().map(n => n.chainId));
-    setMsg(`${meta.name ?? 'dApp'} csatlakoztatva.`, 'ok');
+    setMsg(t('msg.wc.connected', { name: meta.name ?? t('wc.proposal.unknown') }), 'ok');
   } else {
     await wcRejectProposal(proposal.id);
-    setMsg('WalletConnect kapcsolat elutasítva.', '');
+    setMsg(t('msg.wc.rejected'), '');
   }
   updateWCBar();
 }
@@ -1066,10 +1068,9 @@ async function handleWCRequest(event) {
   const { topic, id, params } = event;
   const method = params.request.method;
 
-  // Ha vault zárolt: queue + üzenet
   if (ethAddress.textContent === '—') {
     pendingWCReq = event;
-    setMsg(`Bejövő dApp kérés (${method}) — nyissa meg a vaultot az arc-scannel.`, 'ok');
+    setMsg(t('msg.wc.incoming', { method }), 'ok');
     return;
   }
 
@@ -1086,8 +1087,8 @@ async function dispatchWCRequest(topic, id, params) {
   } else if (method === 'wallet_switchEthereumChain') {
     await handleWCSwitchChain(topic, id, params.request.params[0]);
   } else {
-    await wcRespondError(topic, id, `Nem támogatott: ${method}`);
-    setMsg(`dApp kérés elutasítva — ${method} nem támogatott.`, 'error');
+    await wcRespondError(topic, id, `Unsupported: ${method}`);
+    setMsg(t('msg.wc.unsupported', { method }), 'error');
   }
 }
 
@@ -1095,8 +1096,8 @@ async function handleWCSwitchChain(topic, id, { chainId: hexChain }) {
   const requested = parseInt(hexChain, 16);
   const match = getAllNetworks().find(n => n.chainId === requested);
   if (!match) {
-    await wcRespondError(topic, id, `Nem támogatott hálózat: ${hexChain}`);
-    setMsg(`dApp hálózatváltás elutasítva — chainId ${hexChain} nem ismert.`, 'error');
+    await wcRespondError(topic, id, `Unsupported network: ${hexChain}`);
+    setMsg(t('msg.wc.chain.unknown', { chain: hexChain }), 'error');
     return;
   }
   currentNetwork = match;
@@ -1104,16 +1105,16 @@ async function handleWCSwitchChain(topic, id, { chainId: hexChain }) {
   btnNetwork.classList.toggle('mainnet', !currentNetwork.testnet);
   await wcRespondOk(topic, id, null);
   await wcEmitChainChanged(topic, currentNetwork.chainId);
-  setMsg(`Hálózat váltva: ${currentNetwork.name}`, 'ok');
+  setMsg(t('msg.network.switch', { name: currentNetwork.name }), 'ok');
   const addr = ethAddress.textContent;
   if (addr && addr !== '—') fetchBalance(addr);
 }
 
 async function handleWCEthSend(topic, id, wcTx) {
   const address = ethAddress.textContent;
-  if (cooldownMs() > 0) { await wcRespondError(topic, id, 'Cooldown aktív'); return; }
+  if (cooldownMs() > 0) { await wcRespondError(topic, id, 'Cooldown active'); return; }
 
-  setMsg('Hálózati adatok lekérdezése (dApp TX)...', '');
+  setMsg(t('msg.network.fee'), '');
   let nonce, feeData, gasLimit;
   try {
     const txValue = BigInt(wcTx.value ?? '0x0');
@@ -1134,10 +1135,10 @@ async function handleWCEthSend(topic, id, wcTx) {
       gas:     `~${weiToEth((gasLimit * feeData.maxFeePerGas).toString())} ETH`,
       network: currentNetwork.name + ' (dApp)',
     });
-    if (!confirmed) { await wcRespondError(topic, id); setMsg('dApp TX elutasítva.', ''); return; }
+    if (!confirmed) { await wcRespondError(topic, id); setMsg(t('msg.wc.tx.rejected'), ''); return; }
 
     setScanning(true);
-    setMsg('Arc-scan a dApp TX aláíráshoz...', '');
+    setMsg(t('msg.signing.dapp'), '');
     const meta      = JSON.parse(localStorage.getItem('biowallet_meta'));
     const embedding = await captureEmbedding(video);
     await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
@@ -1155,7 +1156,7 @@ async function handleWCEthSend(topic, id, wcTx) {
     setScanning(false);
     const txHash = await broadcastTx(signed, currentNetwork.rpc);
     await wcRespondOk(topic, id, txHash);
-    setMsg(`dApp TX elküldve: ${txHash.slice(0,10)}…`, 'ok');
+    setMsg(t('msg.wc.tx.sent', { hash: txHash.slice(0,10) + '…' }), 'ok');
   } catch (e) {
     setScanning(false);
     if (e.message?.includes('BIO_MISMATCH')) bioFail();
@@ -1165,14 +1166,14 @@ async function handleWCEthSend(topic, id, wcTx) {
 }
 
 async function handleWCPersonalSign(topic, id, hexMsg) {
-  if (cooldownMs() > 0) { await wcRespondError(topic, id, 'Cooldown aktív'); return; }
+  if (cooldownMs() > 0) { await wcRespondError(topic, id, 'Cooldown active'); return; }
 
   const approved = await showWCSignModal(hexMsg);
   if (!approved) { await wcRespondError(topic, id); return; }
 
   try {
     setScanning(true);
-    setMsg('Arc-scan az üzenet aláíráshoz...', '');
+    setMsg(t('msg.signing.msg'), '');
     const meta      = JSON.parse(localStorage.getItem('biowallet_meta'));
     const embedding = await captureEmbedding(video);
     await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
@@ -1180,7 +1181,7 @@ async function handleWCPersonalSign(topic, id, hexMsg) {
     const { signature } = await callWorker('PERSONAL_SIGN', { message: hexMsg });
     setScanning(false);
     await wcRespondOk(topic, id, signature);
-    setMsg('Üzenet aláírva.', 'ok');
+    setMsg(t('msg.wc.msg.signed'), 'ok');
   } catch (e) {
     setScanning(false);
     if (e.message?.includes('BIO_MISMATCH')) bioFail();
@@ -1197,18 +1198,17 @@ function showWCPairModal() {
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;';
     ov.innerHTML = `
       <div style="background:#16161a;border:1px solid #2a2a35;border-radius:16px;width:100%;max-width:400px;padding:1.5rem;">
-        <div style="font-size:1rem;font-weight:700;color:#6c63ff;margin-bottom:0.8rem;">dApp kapcsolódás</div>
+        <div style="font-size:1rem;font-weight:700;color:#6c63ff;margin-bottom:0.8rem;">${t('wc.pair.title')}</div>
         <div style="font-size:0.78rem;color:#6b6b80;margin-bottom:0.8rem;line-height:1.5;">
-          Nyissa meg a dApp-ot (pl. Uniswap), kattintson a <strong style="color:#e8e8f0">WalletConnect</strong> gombra,
-          másolja a URI-t és illessze be ide.
+          ${t('wc.pair.desc')}
         </div>
         <textarea id="_wc_uri" style="width:100%;background:#1e1e24;border:1px solid #2a2a35;border-radius:10px;
           padding:0.6rem;color:#e8e8f0;font-size:0.75rem;font-family:monospace;resize:vertical;min-height:70px;outline:none;"
           placeholder="wc:..."></textarea>
         <div id="_wc_err" style="font-size:0.72rem;color:#ff4757;margin-top:0.4rem;min-height:1em;"></div>
         <div style="display:flex;gap:0.75rem;margin-top:0.8rem;">
-          <button id="_wc_cancel" style="flex:1;padding:0.7rem;border-radius:10px;border:1px solid #2a2a35;background:#1e1e24;color:#e8e8f0;font-size:0.85rem;font-weight:600;cursor:pointer;">Mégse</button>
-          <button id="_wc_ok" style="flex:1;padding:0.7rem;border-radius:10px;border:none;background:#6c63ff;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;">Kapcsolódás</button>
+          <button id="_wc_cancel" style="flex:1;padding:0.7rem;border-radius:10px;border:1px solid #2a2a35;background:#1e1e24;color:#e8e8f0;font-size:0.85rem;font-weight:600;cursor:pointer;">${t('wc.pair.cancel')}</button>
+          <button id="_wc_ok" style="flex:1;padding:0.7rem;border-radius:10px;border:none;background:#6c63ff;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;">${t('wc.pair.connect')}</button>
         </div>
       </div>`;
     document.body.appendChild(ov);
@@ -1216,7 +1216,7 @@ function showWCPairModal() {
     ov.querySelector('#_wc_ok').onclick = async () => {
       const uri = ov.querySelector('#_wc_uri').value.trim();
       if (!uri.startsWith('wc:')) {
-        ov.querySelector('#_wc_err').textContent = 'Érvénytelen WC URI (wc:... formátum szükséges).'; return;
+        ov.querySelector('#_wc_err').textContent = t('wc.pair.invalid.uri'); return;
       }
       ov.remove(); resolve(uri);
     };
@@ -1229,17 +1229,16 @@ function showWCProposalModal(meta) {
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;';
     ov.innerHTML = `
       <div style="background:#16161a;border:1px solid #2a2a35;border-radius:16px;width:100%;max-width:400px;padding:1.5rem;">
-        <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#ffa502;margin-bottom:0.3rem;">dApp kapcsolódási kérés</div>
-        <div style="font-size:1rem;font-weight:700;color:#e8e8f0;margin-bottom:0.25rem;">${meta.name ?? 'Ismeretlen dApp'}</div>
+        <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#ffa502;margin-bottom:0.3rem;">${t('wc.proposal.label')}</div>
+        <div style="font-size:1rem;font-weight:700;color:#e8e8f0;margin-bottom:0.25rem;">${meta.name ?? t('wc.proposal.unknown')}</div>
         <div style="font-size:0.75rem;color:#6b6b80;margin-bottom:0.25rem;">${meta.url ?? ''}</div>
         <div style="font-size:0.78rem;color:#a0a0b0;margin-bottom:1rem;line-height:1.5;">${meta.description ?? ''}</div>
         <div style="font-size:0.75rem;color:#6b6b80;padding:0.5rem 0.7rem;background:#1e1e24;border-radius:8px;margin-bottom:1rem;line-height:1.5;">
-          A dApp olvasni fogja az Ethereum <strong style="color:#e8e8f0">címét</strong> és aláírási kéréseket küldhet.<br>
-          <strong style="color:#4CAF50">Minden aláírás külön arc-scant igényel.</strong>
+          ${t('wc.proposal.info')}
         </div>
         <div style="display:flex;gap:0.75rem;">
-          <button id="_wc_reject" style="flex:1;padding:0.7rem;border-radius:10px;border:1px solid #5a2020;background:#2b0a0a;color:#ff4757;font-size:0.85rem;font-weight:600;cursor:pointer;">Elutasít</button>
-          <button id="_wc_approve" style="flex:1;padding:0.7rem;border-radius:10px;border:none;background:#6c63ff;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;">Jóváhagy</button>
+          <button id="_wc_reject" style="flex:1;padding:0.7rem;border-radius:10px;border:1px solid #5a2020;background:#2b0a0a;color:#ff4757;font-size:0.85rem;font-weight:600;cursor:pointer;">${t('wc.proposal.reject')}</button>
+          <button id="_wc_approve" style="flex:1;padding:0.7rem;border-radius:10px;border:none;background:#6c63ff;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;">${t('wc.proposal.approve')}</button>
         </div>
       </div>`;
     document.body.appendChild(ov);
@@ -1263,14 +1262,14 @@ function showWCSignModal(hexMsg) {
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;';
     ov.innerHTML = `
       <div style="background:#16161a;border:1px solid #2a2a35;border-radius:16px;width:100%;max-width:400px;padding:1.5rem;">
-        <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#ffa502;margin-bottom:0.3rem;">Üzenet aláírási kérés</div>
-        <div style="font-size:0.78rem;color:#6b6b80;margin-bottom:0.6rem;">A dApp az alábbi üzenetet kéri aláírni:</div>
+        <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#ffa502;margin-bottom:0.3rem;">${t('wc.sign.label')}</div>
+        <div style="font-size:0.78rem;color:#6b6b80;margin-bottom:0.6rem;">${t('wc.sign.desc')}</div>
         <div style="background:#1e1e24;border:1px solid #2a2a35;border-radius:8px;padding:0.7rem;
              font-family:monospace;font-size:0.75rem;color:#e8e8f0;word-break:break-all;
              max-height:120px;overflow-y:auto;margin-bottom:1rem;line-height:1.5;">${decoded}</div>
         <div style="display:flex;gap:0.75rem;">
-          <button id="_wcs_reject" style="flex:1;padding:0.7rem;border-radius:10px;border:1px solid #5a2020;background:#2b0a0a;color:#ff4757;font-size:0.85rem;font-weight:600;cursor:pointer;">Elutasít</button>
-          <button id="_wcs_sign" style="flex:1;padding:0.7rem;border-radius:10px;border:none;background:#6c63ff;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;">Arc-scan + Aláír</button>
+          <button id="_wcs_reject" style="flex:1;padding:0.7rem;border-radius:10px;border:1px solid #5a2020;background:#2b0a0a;color:#ff4757;font-size:0.85rem;font-weight:600;cursor:pointer;">${t('wc.sign.reject')}</button>
+          <button id="_wcs_sign" style="flex:1;padding:0.7rem;border-radius:10px;border:none;background:#6c63ff;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;">${t('wc.sign.sign')}</button>
         </div>
       </div>`;
     document.body.appendChild(ov);
@@ -1292,7 +1291,7 @@ function updateTokenSelector() {
     btn.textContent = tok.symbol;
     btn.addEventListener('click', () => {
       selectedToken = isNative ? null : tok;
-      const label = selectedToken ? `${selectedToken.symbol} küldése` : `${sym} küldése`;
+      const label = t('btn.send.token', { sym: selectedToken?.symbol ?? sym });
       sendCardLabel.textContent = label;
       amountUnit.textContent    = selectedToken?.symbol ?? sym;
       sendBtnLabel.textContent  = label;
@@ -1301,12 +1300,12 @@ function updateTokenSelector() {
     tokenSelector.appendChild(btn);
   }
 
-  // Ha az aktuálisan kiválasztott token nem elérhető az új hálózaton
   if (selectedToken && !tokens.find(t => t.symbol === selectedToken.symbol)) {
     selectedToken = null;
-    sendCardLabel.textContent = `${sym} küldése`;
+    const label = t('btn.send.token', { sym });
+    sendCardLabel.textContent = label;
     amountUnit.textContent    = sym;
-    sendBtnLabel.textContent  = `${sym} küldése`;
+    sendBtnLabel.textContent  = label;
     updateTokenSelector();
   }
 }
@@ -1315,18 +1314,17 @@ function updateTokenSelector() {
 function startTimer() {
   clearInterval(timerID);
   timerID = setInterval(async () => {
-    // Cooldown ellenőrzés — vaultReady-től független
     const cd = cooldownMs();
     if (cd > 0) {
       inCooldown = true;
       btnScan.disabled = true;
-      setMsg(`Brute-force védelem — ${Math.ceil(cd / 1000)}s`, 'error');
+      setMsg(t('msg.cooldown', { sec: Math.ceil(cd / 1000) }), 'error');
       return;
     }
     if (inCooldown) {
       inCooldown = false;
       btnScan.disabled = false;
-      setMsg('Zárolás feloldva — próbálkozhat újra.', '');
+      setMsg(t('msg.cooldown.over'), '');
       return;
     }
 
@@ -1336,7 +1334,7 @@ function startTimer() {
 
     if (s.state === 'NO_TOKEN' || s.state === 'NO_VAULT') {
       tokenBadge.className  = 'token-badge';
-      tokenText.textContent = 'ZÁROLT';
+      tokenText.textContent = t('status.locked');
       ttlBars.classList.remove('visible');
       return;
     }
@@ -1366,7 +1364,7 @@ function startTimer() {
   }, 500);
 }
 
-// ── Megerősítő overlay ────────────────────────────────────────────────────
+// ── Confirm overlay ───────────────────────────────────────────────────────
 function showConfirm({ to, amount, gas, network }) {
   return new Promise(resolve => {
     const overlay = document.createElement('div');
@@ -1378,25 +1376,25 @@ function showConfirm({ to, amount, gas, network }) {
       <div style="background:#16161a;border:1px solid #2a2a35;border-radius:16px;
                   width:100%;max-width:400px;padding:1.5rem;">
         <div style="font-size:1rem;font-weight:700;color:#6c63ff;margin-bottom:1rem;">
-          Tranzakció megerősítése
+          ${t('confirm.title')}
         </div>
         <table style="width:100%;font-size:0.82rem;border-collapse:collapse;">
-          <tr><td style="color:#6b6b80;padding:0.3rem 0;">Hálózat</td>
+          <tr><td style="color:#6b6b80;padding:0.3rem 0;">${t('confirm.network')}</td>
               <td style="color:#e8e8f0;text-align:right;">${network}</td></tr>
-          <tr><td style="color:#6b6b80;padding:0.3rem 0;">Fogadó</td>
+          <tr><td style="color:#6b6b80;padding:0.3rem 0;">${t('confirm.to')}</td>
               <td style="color:#e8e8f0;text-align:right;font-family:monospace;font-size:0.72rem;word-break:break-all;">${to}</td></tr>
-          <tr><td style="color:#6b6b80;padding:0.3rem 0;">Összeg</td>
+          <tr><td style="color:#6b6b80;padding:0.3rem 0;">${t('confirm.amount')}</td>
               <td style="color:#4CAF50;text-align:right;font-weight:600;">${amount}</td></tr>
-          <tr><td style="color:#6b6b80;padding:0.3rem 0;">Max. gas</td>
+          <tr><td style="color:#6b6b80;padding:0.3rem 0;">${t('confirm.gas')}</td>
               <td style="color:#ffa502;text-align:right;">${gas}</td></tr>
         </table>
         <div style="display:flex;gap:0.75rem;margin-top:1.2rem;">
           <button id="_cancel" style="flex:1;padding:0.75rem;border-radius:10px;
             border:1px solid #2a2a35;background:#1e1e24;color:#e8e8f0;
-            font-size:0.9rem;font-weight:600;cursor:pointer;">Mégse</button>
+            font-size:0.9rem;font-weight:600;cursor:pointer;">${t('confirm.cancel')}</button>
           <button id="_confirm" style="flex:1;padding:0.75rem;border-radius:10px;
             border:none;background:#6c63ff;color:#fff;
-            font-size:0.9rem;font-weight:600;cursor:pointer;">Küldés</button>
+            font-size:0.9rem;font-weight:600;cursor:pointer;">${t('confirm.send')}</button>
         </div>
       </div>
     `;
@@ -1428,9 +1426,11 @@ function showPanel(name) {
     txHistoryCard.style.display = 'none';
     txHistoryList.innerHTML     = '';
     selectedToken               = null;
-    sendCardLabel.textContent   = `${currentNetwork.nativeSymbol ?? 'ETH'} küldése`;
-    amountUnit.textContent      = currentNetwork.nativeSymbol ?? 'ETH';
-    sendBtnLabel.textContent    = `${currentNetwork.nativeSymbol ?? 'ETH'} küldése`;
+    const sym = currentNetwork.nativeSymbol ?? 'ETH';
+    const label = t('btn.send.token', { sym });
+    sendCardLabel.textContent   = label;
+    amountUnit.textContent      = sym;
+    sendBtnLabel.textContent    = label;
     tokenSelector.innerHTML     = '';
     ensResolved                 = null;
     ensHint.style.display   = 'none';
@@ -1441,9 +1441,7 @@ function showPanel(name) {
 
 function setScanning(on, detected = false) {
   faceGuide.className = 'face-guide' + (on ? ' scanning' : detected ? ' detected' : '');
-  scanHint.textContent = on
-    ? 'Nézzen egyenesen a kamerába...'
-    : 'Kész — nyomjon egy gombot';
+  scanHint.textContent = on ? t('scan.hint.active') : t('scan.hint.done');
 }
 
 function setMsg(text, type = '') {
@@ -1465,32 +1463,27 @@ async function pickFile(accept) {
   return new Promise((resolve, reject) => {
     const inp = Object.assign(document.createElement('input'),
       { type: 'file', accept });
-    inp.onchange = e => e.target.files[0] ? resolve(e.target.files[0]) : reject(new Error('Nem választott fájlt'));
+    inp.onchange = e => e.target.files[0] ? resolve(e.target.files[0]) : reject(new Error(t('msg.no.file')));
     inp.click();
   });
 }
 
-// ── Hibaüzenet fordítás ───────────────────────────────────────────────────
-function friendlyError(msg) {
-  if (!msg) return 'Ismeretlen hiba.';
-  if (msg.includes('BIO_MISMATCH'))
-    return 'Az arc nem egyezik. Tipp: a tárcát abban a böngészőben nyissa meg, amelyikben létrehozta (Firefox ↔ Chrome eltérő képfeldolgozás).';
-  if (msg.includes('EXPIRED'))
-    return 'A biometriai token lejárt — próbálja újra.';
-  if (msg.includes('NO_TOKEN'))
-    return 'Nincs érvényes biometriai token — szkennelje be arcát.';
-  if (msg.includes('VAULT_ID_MISMATCH'))
-    return 'Rossz .biowallet fájl — ez nem az Ön tárcájához tartozik.';
-  if (msg.includes('ALREADY_CONSUMED'))
-    return 'A token már felhasználásra került — próbálja újra.';
-  if (msg.toLowerCase().includes('invalid mnemonic') || msg.toLowerCase().includes('invalid phrase') || msg.toLowerCase().includes('invalid word'))
-    return 'Érvénytelen seed phrase — ellenőrizze a szavakat és a sorrendet (BIP39 szólista).';
-  return msg;
+// ── Friendly error messages ───────────────────────────────────────────────
+function friendlyError(m) {
+  if (!m) return t('err.unknown');
+  if (m.includes('BIO_MISMATCH'))    return t('err.bio.mismatch');
+  if (m.includes('EXPIRED'))         return t('err.expired');
+  if (m.includes('NO_TOKEN'))        return t('err.no.token');
+  if (m.includes('VAULT_ID_MISMATCH')) return t('err.vault.mismatch');
+  if (m.includes('ALREADY_CONSUMED')) return t('err.consumed');
+  if (m.toLowerCase().includes('invalid mnemonic') ||
+      m.toLowerCase().includes('invalid phrase') ||
+      m.toLowerCase().includes('invalid word'))
+    return t('err.mnemonic');
+  return m;
 }
 
-// ── Használati útmutató modal ─────────────────────────────────────────────
-// Inline <script> és onclick attribútumok CSP script-src 'self' által blokkoltak —
-// az event listener csak external module scriptből regisztrálható.
+// ── User guide modal ──────────────────────────────────────────────────────
 {
   const overlay  = document.getElementById('guide-modal');
   const btnOpen  = document.getElementById('btn-help');
@@ -1502,104 +1495,10 @@ function friendlyError(msg) {
   document.addEventListener('keydown',(e) => { if (e.key === 'Escape') overlay.classList.remove('open'); });
 }
 
-// ── Kontextuális ℹ súgó ──────────────────────────────────────────────────────
-
-const INFO_CONTENT = {
-  enroll: {
-    title: 'Wallet létrehozása',
-    body: `<p>A BioWallet <strong>nem jelszót, hanem az arcodat</strong> használja kulcsként.</p>
-<ol>
-  <li>Kattints a gombra — a kamera bekapcsol.</li>
-  <li>A rendszer <strong>5 arc-scant</strong> kér egymás után.</li>
-  <li>Az arcmintából egyedi titkosítókulcs keletkezik.</li>
-  <li>Ezzel a kulccsal titkosít egy <strong>BIP39 seed phrase-t</strong> (24 szó).</li>
-  <li>A seed phrase-t soha nem látod — az arc az egyetlen hozzáférés.</li>
-</ol>
-<p style="color:#ffa502;font-size:0.8rem;">Mentsd el a papírképletet (Papírképlet gomb) — ez az egyetlen mentési lehetőség!</p>`,
-  },
-  import: {
-    title: 'Wallet importálása',
-    body: `<p>Ha már van meglévő Ethereum tárcád (MetaMask, Ledger, Trezor stb.), itt áthozhatod BioWallet-be.</p>
-<ol>
-  <li>Add meg a <strong>24 szavas seed phrase-t</strong> a mezőbe.</li>
-  <li>Kattints a Regisztráció gombra — a kamera bekapcsol.</li>
-  <li>5 arc-scan után a seed phrase arc-biometriával titkosítva tárolódik.</li>
-  <li>A seed phrase ezután csak az arcoddal nyitható meg.</li>
-</ol>
-<p style="color:#ffa502;font-size:0.8rem;">Importálás után töröld a seed phrase-t minden más helyről!</p>`,
-  },
-  restore: {
-    title: 'Meglévő wallet visszaállítása',
-    body: `<p>Ha korábban már volt BioWallet tárcád és elmentetted a titkosított fájlt (<code>.P.json</code>), itt töltsd vissza.</p>
-<ol>
-  <li>Kattints a gombra és válaszd ki a <code>.P.json</code> fájlt.</li>
-  <li>A fájl betöltődik — de <strong>zárolva marad</strong>.</li>
-  <li>Az arc-scannel nyitható meg, ugyanazzal az arccal, amellyel létrehoztad.</li>
-</ol>
-<p style="color:#6b6b80;font-size:0.8rem;">Más eszközre való átvitelhez: mentsd a .P.json fájlt, majd töltsd vissza az új eszközön.</p>`,
-  },
-  scan: {
-    title: 'Megnyitás arc-scannel',
-    body: `<p>A privát kulcsot csak az <strong>arcoddal</strong> tudod előhívni.</p>
-<ol>
-  <li>Kattints a gombra — a kamera bekapcsol.</li>
-  <li>Tartsd az arcodat a kamera elé, jól megvilágított helyen.</li>
-  <li>A rendszer összehasonlítja a regisztrációkori arcmintával.</li>
-  <li>Ha egyeznek: a vault <strong>30 másodpercre</strong> kinyílik.</li>
-  <li>Ez idő alatt végezhetsz egy műveletet (küldés, aláírás, dApp kérés).</li>
-  <li>Után a vault automatikusan zárol.</li>
-</ol>`,
-  },
-  send: {
-    title: 'ETH / Token küldése',
-    body: `<p>ETH-t vagy ERC-20 tokent küldhetsz bármely Ethereum-címre.</p>
-<ol>
-  <li>Válassz tokent (ETH, USDC, USDT, WETH) a pill gombokkal.</li>
-  <li>Add meg a <strong>fogadó címet</strong> (0x… vagy ENS: name.eth).</li>
-  <li>Add meg az <strong>összeget</strong>.</li>
-  <li>Kattints a Küldés gombra → arc-scan → megerősítés.</li>
-  <li>A tranzakció broadcastolódik, TX hash megjelenik.</li>
-</ol>
-<p style="color:#6b6b80;font-size:0.8rem;">Minden tranzakció után a vault automatikusan zárol (DCC auto-lock).</p>`,
-  },
-  wc: {
-    title: 'dApp kapcsolat (WalletConnect)',
-    body: `<p>WalletConnect lehetővé teszi, hogy a BioWallettel csatlakozz bármely DeFi alkalmazáshoz.</p>
-<ol>
-  <li>Nyisd meg a dApp-ot (pl. Balancer, Uniswap, Aave) <strong>egy másik böngészőfülön</strong>.</li>
-  <li>Kattints a dApp-on: <strong>Connect Wallet → WalletConnect → Other wallet / Copy URI</strong>.</li>
-  <li>Másold ki az URI-t (wc:… kezdetű szöveg).</li>
-  <li>Kattints ide, illeszd be az URI-t, majd erősítsd meg.</li>
-  <li>A dApp felületén végzed a műveleteket (swap, liquidity stb.).</li>
-  <li>Minden tranzakció jóváhagyása <strong>ebben a BioWallet fülben</strong> történik arc-scannel.</li>
-</ol>
-<p style="color:#6b6b80;font-size:0.8rem;">Támogatott: eth_sendTransaction, personal_sign, wallet_switchEthereumChain.</p>`,
-  },
-  paper: {
-    title: 'Papírképlet készítése',
-    body: `<p>A 24 szavas seed phrase-t a BioWallet <strong>soha nem mutatja meg digitálisan</strong>.</p>
-<p>Ehelyett egy <strong>papírra nyomtatható kódot</strong> generál, amelyből offline visszaállítható a tárca — de csak akkor, ha tudod a személyes számodat (P).</p>
-<ol>
-  <li>Kattints a gombra → arc-scan → a kódok megjelennek.</li>
-  <li>Nyomtasd ki vagy írd le a kódokat biztonságos helyre.</li>
-  <li>A P számot <strong>soha ne tárolj digitálisan</strong> — memorize vagy külön papíron.</li>
-</ol>
-<p style="color:#ffa502;font-size:0.8rem;">Ez az egyetlen mentési lehetőség! Ha elvész a tárca ÉS a papírképlet, a seed visszaszerezhetetlen.</p>`,
-  },
-  lock: {
-    title: 'Azonnali zárolás',
-    body: `<p>A privát kulcsot <strong>azonnal törli</strong> a böngésző memóriájából.</p>
-<ul>
-  <li>Az egyenleg és az Ethereum-cím eltűnik a képernyőről.</li>
-  <li>Újbóli hozzáféréshez arc-scan szükséges.</li>
-  <li>A titkosított vault a localStorage-ban marad — csak az arc nyitja meg.</li>
-</ul>
-<p style="color:#6b6b80;font-size:0.8rem;">Ez automatikusan is megtörténik minden tranzakció és aláírás után (DCC auto-lock biztonsági garancia).</p>`,
-  },
-};
+// ── Contextual ℹ help modals ──────────────────────────────────────────────
 
 function showInfoModal(key) {
-  const info = INFO_CONTENT[key];
+  const info = getInfoContent(key);
   if (!info) return;
   const ov = document.createElement('div');
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:3000;display:flex;align-items:center;justify-content:center;padding:1rem;';
@@ -1622,7 +1521,7 @@ document.addEventListener('click', e => {
   if (btn) { e.stopPropagation(); showInfoModal(btn.dataset.info); }
 });
 
-// ── Hálózat választó modal ────────────────────────────────────────────────
+// ── Network selector modal ────────────────────────────────────────────────
 
 function showNetworkModal() {
   const all = getAllNetworks();
@@ -1634,7 +1533,7 @@ function showNetworkModal() {
 
   const hdr = document.createElement('div');
   hdr.style.cssText = 'padding:1rem 1.5rem 0.75rem;border-bottom:1px solid #2a2a35;font-size:0.95rem;font-weight:700;color:#e8e8f0;';
-  hdr.textContent = 'Hálózat választás';
+  hdr.textContent = t('net.title');
   box.appendChild(hdr);
 
   for (const net of all) {
@@ -1646,7 +1545,7 @@ function showNetworkModal() {
 
     const info = document.createElement('div');
     info.style.flex = '1';
-    const testnetLabel = net.testnet ? ' · Testnet' : '';
+    const testnetLabel = net.testnet ? t('net.testnet') : '';
     info.innerHTML =
       `<div style="font-size:0.85rem;font-weight:${isCurrent ? '700' : '600'};color:#e8e8f0;">${net.name}</div>` +
       `<div style="font-size:0.68rem;color:#6b6b80;">ChainID: ${net.chainId} · ${net.nativeSymbol ?? 'ETH'}${testnetLabel}</div>`;
@@ -1662,11 +1561,11 @@ function showNetworkModal() {
     if (isCustom) {
       const del = document.createElement('button');
       del.textContent = '✕';
-      del.title = 'Törlés';
+      del.title = t('net.delete.title');
       del.style.cssText = 'background:none;border:none;color:#ff4757;font-size:0.85rem;cursor:pointer;padding:0.2rem 0.5rem;flex-shrink:0;';
       del.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (!confirm(`Törölje: ${net.name}?`)) return;
+        if (!confirm(t('net.delete.confirm', { name: net.name }))) return;
         deleteCustomNetwork(net.chainId);
         if (currentNetwork.chainId === net.chainId) _switchNetwork(BUILTIN_NETWORKS.find(n => n.key === 'sepolia'));
         ov.remove();
@@ -1679,7 +1578,7 @@ function showNetworkModal() {
   }
 
   const addBtn = document.createElement('button');
-  addBtn.textContent = '+ Hálózat hozzáadása';
+  addBtn.textContent = t('net.add.btn');
   addBtn.style.cssText = 'width:100%;padding:0.75rem;border:none;background:none;color:#6c63ff;font-size:0.85rem;font-weight:600;cursor:pointer;border-top:1px solid #2a2a35;';
   addBtn.addEventListener('click', async () => { ov.remove(); await showAddNetworkModal(); });
   box.appendChild(addBtn);
@@ -1705,24 +1604,31 @@ function showAddNetworkModal() {
 
     const box = document.createElement('div');
     box.style.cssText = 'background:#16161a;border:1px solid #2a2a35;border-radius:16px;width:100%;max-width:380px;padding:1.5rem;';
+
+    const fields = [
+      ['_cn_name',  t('net.add.f.name')],
+      ['_cn_chain', t('net.add.f.chain')],
+      ['_cn_rpc',   t('net.add.f.rpc')],
+      ['_cn_exp',   t('net.add.f.exp')],
+      ['_cn_sym',   t('net.add.f.sym')],
+    ];
+
     box.innerHTML = `
-      <div style="font-size:0.95rem;font-weight:700;color:#e8e8f0;margin-bottom:1rem;">Egyéni hálózat hozzáadása</div>
+      <div style="font-size:0.95rem;font-weight:700;color:#e8e8f0;margin-bottom:1rem;">${t('net.add.title')}</div>
       <div style="font-size:0.72rem;color:#ffa502;background:rgba(255,165,2,0.07);border-left:2px solid #ffa502;
                   padding:0.4rem 0.7rem;border-radius:0 6px 6px 0;margin-bottom:1rem;line-height:1.5;">
-        ⚠ Az egyéni hálózat RPC URL-je ismeretlen — a szerver CSP miatt kapcsolat problémák léphetnek fel.
+        ${t('net.add.csp')}
       </div>
-      ${['_cn_name:Hálózat neve', '_cn_chain:ChainID (szám)', '_cn_rpc:RPC URL (https://...)', '_cn_exp:Explorer TX URL (https://.../tx/)', '_cn_sym:Natív token szimbóluma (pl. ETH)'].map(f => {
-        const [id, label] = f.split(':');
-        return `<div style="margin-bottom:0.65rem;">
+      ${fields.map(([id, label]) => `
+        <div style="margin-bottom:0.65rem;">
           <div style="font-size:0.72rem;color:#6b6b80;margin-bottom:0.25rem;">${label}</div>
           <input id="${id}" style="width:100%;background:#1e1e24;border:1px solid #2a2a35;border-radius:8px;
             padding:0.5rem 0.7rem;color:#e8e8f0;font-size:0.82rem;outline:none;" />
-        </div>`;
-      }).join('')}
+        </div>`).join('')}
       <div id="_cn_err" style="font-size:0.72rem;color:#ff4757;min-height:1rem;margin-bottom:0.5rem;"></div>
       <div style="display:flex;gap:0.75rem;">
-        <button id="_cn_cancel" style="flex:1;padding:0.7rem;border-radius:10px;border:1px solid #2a2a35;background:#1e1e24;color:#e8e8f0;font-size:0.85rem;font-weight:600;cursor:pointer;">Mégse</button>
-        <button id="_cn_add"    style="flex:1;padding:0.7rem;border-radius:10px;border:none;background:#6c63ff;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;">Hozzáadás</button>
+        <button id="_cn_cancel" style="flex:1;padding:0.7rem;border-radius:10px;border:1px solid #2a2a35;background:#1e1e24;color:#e8e8f0;font-size:0.85rem;font-weight:600;cursor:pointer;">${t('net.add.cancel')}</button>
+        <button id="_cn_add"    style="flex:1;padding:0.7rem;border-radius:10px;border:none;background:#6c63ff;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;">${t('net.add.confirm')}</button>
       </div>`;
 
     ov.appendChild(box);
@@ -1737,10 +1643,10 @@ function showAddNetworkModal() {
       const explorer= box.querySelector('#_cn_exp').value.trim();
       const sym     = box.querySelector('#_cn_sym').value.trim() || 'ETH';
 
-      if (!name)                         { err.textContent = 'Hálózat neve kötelező.'; return; }
-      if (!chainId || isNaN(chainId))    { err.textContent = 'Érvénytelen ChainID.'; return; }
-      if (!rpc.startsWith('https://'))   { err.textContent = 'RPC URL https://-vel kell kezdődjön.'; return; }
-      if (!explorer.startsWith('https://')) { err.textContent = 'Explorer URL https://-vel kell kezdődjön.'; return; }
+      if (!name)                         { err.textContent = t('net.add.err.name'); return; }
+      if (!chainId || isNaN(chainId))    { err.textContent = t('net.add.err.chain'); return; }
+      if (!rpc.startsWith('https://'))   { err.textContent = t('net.add.err.rpc'); return; }
+      if (!explorer.startsWith('https://')) { err.textContent = t('net.add.err.exp'); return; }
 
       const net = { key: `custom_${chainId}`, name, chainId, rpc, explorer, nativeSymbol: sym, blockscout: null, testnet: false };
       saveCustomNetwork(net);

@@ -20,7 +20,7 @@
  */
 
 import * as _ethersLib from '../vendor/ethers.bundle.js';
-self.ethers = _ethersLib;   // wallet.js ezt olvassa (self.ethers)
+self.ethers = _ethersLib;   // wallet.js reads this (self.ethers)
 
 import { BioVault } from '../core/vault.js?v=11';
 
@@ -56,31 +56,31 @@ async function handle(type, p) {
     }
 
     case 'BIO_CAPTURE': {
-      if (!vault) throw new Error('Nincs vault inicializálva');
+      if (!vault) throw new Error('No vault initialised');
       await vault.onBioCapture(p.embedding, p.P);
       return {};
     }
 
     case 'OPEN': {
-      if (!vault) throw new Error('Nincs vault inicializálva');
+      if (!vault) throw new Error('No vault initialised');
       const { address } = await vault.open(p.encryptedVault, p.P);
       return { address };
     }
 
     case 'SIGN': {
-      if (!vault) throw new Error('Nincs vault inicializálva');
+      if (!vault) throw new Error('No vault initialised');
       const res = await vault.sign(p.tx);
       return { signed: res.signed, from: res.from };
     }
 
     case 'PERSONAL_SIGN': {
-      if (!vault) throw new Error('Nincs vault inicializálva');
+      if (!vault) throw new Error('No vault initialised');
       const sig = await vault.personalSign(p.message);
       return { signature: sig };
     }
 
     case 'RECOVERY_FORMULA': {
-      if (!vault) throw new Error('Nincs vault inicializálva');
+      if (!vault) throw new Error('No vault initialised');
       const { rawA, r } = await vault.makeRecoveryFormula();
       return { rawA, r };
     }
@@ -95,6 +95,6 @@ async function handle(type, p) {
     }
 
     default:
-      throw new Error(`Ismeretlen Worker művelet: ${type}`);
+      throw new Error(`Unknown Worker operation: ${type}`);
   }
 }

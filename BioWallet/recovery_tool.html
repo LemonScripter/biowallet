@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="hu">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -23,11 +23,23 @@
       background: var(--bg); color: var(--text);
       padding: 1.5rem; max-width: 760px; margin: auto; line-height: 1.6;
     }
-    h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.3rem;
+    .header-row {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      margin-bottom: 0.3rem;
+    }
+    h1 { font-size: 1.4rem; font-weight: 700;
          background: linear-gradient(135deg, #6c63ff, #a78bfa);
          -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     h3 { font-size: 0.9rem; font-weight: 700; color: var(--accent); margin-bottom: 0.6rem; }
     .subtitle { font-size: 0.82rem; color: var(--muted); margin-bottom: 1.5rem; }
+
+    #btn-lang {
+      background: transparent; border: 1px solid var(--border);
+      color: var(--muted); padding: 0.2rem 0.6rem; border-radius: 99px;
+      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em;
+      cursor: pointer; transition: all 0.15s; flex-shrink: 0; margin-top: 0.15rem;
+    }
+    #btn-lang:hover { border-color: var(--accent); color: var(--accent); }
 
     .warning-box {
       background: rgba(255,71,87,0.07); border: 1px solid var(--danger);
@@ -144,110 +156,252 @@
 </head>
 <body>
 
-  <h1>BioWallet — Offline Recovery Tool</h1>
-  <p class="subtitle">Kizárólag offline (légréses) környezetben használható!</p>
+  <div class="header-row">
+    <h1>BioWallet — Offline Recovery Tool</h1>
+    <button id="btn-lang">HU</button>
+  </div>
+  <p class="subtitle" id="subtitle">For offline (air-gapped) use only!</p>
 
   <div class="warning-box no-print">
-    <strong>⚠ KRITIKUS BIZTONSÁGI PROTOKOLL</strong>
-    <ol>
-      <li>Kapcsolja le az internetet mielőtt bármit beír</li>
-      <li>Végezze el az ENCODE vagy DECODE műveletet</li>
-      <li>Írja le az eredményt papírra</li>
-      <li>Kattintson a "Törlés &amp; Zárolás" gombra</li>
-      <li>Zárja be a böngészőt, törölje a gyorsítótárat</li>
-      <li>Csak ezután csatlakozzon újra az internetre</li>
+    <strong id="warn-title">⚠ CRITICAL SECURITY PROTOCOL</strong>
+    <ol id="warn-list">
+      <li id="warn-1">Disconnect from the internet before entering anything</li>
+      <li id="warn-2">Perform the ENCODE or DECODE operation</li>
+      <li id="warn-3">Write the result on paper</li>
+      <li id="warn-4">Click the "Clear &amp; Lock" button</li>
+      <li id="warn-5">Close the browser and clear the cache</li>
+      <li id="warn-6">Only then reconnect to the internet</li>
     </ol>
   </div>
 
-  <!-- Mód választó -->
+  <!-- Mode selector -->
   <div class="mode-tabs no-print">
-    <button class="mode-tab active" onclick="switchMode('encode')">
-      ENCODE — Nyers Papír A → Végleges
+    <button class="mode-tab active" id="tab-encode" onclick="switchMode('encode')">
+      ENCODE — Raw Paper A → Final
     </button>
-    <button class="mode-tab" onclick="switchMode('decode')">
-      DECODE — Papírokból 24 szó
+    <button class="mode-tab" id="tab-decode" onclick="switchMode('decode')">
+      DECODE — Papers → 24 words
     </button>
   </div>
 
-  <!-- ── ENCODE mód ── -->
+  <!-- ── ENCODE mode ── -->
   <div class="mode-panel active" id="panel-encode">
     <div class="card no-print">
-      <h3>1. LÉPÉS — Nyers Papír A véglegesítése</h3>
-      <p style="font-size:0.78rem;color:var(--muted);margin-bottom:1rem;line-height:1.5;">
-        A BioWallet app a Nyers Papír A számait generálta — ezek még <strong>P nélküliek</strong>.
-        Adja meg itt P-jét, és megkapja a <strong>Végleges Papír A-t</strong>, amit már biztonságosan tárolhat.
+      <h3 id="enc-step-title">STEP 1 — Finalise Raw Paper A</h3>
+      <p id="enc-desc" style="font-size:0.78rem;color:var(--muted);margin-bottom:1rem;line-height:1.5;">
+        The BioWallet app generated the Raw Paper A numbers — these are still <strong>without P</strong>.
+        Enter your P here to obtain <strong>Final Paper A</strong>, which you can safely store.
       </p>
 
-      <label for="raw-paper-a">NYERS PAPÍR A — 24 szám az app-ból</label>
-      <textarea id="raw-paper-a" placeholder="0432 1289 0042 1801 0713 ...&#10;(24 szám összesen)"></textarea>
+      <label id="lbl-raw-a" for="raw-paper-a">RAW PAPER A — 24 numbers from the app</label>
+      <textarea id="raw-paper-a" placeholder="0432 1289 0042 1801 0713 ...&#10;(24 numbers total)"></textarea>
 
-      <label for="encode-p">Személyes szám (P) — csak fejben tárolt!</label>
-      <input type="password" id="encode-p" placeholder="Fejben tartott P értéke" autocomplete="off">
-      <div class="hint">P itt sem tárolódik — véglegesítés után azonnal törlődik a mezőből.</div>
+      <label id="lbl-encode-p" for="encode-p">Personal number (P) — kept only in your head!</label>
+      <input type="password" id="encode-p" placeholder="Your P value" autocomplete="off">
+      <div class="hint" id="hint-encode-p">P is not stored here — it is erased immediately after finalisation.</div>
 
       <div id="err-encode" class="error-msg"></div>
-      <button onclick="encode()">Végleges Papír A generálása</button>
+      <button id="btn-encode" onclick="encode()">Generate Final Paper A</button>
     </div>
 
     <div class="card encode-result" id="encode-result">
-      <div class="result-header">✓ Végleges Papír A kész — nyomtassa ki és tárolja a Papír B-vel KÜLÖN helyen</div>
+      <div class="result-header" id="enc-result-header">✓ Final Paper A ready — print and store it SEPARATELY from Paper B</div>
       <div id="final-a-grid" class="num-grid"></div>
-      <div class="copy-note">
-        ⚠ A Nyers Papír A-t ezután semmisítse meg — csak a Végleges Papír A + Papír B szükséges a visszafejtéshez.
-        A visszafejtéshez még mindig szüksége lesz a fejben tartott <strong>P</strong>-re!
+      <div class="copy-note" id="enc-copy-note">
+        ⚠ Destroy Raw Paper A afterwards — only Final Paper A + Paper B are needed for recovery.
+        You will still need your memorised <strong>P</strong> to decode!
       </div>
-      <button class="secondary no-print" onclick="window.print()">🖨 Nyomtatás</button>
-      <button class="secondary no-print" onclick="clearEncode()"
+      <button class="secondary no-print" onclick="window.print()" id="btn-print-enc">🖨 Print</button>
+      <button class="secondary no-print" onclick="clearEncode()" id="btn-clear-enc"
               style="border-color:var(--danger);color:var(--danger);margin-top:0.4rem;">
-        🔒 Törlés &amp; Zárolás
+        🔒 Clear &amp; Lock
       </button>
     </div>
   </div>
 
-  <!-- ── DECODE mód ── -->
+  <!-- ── DECODE mode ── -->
   <div class="mode-panel" id="panel-decode">
     <div class="card no-print">
-      <h3>Visszafejtés — Papírokból 24 szó</h3>
-      <p style="font-size:0.78rem;color:var(--muted);margin-bottom:1rem;line-height:1.5;">
-        A <strong>Végleges Papír A</strong> + <strong>Papír B</strong> + fejben tartott <strong>P</strong> → 24 BIP39 szó.
+      <h3 id="dec-title">Decode — Papers → 24 words</h3>
+      <p id="dec-desc" style="font-size:0.78rem;color:var(--muted);margin-bottom:1rem;line-height:1.5;">
+        <strong>Final Paper A</strong> + <strong>Paper B</strong> + memorised <strong>P</strong> → 24 BIP39 words.
       </p>
 
-      <label for="paper-a">VÉGLEGES PAPÍR A — 24 szám</label>
-      <textarea id="paper-a" placeholder="0432 1289 0042 1801 0713 ...&#10;(24 szám összesen)"></textarea>
+      <label id="lbl-paper-a" for="paper-a">FINAL PAPER A — 24 numbers</label>
+      <textarea id="paper-a" placeholder="0432 1289 0042 1801 0713 ...&#10;(24 numbers total)"></textarea>
 
-      <h3>PAPÍR B — Eltolások (r_j)</h3>
-      <label for="paper-b">24 szám, szóközzel vagy sortöréssel elválasztva</label>
-      <textarea id="paper-b" placeholder="0512 0011 1892 0304 1567 ...&#10;(24 szám összesen)"></textarea>
+      <h3 id="lbl-paper-b-title">PAPER B — Offsets (r_j)</h3>
+      <label id="lbl-paper-b" for="paper-b">24 numbers, space- or newline-separated</label>
+      <textarea id="paper-b" placeholder="0512 0011 1892 0304 1567 ...&#10;(24 numbers total)"></textarea>
 
-      <label for="personal-p" style="margin-top:0.5rem;">Személyes szám (P) — csak fejben tárolt!</label>
-      <input type="password" id="personal-p" placeholder="Fejben tartott P értéke" autocomplete="off">
-      <div class="hint">A P értéke sehol nem tárolódik — visszafejtés után azonnal törlődik.</div>
+      <label id="lbl-personal-p" for="personal-p" style="margin-top:0.5rem;">Personal number (P) — kept only in your head!</label>
+      <input type="password" id="personal-p" placeholder="Your P value" autocomplete="off">
+      <div class="hint" id="hint-personal-p">P is not stored anywhere — erased immediately after decoding.</div>
 
       <div id="err-msg" class="error-msg"></div>
-      <button onclick="decode()">Visszafejtés indítása</button>
+      <button id="btn-decode" onclick="decode()">Start decoding</button>
     </div>
 
     <div class="card" id="results">
-      <div class="result-header">✓ Visszafejtés sikeres — 24 szavas BIP39 Seed Phrase</div>
+      <div class="result-header" id="dec-result-header">✓ Decoding successful — 24-word BIP39 Seed Phrase</div>
       <div id="word-grid" class="word-grid"></div>
-      <div class="copy-note">
-        ⚠ Írja fel a szavakat papírra a sorrendnek megfelelően, mielőtt bezárja ezt az oldalt.
-        A MetaMask import sorrendje: 1–24.
+      <div class="copy-note" id="dec-copy-note">
+        ⚠ Write down the words in order before closing this page.
+        MetaMask import order: 1–24.
       </div>
-      <button class="secondary no-print" onclick="window.print()">🖨 Nyomtatás</button>
-      <button class="secondary no-print" onclick="clearResults()"
+      <button class="secondary no-print" onclick="window.print()" id="btn-print-dec">🖨 Print</button>
+      <button class="secondary no-print" onclick="clearResults()" id="btn-clear-dec"
               style="border-color:var(--danger);color:var(--danger);margin-top:0.4rem;">
-        🔒 Törlés &amp; Zárolás
+        🔒 Clear &amp; Lock
       </button>
     </div>
   </div>
 
   <script>
-  // ── BIP39 angol szólista (2048 szó, standard) ──────────────────────────────
-  // Forrás: https://github.com/bitcoin/bips/blob/master/bip-0039/english.txt
+  // ── BIP39 English word list (2048 words, standard) ────────────────────────
+  // Source: https://github.com/bitcoin/bips/blob/master/bip-0039/english.txt
   const WORDLIST = "abandon ability able about above absent absorb abstract absurd abuse access accident account accuse achieve acid acoustic acquire across act action actor actress actual adapt add addict address adjust admit adult advance advice aerobic affair afford afraid again age agent agree ahead aim air airport aisle alarm album alcohol alert alien all alley allow almost alone alpha already also alter always amateur amazing among amount amused analyst anchor ancient anger angle angry animal ankle announce annual another answer antenna antique anxiety any apart apology appear apple approve april arch arctic area arena argue arm armed armor army around arrange arrest arrive arrow art artefact artist artwork ask aspect assault asset assist assume asthma athlete atom attack attend attitude attract auction audit august aunt author auto autumn average avocado avoid awake aware away awesome awful awkward axis baby bachelor bacon badge bag balance balcony ball bamboo banana banner bar barely bargain barrel base basic basket battle beach bean beauty because become beef before begin behave behind believe below belt bench benefit best betray better between beyond bicycle bid bike bind biology bird birth bitter black blade blame blanket blast bleak bless blind blood blossom blouse blue blur blush board boat body boil bomb bone bonus book boost border boring borrow boss bottom bounce box boy bracket brain brand brass brave bread breeze brick bridge brief bright bring brisk broccoli broken bronze broom brother brown brush bubble buddy budget buffalo build bulb bulk bullet bundle bunker burden burger burst bus business busy butter buyer buzz cabbage cabin cable cactus cage cake call calm camera camp can canal cancel candy cannon canoe canvas canyon capable capital captain car carbon card cargo carpet carry cart case cash casino castle casual cat catalog catch category cattle caught cause caution cave ceiling celery cement census century cereal certain chair chalk champion change chaos chapter charge chase chat cheap check cheese chef cherry chest chicken chief child chimney choice choose chronic chuckle chunk churn cigar cinnamon circle citizen city civil claim clap clarify claw clay clean clerk clever click client cliff climb clinic clip clock clog close cloth cloud clown club clump cluster clutch coach coast coconut code coffee coil coin collect color column combine come comfort comic common company concert conduct confirm congress connect consider control convince cook cool copper copy coral core corn correct cost cotton couch country couple course cousin cover coyote crack cradle craft cram crane crash crater crawl crazy cream credit creek crew cricket crime crisp critic crop cross crouch crowd crucial cruel cruise crumble crunch crush cry crystal cube culture cup cupboard curious current curtain curve cushion custom cute cycle dad damage damp dance danger daring dash daughter dawn day deal debate debris decade december decide decline decorate decrease deer defense define defy degree delay deliver demand demise denial dentist deny depart depend deposit depth deputy derive describe desert design desk despair destroy detail detect develop device devote diagram dial diamond diary dice diesel diet differ digital dignity dilemma dinner dinosaur direct dirt disagree discover disease dish dismiss disorder display distance divert divide divorce dizzy doctor document dog doll dolphin domain donate donkey donor door dose double dove draft dragon drama drastic draw dream dress drift drill drink drip drive drop drum dry duck dumb dune during dust dutch duty dwarf dynamic eager eagle early earn earth easily east easy echo ecology economy edge edit educate effort egg eight either elbow elder electric elegant element elephant elevator elite else embark embody embrace emerge emotion employ empower empty enable enact end endless endorse enemy energy enforce engage engine enhance enjoy enlist enough enrich enroll ensure enter entire entry envelope episode equal equip era erase erode erosion error erupt escape essay essence estate eternal ethics evidence evil evoke evolve exact example excess exchange excite exclude excuse execute exercise exhaust exhibit exile exist exit exotic expand expect expire explain expose express extend extra eye eyebrow fabric face faculty fade faint faith fall false fame family famous fan fancy fantasy farm fashion fat fatal father fatigue fault favorite feature february federal fee feed feel female fence festival fetch fever few fiber fiction field figure file film filter final find fine finger finish fire firm first fiscal fish fit fitness fix flag flame flash flat flavor flee flight flip float flock floor flower fluid flush fly foam focus fog foil fold follow food foot force forest forget fork fortune forum forward fossil foster found fox fragile frame frequent fresh friend fringe frog front frost frown frozen fruit fuel fun funny furnace fury future gadget gain galaxy gallery game gap garage garbage garden garlic garment gas gasp gate gather gauge gaze general genius genre gentle genuine gesture ghost giant gift giggle ginger giraffe girl give glad glance glare glass glide glimpse globe gloom glory glove glow glue goat goddess gold good goose gorilla gospel gossip govern gown grab grace grain grant grape grass gravity great green grid grief grit grocery group grow grunt guard guess guide guilt guitar gun gym habit hair half hammer hamster hand happy harbor hard harsh harvest hat have hawk hazard head health heart heavy hedgehog height hello helmet help hen hero hidden high hill hint hip hire history hobby hockey hold hole holiday hollow home honey hood hope horn horror horse hospital host hotel hour hover hub huge human humble humor hundred hungry hunt hurdle hurry hurt husband hybrid ice icon idea identify idle ignore ill illegal illness image imitate immense immune impact impose improve impulse inch include income increase index indicate indoor industry infant inflict inform inhale inherit initial inject injury inmate inner innocent input inquiry insane insect inside inspire install intact interest into invest invite involve iron island isolate issue item ivory jacket jaguar jar jazz jealous jeans jelly jewel job join joke journey joy judge juice jump jungle junior junk just kangaroo keen keep ketchup key kick kid kidney kind kingdom kiss kit kitchen kite kitten kiwi knee knife knock know lab label labor ladder lady lake lamp language laptop large later latin laugh laundry lava law lawn lawsuit layer lazy leader leaf learn leave lecture left leg legal legend leisure lemon lend length lens leopard lesson letter level liar liberty library license life lift light like limb limit link lion liquid list little live lizard load loan lobster local lock logic lonely long loop lottery loud lounge love loyal lucky luggage lumber lunar lunch luxury lyrics machine mad magic magnet maid mail main major make mammal man manage mandate mango mansion manual maple marble march margin marine market marriage mask mass master match material math matrix matter maximum maze meadow mean measure meat mechanic medal media melody melt member memory mention menu mercy merge merit merry mesh message metal method middle midnight milk million mimic mind minimum minor minute miracle mirror misery miss mistake mix mixed mixture mobile model modify mom moment monitor monkey monster month moon moral more morning mosquito mother motion motor mountain mouse move movie much muffin mule multiply muscle museum mushroom music must mutual myself mystery myth naive name napkin narrow nasty nation nature near neck need negative neglect neither nephew nerve nest net network neutral never news next nice night noble noise nominee noodle normal north nose notable note nothing notice novel now nuclear number nurse nut oak obey object oblige obscure observe obtain obvious occur ocean october odor off offer office often oil okay old olive olympic omit once one onion online only open opera opinion oppose option orange orbit orchard order ordinary organ orient original orphan ostrich other outdoor outer output outside oval oven over own owner oxygen oyster ozone pact paddle page pair palace palm panda panel panic panther paper parade parent park parrot party pass patch path patient patrol pattern pause pave payment peace peanut pear peasant pelican pen penalty pencil people pepper perfect permit person pet phone photo phrase physical piano picnic picture piece pig pigeon pill pilot pink pioneer pipe pistol pitch pizza place planet plastic plate play please pledge pluck plug plunge poem poet point polar pole police pond pony pool popular portion position possible post potato pottery poverty powder power practice praise predict prefer prepare present pretty prevent price pride primary print priority prison private prize problem process produce profit program project promote proof property prosper protect proud provide public pudding pull pulp pulse pumpkin punch pupil puppy purchase purity purpose purse push put puzzle pyramid quality quantum quarter question quick quit quiz quote rabbit raccoon race rack radar radio rail rain raise rally ramp ranch random range rapid rare rate rather raven raw razor ready real reason rebel rebuild recall receive recipe record recycle reduce reflect reform refuse region regret regular reject relax release relief rely remain remember remind remove render renew rent reopen repair repeat replace report require rescue resemble resist resource response result retire retreat return reunion reveal review reward rhythm rib ribbon rice rich ride ridge rifle right rigid ring riot ripple risk ritual rival river road roast robot robust rocket romance roof rookie room rose rotate rough round route royal rubber rude rug rule run runway rural sad saddle sadness safe sail salad salmon salon salt salute same sample sand satisfy satoshi sauce sausage save say scale scan scare scatter scene scheme school science scissors scorpion scout scrap screen script scrub sea search season seat second secret section security seed seek segment select sell seminar senior sense sentence series service session settle setup seven shadow shaft shallow share shed shell sheriff shield shift shine ship shiver shock shoe shoot shop short shoulder shove shrimp shrug shuffle shy sibling sick side siege sight sign silent silk silly silver similar simple since sing siren sister situate six size skate sketch ski skill skin skirt skull slab slam sleep slender slice slide slight slim slogan slot slow slush small smart smile smoke smooth snack snake snap sniff snow soap soccer social sock soda soft solar soldier solid solution solve someone song soon sorry sort soul sound soup source south space spare spatial spawn speak special speed spell spend sphere spice spider spike spin spirit split spoil sponsor spoon sport spot spray spread spring spy square squeeze squirrel stable stadium staff stage stairs stamp stand start state stay steak steel stem step stereo stick still sting stock stomach stone stool story stove strategy street strike strong struggle student stuff stumble style subject submit subway success such sudden suffer sugar suggest suit summer sun sunny sunset super supply supreme sure surface surge surprise surround survey suspect sustain swallow swamp swap swarm swear sweet swift swim swing switch sword symbol symptom syrup system table tackle tag tail talent talk tank tape target task taste tattoo taxi teach team tell ten tenant tennis tent term test text thank that theme then theory there they thing this thought three thrive throw thumb thunder ticket tide tiger tilt timber time tiny tip tired tissue title toast tobacco today toddler toe together toilet token tomato tomorrow tone tongue tonight tool tooth top topic topple torch tornado tortoise toss total tourist toward tower town toy track trade traffic tragic train transfer trap trash travel tray treat tree trend trial tribe trick trigger trim trip trophy trouble truck true truly trumpet trust truth try tube tuition tumble tuna tunnel turkey turn turtle twelve twenty twice twin twist two type typical ugly umbrella unable unaware uncle uncover under undo unfair unfold unhappy uniform unique unit universe unknown unlock until unusual unveil update upgrade uphold upon upper upset urban urge usage use used useful useless usual utility vacant vacuum vague valid valley valve van vanish vapor various vast vault vehicle velvet vendor venture venue verb verify version very vessel veteran viable vibrant vicious victory video view village vintage violin virtual virus visa visit visual vital vivid vocal voice void volcano volume vote voyage wage wagon wait walk wall walnut want warfare warm warrior wash wasp waste water wave way wealth weapon wear weasel weather web wedding weekend weird welcome west wet whale what wheat wheel when where whip whisper wide width wife wild will win window wine wing wink winner winter wire wisdom wise wish witness wolf woman wonder wood wool word work world worry worth wrap wreck wrestle wrist write wrong yard year yellow you young youth zebra zero zone zoo".split(" ");
 
-  // ── Matematikai függvények ────────────────────────────────────────────────
+  // ── i18n ─────────────────────────────────────────────────────────────────
+  const STRINGS = {
+    en: {
+      subtitle:        'For offline (air-gapped) use only!',
+      'warn.title':    '⚠ CRITICAL SECURITY PROTOCOL',
+      'warn.1':        'Disconnect from the internet before entering anything',
+      'warn.2':        'Perform the ENCODE or DECODE operation',
+      'warn.3':        'Write the result on paper',
+      'warn.4':        'Click the "Clear & Lock" button',
+      'warn.5':        'Close the browser and clear the cache',
+      'warn.6':        'Only then reconnect to the internet',
+      'tab.encode':    'ENCODE — Raw Paper A → Final',
+      'tab.decode':    'DECODE — Papers → 24 words',
+      'enc.step':      'STEP 1 — Finalise Raw Paper A',
+      'enc.desc':      'The BioWallet app generated the Raw Paper A numbers — these are still <strong>without P</strong>. Enter your P here to obtain <strong>Final Paper A</strong>, which you can safely store.',
+      'lbl.raw.a':     'RAW PAPER A — 24 numbers from the app',
+      'ph.raw.a':      '0432 1289 0042 1801 0713 ...\n(24 numbers total)',
+      'lbl.encode.p':  'Personal number (P) — kept only in your head!',
+      'ph.p':          'Your P value',
+      'hint.encode.p': 'P is not stored here — it is erased immediately after finalisation.',
+      'btn.encode':    'Generate Final Paper A',
+      'enc.result.hdr':'✓ Final Paper A ready — print and store it SEPARATELY from Paper B',
+      'enc.copy.note': '⚠ Destroy Raw Paper A afterwards — only Final Paper A + Paper B are needed for recovery. You will still need your memorised <strong>P</strong> to decode!',
+      'btn.print':     '🖨 Print',
+      'btn.clear':     '🔒 Clear & Lock',
+      'dec.title':     'Decode — Papers → 24 words',
+      'dec.desc':      '<strong>Final Paper A</strong> + <strong>Paper B</strong> + memorised <strong>P</strong> → 24 BIP39 words.',
+      'lbl.paper.a':   'FINAL PAPER A — 24 numbers',
+      'ph.paper.a':    '0432 1289 0042 1801 0713 ...\n(24 numbers total)',
+      'lbl.paper.b.title': 'PAPER B — Offsets (r_j)',
+      'lbl.paper.b':   '24 numbers, space- or newline-separated',
+      'ph.paper.b':    '0512 0011 1892 0304 1567 ...\n(24 numbers total)',
+      'lbl.personal.p':'Personal number (P) — kept only in your head!',
+      'hint.personal.p':'P is not stored anywhere — erased immediately after decoding.',
+      'btn.decode':    'Start decoding',
+      'dec.result.hdr':'✓ Decoding successful — 24-word BIP39 Seed Phrase',
+      'dec.copy.note': '⚠ Write down the words in order before closing this page. MetaMask import order: 1–24.',
+      'err.parse':     '{label}: expected 24 numbers, got {n}.',
+      'err.range':     '{label}: every number must be 0–2047 (invalid: {val}).',
+      'err.p.short':   'The personal number (P) must be at least 4 characters.',
+      'err.p.hash':    'Error computing P hash: {msg}',
+      'err.wordlist':  'Internal error: word list is not 2048 entries!',
+      'lang.switch':   'HU',
+    },
+    hu: {
+      subtitle:        'Kizárólag offline (légréses) környezetben használható!',
+      'warn.title':    '⚠ KRITIKUS BIZTONSÁGI PROTOKOLL',
+      'warn.1':        'Kapcsolja le az internetet mielőtt bármit beír',
+      'warn.2':        'Végezze el az ENCODE vagy DECODE műveletet',
+      'warn.3':        'Írja le az eredményt papírra',
+      'warn.4':        'Kattintson a „Törlés & Zárolás" gombra',
+      'warn.5':        'Zárja be a böngészőt, törölje a gyorsítótárat',
+      'warn.6':        'Csak ezután csatlakozzon újra az internetre',
+      'tab.encode':    'ENCODE — Nyers Papír A → Végleges',
+      'tab.decode':    'DECODE — Papírokból 24 szó',
+      'enc.step':      '1. LÉPÉS — Nyers Papír A véglegesítése',
+      'enc.desc':      'A BioWallet app a Nyers Papír A számait generálta — ezek még <strong>P nélküliek</strong>. Adja meg itt P-jét, és megkapja a <strong>Végleges Papír A-t</strong>, amit már biztonságosan tárolhat.',
+      'lbl.raw.a':     'NYERS PAPÍR A — 24 szám az app-ból',
+      'ph.raw.a':      '0432 1289 0042 1801 0713 ...\n(24 szám összesen)',
+      'lbl.encode.p':  'Személyes szám (P) — csak fejben tárolt!',
+      'ph.p':          'Fejben tartott P értéke',
+      'hint.encode.p': 'P itt sem tárolódik — véglegesítés után azonnal törlődik a mezőből.',
+      'btn.encode':    'Végleges Papír A generálása',
+      'enc.result.hdr':'✓ Végleges Papír A kész — nyomtassa ki és tárolja a Papír B-vel KÜLÖN helyen',
+      'enc.copy.note': '⚠ A Nyers Papír A-t ezután semmisítse meg — csak a Végleges Papír A + Papír B szükséges a visszafejtéshez. A visszafejtéshez még mindig szüksége lesz a fejben tartott <strong>P</strong>-re!',
+      'btn.print':     '🖨 Nyomtatás',
+      'btn.clear':     '🔒 Törlés & Zárolás',
+      'dec.title':     'Visszafejtés — Papírokból 24 szó',
+      'dec.desc':      'A <strong>Végleges Papír A</strong> + <strong>Papír B</strong> + fejben tartott <strong>P</strong> → 24 BIP39 szó.',
+      'lbl.paper.a':   'VÉGLEGES PAPÍR A — 24 szám',
+      'ph.paper.a':    '0432 1289 0042 1801 0713 ...\n(24 szám összesen)',
+      'lbl.paper.b.title': 'PAPÍR B — Eltolások (r_j)',
+      'lbl.paper.b':   '24 szám, szóközzel vagy sortöréssel elválasztva',
+      'ph.paper.b':    '0512 0011 1892 0304 1567 ...\n(24 szám összesen)',
+      'lbl.personal.p':'Személyes szám (P) — csak fejben tárolt!',
+      'hint.personal.p':'A P értéke sehol nem tárolódik — visszafejtés után azonnal törlődik.',
+      'btn.decode':    'Visszafejtés indítása',
+      'dec.result.hdr':'✓ Visszafejtés sikeres — 24 szavas BIP39 Seed Phrase',
+      'dec.copy.note': '⚠ Írja fel a szavakat papírra a sorrendnek megfelelően, mielőtt bezárja ezt az oldalt. A MetaMask import sorrendje: 1–24.',
+      'err.parse':     '{label}: 24 számot vár, de {n} érkezett.',
+      'err.range':     '{label}: minden szám 0–2047 között kell legyen (hibás: {val}).',
+      'err.p.short':   'A személyes szám (P) legalább 4 karakter legyen.',
+      'err.p.hash':    'Hiba a P hash számításánál: {msg}',
+      'err.wordlist':  'Belső hiba: szólista nem 2048 elemű!',
+      'lang.switch':   'EN',
+    },
+  };
+
+  let _lang = 'en';
+
+  function t(key, vars = {}) {
+    let s = (STRINGS[_lang] ?? STRINGS.en)[key] ?? key;
+    for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, v);
+    return s;
+  }
+
+  function applyI18n() {
+    document.documentElement.lang = _lang;
+    document.getElementById('subtitle').textContent     = t('subtitle');
+    document.getElementById('warn-title').textContent   = t('warn.title');
+    for (let i = 1; i <= 6; i++)
+      document.getElementById(`warn-${i}`).textContent  = t(`warn.${i}`);
+    document.getElementById('tab-encode').textContent   = t('tab.encode');
+    document.getElementById('tab-decode').textContent   = t('tab.decode');
+    document.getElementById('enc-step-title').textContent = t('enc.step');
+    document.getElementById('enc-desc').innerHTML       = t('enc.desc');
+    document.getElementById('lbl-raw-a').textContent    = t('lbl.raw.a');
+    document.getElementById('raw-paper-a').placeholder  = t('ph.raw.a');
+    document.getElementById('lbl-encode-p').textContent = t('lbl.encode.p');
+    document.getElementById('encode-p').placeholder     = t('ph.p');
+    document.getElementById('hint-encode-p').textContent= t('hint.encode.p');
+    document.getElementById('btn-encode').textContent   = t('btn.encode');
+    document.getElementById('enc-result-header').textContent = t('enc.result.hdr');
+    document.getElementById('enc-copy-note').innerHTML  = t('enc.copy.note');
+    document.getElementById('btn-print-enc').textContent= t('btn.print');
+    document.getElementById('btn-clear-enc').textContent= t('btn.clear');
+    document.getElementById('dec-title').textContent    = t('dec.title');
+    document.getElementById('dec-desc').innerHTML       = t('dec.desc');
+    document.getElementById('lbl-paper-a').textContent  = t('lbl.paper.a');
+    document.getElementById('paper-a').placeholder      = t('ph.paper.a');
+    document.getElementById('lbl-paper-b-title').textContent = t('lbl.paper.b.title');
+    document.getElementById('lbl-paper-b').textContent  = t('lbl.paper.b');
+    document.getElementById('paper-b').placeholder      = t('ph.paper.b');
+    document.getElementById('lbl-personal-p').textContent = t('lbl.personal.p');
+    document.getElementById('personal-p').placeholder   = t('ph.p');
+    document.getElementById('hint-personal-p').textContent = t('hint.personal.p');
+    document.getElementById('btn-decode').textContent   = t('btn.decode');
+    document.getElementById('dec-result-header').textContent = t('dec.result.hdr');
+    document.getElementById('dec-copy-note').innerHTML  = t('dec.copy.note');
+    document.getElementById('btn-print-dec').textContent= t('btn.print');
+    document.getElementById('btn-clear-dec').textContent= t('btn.clear');
+    document.getElementById('btn-lang').textContent     = t('lang.switch');
+  }
+
+  document.getElementById('btn-lang').addEventListener('click', () => {
+    _lang = _lang === 'en' ? 'hu' : 'en';
+    applyI18n();
+  });
+
+  // ── Math helpers ──────────────────────────────────────────────────────────
   function mod(n, m) { return ((n % m) + m) % m; }
 
   async function personalHashOffsets(personalNumber, n) {
@@ -262,45 +416,45 @@
     return offsets;
   }
 
-  // ── Mód váltás ───────────────────────────────────────────────────────────
+  // ── Mode switch ───────────────────────────────────────────────────────────
   function switchMode(mode) {
-    document.querySelectorAll('.mode-tab').forEach((t, i) =>
-      t.classList.toggle('active', (mode === 'encode') ? i === 0 : i === 1));
+    document.querySelectorAll('.mode-tab').forEach((tab, i) =>
+      tab.classList.toggle('active', (mode === 'encode') ? i === 0 : i === 1));
     document.getElementById('panel-encode').classList.toggle('active', mode === 'encode');
     document.getElementById('panel-decode').classList.toggle('active', mode === 'decode');
   }
 
-  // ── Validálás ────────────────────────────────────────────────────────────
+  // ── Validation ────────────────────────────────────────────────────────────
   function parseNumbers(raw, label) {
     const nums = raw.trim().split(/[\s,;]+/).filter(Boolean).map(Number);
     if (nums.length !== 24)
-      throw new Error(`${label}: 24 számot vár, de ${nums.length} érkezett.`);
+      throw new Error(t('err.parse', { label, n: nums.length }));
     for (const n of nums)
       if (!Number.isInteger(n) || n < 0 || n > 2047)
-        throw new Error(`${label}: minden szám 0–2047 között kell legyen (hibás: ${n}).`);
+        throw new Error(t('err.range', { label, val: n }));
     return nums;
   }
 
-  // ── ENCODE: Nyers Papír A + P → Végleges Papír A ─────────────────────────
+  // ── ENCODE: Raw Paper A + P → Final Paper A ───────────────────────────────
   async function encode() {
     const errEl = document.getElementById('err-encode');
     errEl.style.display = 'none';
     document.getElementById('encode-result').style.display = 'none';
 
     let rawA;
-    try { rawA = parseNumbers(document.getElementById('raw-paper-a').value, 'Nyers Papír A'); }
+    try { rawA = parseNumbers(document.getElementById('raw-paper-a').value, t('lbl.raw.a')); }
     catch (e) { errEl.textContent = '⚠ ' + e.message; errEl.style.display = 'block'; return; }
 
     const pValue = document.getElementById('encode-p').value.trim();
     if (pValue.length < 4) {
-      errEl.textContent = '⚠ A személyes szám (P) legalább 4 karakter legyen.';
+      errEl.textContent = '⚠ ' + t('err.p.short');
       errEl.style.display = 'block'; return;
     }
 
     let p;
     try { p = await personalHashOffsets(pValue, 24); }
     catch (e) {
-      errEl.textContent = '⚠ Hiba a P hash számításánál: ' + e.message;
+      errEl.textContent = '⚠ ' + t('err.p.hash', { msg: e.message });
       errEl.style.display = 'block'; return;
     }
 
@@ -318,7 +472,7 @@
     });
 
     document.getElementById('encode-result').style.display = 'block';
-    document.getElementById('encode-p').value = '';   // P azonnal törlődik
+    document.getElementById('encode-p').value = '';
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
   }
 
@@ -329,35 +483,35 @@
     document.getElementById('encode-p').value = '';
   }
 
-  // ── DECODE: Végleges Papír A + Papír B + P → 24 szó ─────────────────────
+  // ── DECODE: Final Paper A + Paper B + P → 24 words ────────────────────────
   async function decode() {
-    const errEl  = document.getElementById('err-msg');
+    const errEl = document.getElementById('err-msg');
     errEl.style.display = 'none';
     document.getElementById('results').style.display = 'none';
 
     let c, r;
-    try { c = parseNumbers(document.getElementById('paper-a').value, 'Végleges Papír A'); }
+    try { c = parseNumbers(document.getElementById('paper-a').value, t('lbl.paper.a')); }
     catch (e) { errEl.textContent = '⚠ ' + e.message; errEl.style.display = 'block'; return; }
-    try { r = parseNumbers(document.getElementById('paper-b').value, 'Papír B'); }
+    try { r = parseNumbers(document.getElementById('paper-b').value, t('lbl.paper.b.title')); }
     catch (e) { errEl.textContent = '⚠ ' + e.message; errEl.style.display = 'block'; return; }
 
     const pValue = document.getElementById('personal-p').value.trim();
     if (pValue.length < 4) {
-      errEl.textContent = '⚠ A személyes szám (P) legalább 4 karakter legyen.';
+      errEl.textContent = '⚠ ' + t('err.p.short');
       errEl.style.display = 'block'; return;
     }
 
     let p;
     try { p = await personalHashOffsets(pValue, 24); }
     catch (e) {
-      errEl.textContent = '⚠ Hiba a P hash számításánál: ' + e.message;
+      errEl.textContent = '⚠ ' + t('err.p.hash', { msg: e.message });
       errEl.style.display = 'block'; return;
     }
 
     const indices = c.map((cj, j) => mod(cj + r[j] + p[j], 2048));
 
     if (WORDLIST.length !== 2048) {
-      errEl.textContent = '⚠ Belső hiba: szólista nem 2048 elemű!';
+      errEl.textContent = '⚠ ' + t('err.wordlist');
       errEl.style.display = 'block'; return;
     }
 
@@ -375,7 +529,7 @@
     });
 
     document.getElementById('results').style.display = 'block';
-    document.getElementById('personal-p').value = '';   // P azonnal törlődik
+    document.getElementById('personal-p').value = '';
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
   }
 

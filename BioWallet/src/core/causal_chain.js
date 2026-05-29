@@ -1,12 +1,12 @@
 /**
- * BioWallet — DCC Kauzális Lánc
+ * BioWallet — DCC Causal Chain
  *
- * Minden érzékeny művelet előfeltétele: érvényes causal_token.
- * Token csak fizikai biometriai esemény után létezik.
- * Token egyszeri felhasználású (TOCTOU zárás).
- * Token vault-kötött (nem vihető át másik wallethez).
+ * Prerequisite for every sensitive operation: a valid causal_token.
+ * Token only exists after a physical biometric event.
+ * Token is single-use (TOCTOU lock).
+ * Token is vault-bound (cannot be transferred to another wallet).
  *
- * Megfelel: biowallet.bio invariánsai P1–P7
+ * Satisfies: biowallet.bio invariants P1–P7
  */
 
 const TTL = {
@@ -24,7 +24,7 @@ class DCCError extends Error {
 }
 
 class CausalToken {
-  #R;           // Uint8Array — fuzzy extractor stabil kimenete
+  #R;           // Uint8Array — fuzzy extractor stable output
   #vaultId;
   #issuedAt;
   #consumed;
@@ -51,27 +51,27 @@ class CausalChain {
   #token = null;
 
   /**
-   * Fizikai biometriai esemény után hívódik.
-   * @param {Uint8Array} R        — fuzzy extractor stabil kulcsa
-   * @param {string}     vaultId  — vault egyedi azonosítója
+   * Called after a physical biometric event.
+   * @param {Uint8Array} R        — fuzzy extractor stable key
+   * @param {string}     vaultId  — unique vault identifier
    */
   issue(R, vaultId) {
     this.#token = new CausalToken(R, vaultId);
   }
 
   /**
-   * Kauzális kapu — ellenőrzi és felhasználja a tokent.
-   * Ha bármely feltétel nem teljesül → DCCError (UNSAT).
+   * Causal gate — verifies and consumes the token.
+   * If any condition fails → DCCError (UNSAT).
    *
    * @param {string} operation  — 'OPEN' | 'SIGN' | 'EXPORT'
-   * @param {string} vaultId    — az érintett vault ID-ja
-   * @returns {Uint8Array} R    — sikeres ellenőrzés esetén (vault KDF inputja)
+   * @param {string} vaultId    — the affected vault ID
+   * @returns {Uint8Array} R    — on success (vault KDF input)
    */
   gate(operation, vaultId) {
     const ttl = TTL[operation];
     if (!ttl) throw new DCCError('UNKNOWN_OP', operation);
 
-    // P1+P2: token létezik és friss
+    // P1+P2: token exists and is fresh
     if (!this.#token || !this.#token.fresh(ttl)) {
       throw new DCCError(
         !this.#token ? 'NO_TOKEN' : 'EXPIRED',
@@ -79,25 +79,25 @@ class CausalChain {
       );
     }
 
-    // P4: vault-kötöttség
+    // P4: vault binding
     if (!this.#token.boundTo(vaultId)) {
       throw new DCCError('VAULT_ID_MISMATCH', operation);
     }
 
-    // P3: egyszeri felhasználás (consume után token inaktív)
+    // P3: single-use (token inactive after consume)
     this.#token.consume();
 
     return this.#token.R();
   }
 
   /**
-   * Azonnali revokálás — auto-lock után hívódik (P7).
+   * Immediate revocation — called after auto-lock (P7).
    */
   revoke() {
     this.#token = null;
   }
 
-  /** Állapot-lekérdezés (UI feedback, nem biztonság-kritikus) */
+  /** State query (UI feedback, not security-critical) */
   status() {
     if (!this.#token) return { state: 'NO_TOKEN' };
     return {
