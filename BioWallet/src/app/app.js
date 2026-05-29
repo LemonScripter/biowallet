@@ -82,6 +82,7 @@ const ethBalance     = document.getElementById('eth-balance');
 const tokenBalances  = document.getElementById('token-balances');
 const sendToInput    = document.getElementById('send-to');
 const sendAmountInput= document.getElementById('send-amount');
+const sendHexDataInput = document.getElementById('send-hexdata');
 const txResult       = document.getElementById('tx-result');
 const txLink         = document.getElementById('tx-link');
 const wcBar          = document.getElementById('wc-bar');
@@ -1047,16 +1048,27 @@ btnSign.addEventListener('click', async () => {
 
   let txTo = recipient, txValue = 0n, txData = '0x', confirmAmount;
 
+  // Optional hex data (for contract calls, anchor TXs, etc.)
+  const rawHexData = sendHexDataInput?.value.trim() ?? '';
+  if (rawHexData) {
+    if (!/^0x[0-9a-fA-F]*$/.test(rawHexData)) {
+      setMsg('Érvénytelen hex data (0x... formátum szükséges)', 'error');
+      return;
+    }
+    txData = rawHexData;
+  }
+
   if (!selectedToken) {
     try {
-      txValue = ethToWei(amountStr);
-      if (txValue <= 0n) throw new Error();
+      txValue = ethToWei(amountStr || '0');
+      if (txValue < 0n) throw new Error();
+      if (txValue === 0n && txData === '0x') throw new Error();
     } catch {
       sendAmountInput.classList.add('error');
       setMsg(t('msg.invalid.amount'), 'error');
       return;
     }
-    confirmAmount = amountStr + ' ' + currentNetwork.nativeSymbol;
+    confirmAmount = (amountStr || '0') + ' ' + currentNetwork.nativeSymbol;
   } else {
     let tokenAmount;
     try {
@@ -1932,6 +1944,7 @@ function showPanel(name) {
     txResult.style.display  = 'none';
     sendToInput.value       = '';
     sendAmountInput.value   = '';
+    if (sendHexDataInput) sendHexDataInput.value = '';
     sendToInput.classList.remove('error');
     sendAmountInput.classList.remove('error');
     tokenBalances.innerHTML     = '';

@@ -823,6 +823,12 @@
                placeholder="0.001" autocomplete="off">
         <span class="amount-unit" id="amount-unit">ETH</span>
       </div>
+      <details id="send-advanced" style="margin-top:0.5rem;">
+        <summary style="font-size:0.73rem;color:var(--accent);cursor:pointer;user-select:none;">⚙ Advanced: Hex Data</summary>
+        <textarea class="tx-input" id="send-hexdata"
+                  style="margin-top:0.4rem;font-size:0.68rem;font-family:'SF Mono','Fira Code',monospace;resize:vertical;min-height:3.5rem;"
+                  placeholder="0x..." autocomplete="off" spellcheck="false"></textarea>
+      </details>
       <div class="tx-result" id="tx-result" style="display:none">
         <span class="tx-result-label">TX hash</span>
         <a class="tx-result-link" id="tx-link" href="#" target="_blank" rel="noopener noreferrer">—</a>
