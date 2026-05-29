@@ -2,23 +2,43 @@
  * BioWallet — RPC réteg (Phase 5 / EIP-1559)
  *
  * Raw JSON-RPC 2.0 — nincs CDN függőség.
- * Támogatott: Ethereum Mainnet + Sepolia testnet.
+ * Multi-network EVM támogatás: 8 builtin lánc + egyéni hálózatok.
  * EIP-1559: eth_feeHistory alapú maxFeePerGas / maxPriorityFeePerGas.
  */
 
+export const BUILTIN_NETWORKS = [
+  { key: 'mainnet',   name: 'Ethereum',   chainId: 1,        rpc: 'https://eth.llamarpc.com',                    explorer: 'https://etherscan.io/tx/',             nativeSymbol: 'ETH',  blockscout: 'https://eth.blockscout.com',          testnet: false },
+  { key: 'bsc',       name: 'BNB Chain',  chainId: 56,       rpc: 'https://bsc-dataseed.binance.org/',           explorer: 'https://bscscan.com/tx/',              nativeSymbol: 'BNB',  blockscout: null,                                  testnet: false },
+  { key: 'polygon',   name: 'Polygon',    chainId: 137,      rpc: 'https://polygon-rpc.com/',                    explorer: 'https://polygonscan.com/tx/',           nativeSymbol: 'POL',  blockscout: 'https://polygon.blockscout.com',      testnet: false },
+  { key: 'arbitrum',  name: 'Arbitrum',   chainId: 42161,    rpc: 'https://arb1.arbitrum.io/rpc',                explorer: 'https://arbiscan.io/tx/',              nativeSymbol: 'ETH',  blockscout: 'https://arbitrum.blockscout.com',     testnet: false },
+  { key: 'base',      name: 'Base',       chainId: 8453,     rpc: 'https://mainnet.base.org',                    explorer: 'https://basescan.org/tx/',             nativeSymbol: 'ETH',  blockscout: 'https://base.blockscout.com',         testnet: false },
+  { key: 'optimism',  name: 'Optimism',   chainId: 10,       rpc: 'https://mainnet.optimism.io',                 explorer: 'https://optimistic.etherscan.io/tx/',  nativeSymbol: 'ETH',  blockscout: 'https://optimism.blockscout.com',     testnet: false },
+  { key: 'avalanche', name: 'Avalanche',  chainId: 43114,    rpc: 'https://api.avax.network/ext/bc/C/rpc',       explorer: 'https://snowtrace.io/tx/',             nativeSymbol: 'AVAX', blockscout: null,                                  testnet: false },
+  { key: 'sepolia',   name: 'Sepolia',    chainId: 11155111, rpc: 'https://ethereum-sepolia-rpc.publicnode.com', explorer: 'https://sepolia.etherscan.io/tx/',     nativeSymbol: 'ETH',  blockscout: 'https://eth-sepolia.blockscout.com',  testnet: true  },
+];
+
+export function getCustomNetworks() {
+  try { return JSON.parse(localStorage.getItem('biowallet_custom_networks') ?? '[]'); }
+  catch { return []; }
+}
+
+export function saveCustomNetwork(net) {
+  const nets = getCustomNetworks().filter(n => n.chainId !== net.chainId);
+  localStorage.setItem('biowallet_custom_networks', JSON.stringify([...nets, net]));
+}
+
+export function deleteCustomNetwork(chainId) {
+  const nets = getCustomNetworks().filter(n => n.chainId !== chainId);
+  localStorage.setItem('biowallet_custom_networks', JSON.stringify(nets));
+}
+
+export function getAllNetworks() {
+  return [...BUILTIN_NETWORKS, ...getCustomNetworks()];
+}
+
 export const NETWORKS = {
-  sepolia: {
-    name:     'Sepolia',
-    chainId:  11155111,
-    rpc:      'https://ethereum-sepolia-rpc.publicnode.com',
-    explorer: 'https://sepolia.etherscan.io/tx/',
-  },
-  mainnet: {
-    name:     'Mainnet',
-    chainId:  1,
-    rpc:      'https://eth.llamarpc.com',
-    explorer: 'https://etherscan.io/tx/',
-  },
+  mainnet: BUILTIN_NETWORKS.find(n => n.key === 'mainnet'),
+  sepolia: BUILTIN_NETWORKS.find(n => n.key === 'sepolia'),
 };
 
 // ── JSON-RPC alap ─────────────────────────────────────────────────────────
@@ -160,15 +180,12 @@ export function encodeTransfer(to, amount) {
 
 /**
  * Blockscout API v2 — utolsó N tranzakció (nincs API key szükséges).
- * networkKey: 'mainnet' | 'sepolia'
- * Visszaad: items tömb (max limit db), vagy dob hibát.
+ * network: hálózat objektum (blockscout mező szükséges), vagy dob hibát.
  */
-export async function fetchTxHistory(address, networkKey, limit = 5) {
-  const base = networkKey === 'mainnet'
-    ? 'https://eth.blockscout.com'
-    : 'https://eth-sepolia.blockscout.com';
+export async function fetchTxHistory(address, network, limit = 5) {
+  if (!network?.blockscout) throw new Error('TX history nem elérhető ezen a hálózaton');
   const res = await fetch(
-    `${base}/api/v2/addresses/${address}/transactions?filter=to%20%7C%20from`
+    `${network.blockscout}/api/v2/addresses/${address}/transactions?filter=to%20%7C%20from`
   );
   if (!res.ok) throw new Error(`Blockscout ${res.status}`);
   const { items } = await res.json();

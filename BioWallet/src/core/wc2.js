@@ -37,9 +37,9 @@ export async function wcPair(uri) {
   return _wallet.pair({ uri: uri.trim() });
 }
 
-export async function wcApprove(id, address, chainId) {
-  // Mindkét hálózat a namespace-ben: chainChanged kérés bármely irányból működik
-  const allChains   = ['eip155:1', 'eip155:11155111'];
+export async function wcApprove(id, address, chainIds) {
+  // Összes ismert lánc a namespace-ben — dApp bármely chainId-re válthat
+  const allChains   = (Array.isArray(chainIds) ? chainIds : [chainIds]).map(c => `eip155:${c}`);
   const allAccounts = allChains.map(c => `${c}:${address}`);
   return _wallet.approveSession({
     id,
