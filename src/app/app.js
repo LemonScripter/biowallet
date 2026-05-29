@@ -11,7 +11,8 @@ import {
   NETWORKS, getBalance, getNonce,
   getFeeData, estimateGas, broadcastTx,
   ethToWei, weiToEth, isValidAddress, resolveENS,
-} from '../core/rpc.js?v=14';
+  getTokenBalance, formatToken,
+} from '../core/rpc.js?v=15';
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
@@ -68,6 +69,7 @@ const btnNetwork     = document.getElementById('btn-network');
 const btnRefresh     = document.getElementById('btn-refresh');
 
 const ethBalance     = document.getElementById('eth-balance');
+const tokenBalances  = document.getElementById('token-balances');
 const sendToInput    = document.getElementById('send-to');
 const sendAmountInput= document.getElementById('send-amount');
 const txResult       = document.getElementById('tx-result');
@@ -751,6 +753,19 @@ sendToInput.addEventListener('input', () => {
   }, 600);
 });
 
+// ERC-20 token lista — decimálisok hardcoded (nincs extra eth_call)
+const TOKEN_LIST = {
+  mainnet: [
+    { symbol: 'USDC', address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', decimals: 6  },
+    { symbol: 'USDT', address: '0xdAC17F958D2ee523a2206206994597C13D831ec7', decimals: 6  },
+    { symbol: 'WETH', address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', decimals: 18 },
+  ],
+  sepolia: [
+    { symbol: 'USDC', address: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', decimals: 6  },
+    { symbol: 'WETH', address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14', decimals: 18 },
+  ],
+};
+
 async function fetchBalance(address) {
   try {
     ethBalance.textContent = '…';
@@ -759,6 +774,27 @@ async function fetchBalance(address) {
   } catch {
     ethBalance.textContent = '?';
   }
+  fetchTokenBalances(address);
+}
+
+async function fetchTokenBalances(address) {
+  const key    = currentNetwork === NETWORKS.mainnet ? 'mainnet' : 'sepolia';
+  const tokens = TOKEN_LIST[key] ?? [];
+  tokenBalances.innerHTML = '';
+
+  await Promise.allSettled(tokens.map(async tok => {
+    try {
+      const raw = await getTokenBalance(tok.address, address, currentNetwork.rpc);
+      if (raw === 0n) return;
+      const row = document.createElement('div');
+      row.className = 'balance-row';
+      row.style.marginTop = '0.3rem';
+      row.innerHTML =
+        `<span class="balance-label">${tok.symbol}:</span>` +
+        `<span class="balance-value" style="color:#a78bfa">${formatToken(raw, tok.decimals)}</span>`;
+      tokenBalances.appendChild(row);
+    } catch { /* ismeretlen token vagy RPC hiba — kihagyás */ }
+  }));
 }
 
 // ── Token timer (Worker STATUS polling) ───────────────────────────────────
@@ -858,6 +894,7 @@ function showPanel(name) {
     sendAmountInput.value   = '';
     sendToInput.classList.remove('error');
     sendAmountInput.classList.remove('error');
+    tokenBalances.innerHTML = '';
     ensResolved             = null;
     ensHint.style.display   = 'none';
     qrWrap.style.display    = 'none';
