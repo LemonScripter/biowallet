@@ -329,6 +329,9 @@
       flex-shrink: 0;
     }
     .help-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-row { display: flex; align-items: stretch; gap: 0.5rem; }
+    .btn-row > .btn { flex: 1; }
+    .btn-row > .help-btn { align-self: center; }
 
     /* ── Modal overlay ── */
     .modal-overlay {
@@ -690,18 +693,27 @@
       Az arc-adatokból egyedi titkosítókulcs keletkezik a vaulton belül.
       Az arc-adatok soha nem hagyják el az eszközt.
     </div>
-    <button class="btn btn-primary" id="btn-enroll">
-      Wallet létrehozása
-      <small>5 arc-scan → BIP39 seed generálás</small>
-    </button>
-    <button class="btn btn-ghost" id="btn-import">
-      Wallet importálása
-      <small>24 szavas seed phrase → biometriai titkosítás</small>
-    </button>
-    <button class="btn btn-ghost" id="btn-restore">
-      Meglévő wallet visszaállítása
-      <small>.P.json fájl betöltése → arc-scannel megnyitható</small>
-    </button>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-enroll">
+        Wallet létrehozása
+        <small>5 arc-scan → BIP39 seed generálás</small>
+      </button>
+      <button class="help-btn" data-info="enroll" title="Hogyan működik?">ℹ</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="btn-import">
+        Wallet importálása
+        <small>24 szavas seed phrase → biometriai titkosítás</small>
+      </button>
+      <button class="help-btn" data-info="import" title="Hogyan működik?">ℹ</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="btn-restore">
+        Meglévő wallet visszaállítása
+        <small>.P.json fájl betöltése → arc-scannel megnyitható</small>
+      </button>
+      <button class="help-btn" data-info="restore" title="Hogyan működik?">ℹ</button>
+    </div>
   </div>
 
   <!-- ── Import panel ── -->
@@ -749,10 +761,13 @@
     <div class="info-text">
       A privát kulcs titkosítva tárolódik. Kizárólag az Ön arca tudja megnyitni.
     </div>
-    <button class="btn btn-primary" id="btn-scan">
-      Megnyitás arc-scannel
-      <small>Token érvényessége: 30 mp</small>
-    </button>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-scan">
+        Megnyitás arc-scannel
+        <small>Token érvényessége: 30 mp</small>
+      </button>
+      <button class="help-btn" data-info="scan" title="Hogyan működik?">ℹ</button>
+    </div>
     <button class="btn btn-ghost" id="btn-switch-wallet">
       Másik wallet / importálás
       <small>Új wallet létrehozása vagy 24 szó importálása</small>
@@ -808,10 +823,13 @@
       </div>
     </div>
 
-    <button class="btn btn-success" id="btn-sign">
-      <span id="send-btn-label">ETH küldése</span>
-      <small>Fogadó cím + összeg megadása · arc-scan · auto-zárolás</small>
-    </button>
+    <div class="btn-row">
+      <button class="btn btn-success" id="btn-sign">
+        <span id="send-btn-label">ETH küldése</span>
+        <small>Fogadó cím + összeg megadása · arc-scan · auto-zárolás</small>
+      </button>
+      <button class="help-btn" data-info="send" title="Hogyan működik?">ℹ</button>
+    </div>
 
     <!-- TX history kártya -->
     <div class="card" id="tx-history-card" style="display:none;">
@@ -825,20 +843,29 @@
       <span class="wc-name" id="wc-dapp-name">dApp</span>
       <button class="wc-disc" id="btn-wc-disc" title="Kapcsolat bontása">✕</button>
     </div>
-    <button class="btn btn-ghost" id="btn-wc">
-      dApp kapcsolat
-      <small>WalletConnect v2 — Uniswap, OpenSea stb.</small>
-    </button>
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="btn-wc">
+        dApp kapcsolat
+        <small>WalletConnect v2 — Uniswap, OpenSea stb.</small>
+      </button>
+      <button class="help-btn" data-info="wc" title="Hogyan működik?">ℹ</button>
+    </div>
 
-    <button class="btn btn-ghost" id="btn-paper">
-      Papírképlet készítése
-      <small>Visszafejtő kód — a 24 szó nem jelenik meg digitálisan</small>
-    </button>
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="btn-paper">
+        Papírképlet készítése
+        <small>Visszafejtő kód — a 24 szó nem jelenik meg digitálisan</small>
+      </button>
+      <button class="help-btn" data-info="paper" title="Hogyan működik?">ℹ</button>
+    </div>
 
-    <button class="btn btn-danger" id="btn-lock">
-      Azonnali zárolás
-      <small>Privát kulcs törlése a memóriából</small>
-    </button>
+    <div class="btn-row">
+      <button class="btn btn-danger" id="btn-lock">
+        Azonnali zárolás
+        <small>Privát kulcs törlése a memóriából</small>
+      </button>
+      <button class="help-btn" data-info="lock" title="Hogyan működik?">ℹ</button>
+    </div>
 
   </div>
 
