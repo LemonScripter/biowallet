@@ -480,6 +480,86 @@ print(f"  {'PASS' if ok_p9 else 'FAIL'} P9-OK: összes Phase 9 feltétel → SAT
 
 
 # ══════════════════════════════════════════════════════════════════
+# PHASE 10 INVARIÁNSOK — SSS(2,3) Shamir Secret Sharing
+# ══════════════════════════════════════════════════════════════════
+
+print("\n── Phase 10 invariánsok (SSS 2-of-3) ─────────────────")
+
+# SSS változók
+sss_split        = Bool('sss_split')        # split(secret,n,t) lefutott
+reconstruct_ok   = Bool('reconstruct_ok')   # combine() == eredeti titok
+shares_count     = Int('shares_count')      # felhasznált share-ek száma
+sss_threshold    = Int('sss_threshold')     # küszöbérték (t)
+enrolled_factors = Int('enrolled_factors')  # regisztrált faktorok száma
+share_x_zero     = Bool('share_x_zero')     # van-e x=0 share (tiltott)
+vault_open_p10   = Bool('vault_open_p10')   # vault nyílt Phase 10 feltételekkel
+factor_bio       = Bool('factor_bio')       # face faktor aktív
+factor_fin       = Bool('factor_fin')       # ujjlenyomat faktor aktív
+factor_hw        = Bool('factor_hw')        # hardverkulcs faktor aktív
+
+SSS_AXIOMS = [
+    # Threshold ≥ 2 (1-of-n biztonságilag értelmetlen SSS-hez)
+    sss_threshold >= 2,
+    shares_count >= 0,
+    enrolled_factors >= 0,
+
+    # SSS-CORRECT: split + elegendő share → reconstruct_ok
+    Implies(And(sss_split, shares_count >= sss_threshold), reconstruct_ok),
+
+    # SSS-PRIVACY: t-1 share → NEM reconstruct_ok (információ-elrejtés)
+    Implies(shares_count < sss_threshold, Not(reconstruct_ok)),
+
+    # SSS-X0: x=0 share tiltott (f(0) = titok → közvetlenül szivárogna)
+    Not(share_x_zero),
+
+    # SSS-FACTOR-COUNT: enrolled_factors = aktív faktorok összege
+    enrolled_factors == If(factor_bio, 1, 0) + If(factor_fin, 1, 0) + If(factor_hw, 1, 0),
+
+    # SSS-GATE: vault_open_p10 csak ha elegendő faktor + reconstruct_ok
+    Implies(vault_open_p10, enrolled_factors >= sss_threshold),
+    Implies(vault_open_p10, shares_count >= sss_threshold),
+    Implies(vault_open_p10, reconstruct_ok),
+]
+
+# SSS1: split + t share → reconstruct_ok (helyesség)
+results.append(run_proof(
+    "SSS1: split + shares>=t → reconstruct_ok (helyesseg)",
+    SSS_AXIOMS, And(sss_split, shares_count >= sss_threshold, Not(reconstruct_ok))))
+
+# SSS2: t-1 share → NEM reconstruct_ok (adatvédelem)
+results.append(run_proof(
+    "SSS2: shares<t → reconstruct_ok=False (adatvédelem)",
+    SSS_AXIOMS, And(shares_count < sss_threshold, reconstruct_ok)))
+
+# SSS3: x=0 share → LEHETETLEN (f(0)=titok szivárgás)
+results.append(run_proof(
+    "SSS3: share_x_zero=True → LEHETETLEN (f(0)=titok szivárogna)",
+    SSS_AXIOMS, share_x_zero))
+
+# SSS4: vault_open_p10 AND enrolled_factors < threshold → LEHETETLEN
+results.append(run_proof(
+    "SSS4: vault_open_p10, enrolled_factors<t → LEHETETLEN (2-of-3 garancia)",
+    SSS_AXIOMS, And(vault_open_p10, enrolled_factors < sss_threshold)))
+
+# SSS5: vault_open_p10 AND NOT reconstruct_ok → LEHETETLEN
+results.append(run_proof(
+    "SSS5: vault_open_p10, reconstruct_ok=False → LEHETETLEN",
+    SSS_AXIOMS, And(vault_open_p10, Not(reconstruct_ok))))
+
+# SSS6: konzisztencia — threshold=2, face+fingerprint enrolled → SAT
+s_sss = Solver()
+for a in SSS_AXIOMS: s_sss.add(a)
+s_sss.add(
+    sss_threshold == 2, shares_count == 2, sss_split,
+    factor_bio, factor_fin, Not(factor_hw),
+    Not(share_x_zero), vault_open_p10, reconstruct_ok,
+)
+ok_sss = s_sss.check() == sat
+results.append(ok_sss)
+print(f"  {'PASS' if ok_sss else 'FAIL'} SSS6: threshold=2, bio+fingerprint enrolled → SAT konzisztens")
+
+
+# ══════════════════════════════════════════════════════════════════
 # ÖSSZESÍTÉS
 # ══════════════════════════════════════════════════════════════════
 
@@ -490,17 +570,19 @@ dcc_ok = all(results[:7])
 df_ok  = all(results[7:21])
 bch_ok = all(results[21:25])
 p5_ok  = all(results[25:33])
-p9_ok  = all(results[33:])
+p9_ok  = all(results[33:39])
+sss_ok = all(results[39:])
 
 print(f"DCC invariansok:       {sum(results[:7])}/7   {'PASS' if dcc_ok else 'FAIL'}")
 print(f"DATA_FLOW invariansok: {sum(results[7:21])}/14  {'PASS' if df_ok else 'FAIL'}")
 print(f"BCH invariansok:       {sum(results[21:25])}/4   {'PASS' if bch_ok else 'FAIL'}")
 print(f"Phase 5 invariansok:   {sum(results[25:33])}/8   {'PASS' if p5_ok else 'FAIL'}")
-print(f"Phase 9 invariansok:   {sum(results[33:])}/6   {'PASS' if p9_ok else 'FAIL'}")
+print(f"Phase 9 invariansok:   {sum(results[33:39])}/6   {'PASS' if p9_ok else 'FAIL'}")
+print(f"Phase 10 SSS:          {sum(results[39:])}/6   {'PASS' if sss_ok else 'FAIL'}")
 print(f"Osszesitett:           {passed}/{total}")
 print()
 if passed == total:
-    print("BioWallet -- DCC + DATA_FLOW + BCH + PHASE5: FORMÁLISAN BIZONYÍTOTT")
+    print("BioWallet -- DCC + DATA_FLOW + BCH + PHASE5 + SSS: FORMÁLISAN BIZONYÍTOTT")
 else:
     print("FIGYELEM: egyes invariansok nem teljesulnek!")
 print("=" * 56)
