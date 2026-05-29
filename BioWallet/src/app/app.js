@@ -403,6 +403,10 @@ btnImportEnroll.addEventListener('click', async () => {
     return;
   }
 
+  // Szavak azonnal törlése — ne legyenek a képernyőn a scan alatt
+  importPhrase.value = '';
+  importPhrase.blur();
+
   btnImportEnroll.disabled = true;
   setScanning(true);
   enrollDots.style.display = 'flex';
@@ -422,19 +426,87 @@ btnImportEnroll.addEventListener('click', async () => {
     downloadBlob(encryptedVault, `${vaultId}.biowallet`);
     downloadBlob(JSON.stringify(P), `${vaultId}.P.json`);
 
-    importPhrase.value = '';
     vaultReady = true;
     setScanning(false);
     enrollDots.style.display = 'none';
     setMsg('Wallet importálva! Mentse el a letöltött fájlokat.', 'ok');
     showPanel('lock');
+    await showPostImportChecklist();
   } catch (e) {
     setScanning(false);
     enrollDots.style.display = 'none';
+    importPhrase.value = '';
     setMsg(friendlyError(e.message), 'error');
     btnImportEnroll.disabled = false;
   }
 });
+
+// ── Post-import ellenőrzési lista ─────────────────────────────────────────
+function showPostImportChecklist() {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:2000;
+      display:flex;align-items:flex-start;justify-content:center;
+      padding:1rem;overflow-y:auto;
+    `;
+
+    const steps = [
+      ['Nyissa meg arc-scannel → ellenőrizze, hogy az ETH cím egyezik az eredeti tárcájával.', false],
+      ['Generáljon papír biztonsági mentést (Papírképlet gomb → recovery_tool.html ENCODE offline).', false],
+      ['Ha a papír backup kész és ellenőrzött: törölje az eredeti seed phrase papírját.', false],
+      ['Deaktiválja / törölje az eredeti tárcát (MetaMask / Ledger).', false],
+    ];
+
+    const stepHtml = steps.map(([text], i) => `
+      <label style="display:flex;gap:0.75rem;align-items:flex-start;
+                    padding:0.65rem 0.5rem;border-bottom:1px solid #1e1e24;
+                    cursor:pointer;font-size:0.82rem;line-height:1.5;color:#e8e8f0;">
+        <input type="checkbox" id="_chk_${i}"
+               style="width:16px;height:16px;margin-top:0.15rem;flex-shrink:0;
+                      accent-color:#6c63ff;cursor:pointer;">
+        <span>${text}</span>
+      </label>`).join('');
+
+    overlay.innerHTML = `
+      <div style="background:#16161a;border:1px solid #2a2a35;border-radius:16px;
+                  width:100%;max-width:480px;margin:auto;padding:1.5rem;">
+        <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;
+                    text-transform:uppercase;color:#4CAF50;margin-bottom:0.3rem;">
+          IMPORT SIKERES
+        </div>
+        <div style="font-size:1rem;font-weight:700;color:#e8e8f0;margin-bottom:0.3rem;">
+          Következő lépések
+        </div>
+        <div style="font-size:0.76rem;color:#6b6b80;margin-bottom:1rem;line-height:1.5;">
+          A wallet biometriailag titkosítva tárolódik. Javasolt sorrendben hajtsa végre:
+        </div>
+        <div style="border:1px solid #2a2a35;border-radius:10px;overflow:hidden;
+                    margin-bottom:1rem;">
+          ${stepHtml}
+        </div>
+        <div style="font-size:0.72rem;color:#ffa502;background:rgba(255,165,2,0.07);
+                    border-left:2px solid #ffa502;padding:0.5rem 0.7rem;
+                    border-radius:0 6px 6px 0;margin-bottom:1rem;line-height:1.5;">
+          ⚠ Az eredeti seed phrase-t csak akkor törölje, ha a papír biztonsági mentés elkészült
+          és ellenőrzött. Visszaút nincs.
+        </div>
+        <button id="_postimport_ok"
+                style="width:100%;padding:0.85rem;border-radius:10px;border:none;
+                       background:#6c63ff;color:#fff;font-size:0.9rem;
+                       font-weight:600;cursor:pointer;">
+          Értettem — bezárás
+        </button>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+    overlay.querySelector('#_postimport_ok').addEventListener('click', () => {
+      overlay.remove();
+      resolve();
+    });
+  });
+}
 
 // ── Megnyitás ─────────────────────────────────────────────────────────────
 btnScan.addEventListener('click', async () => {
