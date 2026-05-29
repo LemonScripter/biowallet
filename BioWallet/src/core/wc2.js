@@ -38,14 +38,18 @@ export async function wcPair(uri) {
 }
 
 export async function wcApprove(id, address, chainId) {
+  // Mindkét hálózat a namespace-ben: chainChanged kérés bármely irányból működik
+  const allChains   = ['eip155:1', 'eip155:11155111'];
+  const allAccounts = allChains.map(c => `${c}:${address}`);
   return _wallet.approveSession({
     id,
     namespaces: {
       eip155: {
-        methods:  ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4'],
-        chains:   [`eip155:${chainId}`],
+        methods:  ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4',
+                   'wallet_switchEthereumChain'],
+        chains:   allChains,
         events:   ['accountsChanged', 'chainChanged'],
-        accounts: [`eip155:${chainId}:${address}`],
+        accounts: allAccounts,
       },
     },
   });
@@ -64,6 +68,15 @@ export async function wcRespondError(topic, id, message = 'User rejected') {
     topic,
     response: { id, jsonrpc: '2.0', error: { code: 4001, message } },
   });
+}
+
+export async function wcEmitChainChanged(topic, chainId) {
+  if (!_wallet) return;
+  return _wallet.emitSessionEvent({
+    topic,
+    event: { name: 'chainChanged', data: chainId },
+    chainId: `eip155:${chainId}`,
+  }).catch(() => {});
 }
 
 export function wcGetSessions() {

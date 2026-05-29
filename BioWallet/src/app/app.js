@@ -8,7 +8,7 @@
 
 import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=11';
 import {
-  WC_PROJECT_ID, initWC, wcPair, wcApprove, wcRejectProposal,
+  WC_PROJECT_ID, initWC, wcPair, wcApprove, wcRejectProposal, wcEmitChainChanged,
   wcRespondOk, wcRespondError, wcGetSessions, wcDisconnect, wcReady,
 } from '../core/wc2.js';
 import {
@@ -1057,10 +1057,30 @@ async function dispatchWCRequest(topic, id, params) {
     await handleWCEthSend(topic, id, params.request.params[0]);
   } else if (method === 'personal_sign') {
     await handleWCPersonalSign(topic, id, params.request.params[0]);
+  } else if (method === 'wallet_switchEthereumChain') {
+    await handleWCSwitchChain(topic, id, params.request.params[0]);
   } else {
     await wcRespondError(topic, id, `Nem támogatott: ${method}`);
     setMsg(`dApp kérés elutasítva — ${method} nem támogatott.`, 'error');
   }
+}
+
+async function handleWCSwitchChain(topic, id, { chainId: hexChain }) {
+  const requested = parseInt(hexChain, 16);
+  const match = Object.values(NETWORKS).find(n => n.chainId === requested);
+  if (!match) {
+    await wcRespondError(topic, id, `Nem támogatott hálózat: ${hexChain}`);
+    setMsg(`dApp hálózatváltás elutasítva — chainId ${hexChain} nem ismert.`, 'error');
+    return;
+  }
+  currentNetwork = match;
+  btnNetwork.textContent = currentNetwork.name;
+  btnNetwork.classList.toggle('mainnet', currentNetwork === NETWORKS.mainnet);
+  await wcRespondOk(topic, id, null);
+  await wcEmitChainChanged(topic, currentNetwork.chainId);
+  setMsg(`Hálózat váltva: ${currentNetwork.name}`, 'ok');
+  const addr = ethAddress.textContent;
+  if (addr && addr !== '—') fetchBalance(addr);
 }
 
 async function handleWCEthSend(topic, id, wcTx) {
@@ -1455,3 +1475,123 @@ function friendlyError(msg) {
   overlay .addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
   document.addEventListener('keydown',(e) => { if (e.key === 'Escape') overlay.classList.remove('open'); });
 }
+
+// ── Kontextuális ℹ súgó ──────────────────────────────────────────────────────
+
+const INFO_CONTENT = {
+  enroll: {
+    title: 'Wallet létrehozása',
+    body: `<p>A BioWallet <strong>nem jelszót, hanem az arcodat</strong> használja kulcsként.</p>
+<ol>
+  <li>Kattints a gombra — a kamera bekapcsol.</li>
+  <li>A rendszer <strong>5 arc-scant</strong> kér egymás után.</li>
+  <li>Az arcmintából egyedi titkosítókulcs keletkezik.</li>
+  <li>Ezzel a kulccsal titkosít egy <strong>BIP39 seed phrase-t</strong> (24 szó).</li>
+  <li>A seed phrase-t soha nem látod — az arc az egyetlen hozzáférés.</li>
+</ol>
+<p style="color:#ffa502;font-size:0.8rem;">Mentsd el a papírképletet (Papírképlet gomb) — ez az egyetlen mentési lehetőség!</p>`,
+  },
+  import: {
+    title: 'Wallet importálása',
+    body: `<p>Ha már van meglévő Ethereum tárcád (MetaMask, Ledger, Trezor stb.), itt áthozhatod BioWallet-be.</p>
+<ol>
+  <li>Add meg a <strong>24 szavas seed phrase-t</strong> a mezőbe.</li>
+  <li>Kattints a Regisztráció gombra — a kamera bekapcsol.</li>
+  <li>5 arc-scan után a seed phrase arc-biometriával titkosítva tárolódik.</li>
+  <li>A seed phrase ezután csak az arcoddal nyitható meg.</li>
+</ol>
+<p style="color:#ffa502;font-size:0.8rem;">Importálás után töröld a seed phrase-t minden más helyről!</p>`,
+  },
+  restore: {
+    title: 'Meglévő wallet visszaállítása',
+    body: `<p>Ha korábban már volt BioWallet tárcád és elmentetted a titkosított fájlt (<code>.P.json</code>), itt töltsd vissza.</p>
+<ol>
+  <li>Kattints a gombra és válaszd ki a <code>.P.json</code> fájlt.</li>
+  <li>A fájl betöltődik — de <strong>zárolva marad</strong>.</li>
+  <li>Az arc-scannel nyitható meg, ugyanazzal az arccal, amellyel létrehoztad.</li>
+</ol>
+<p style="color:#6b6b80;font-size:0.8rem;">Más eszközre való átvitelhez: mentsd a .P.json fájlt, majd töltsd vissza az új eszközön.</p>`,
+  },
+  scan: {
+    title: 'Megnyitás arc-scannel',
+    body: `<p>A privát kulcsot csak az <strong>arcoddal</strong> tudod előhívni.</p>
+<ol>
+  <li>Kattints a gombra — a kamera bekapcsol.</li>
+  <li>Tartsd az arcodat a kamera elé, jól megvilágított helyen.</li>
+  <li>A rendszer összehasonlítja a regisztrációkori arcmintával.</li>
+  <li>Ha egyeznek: a vault <strong>30 másodpercre</strong> kinyílik.</li>
+  <li>Ez idő alatt végezhetsz egy műveletet (küldés, aláírás, dApp kérés).</li>
+  <li>Után a vault automatikusan zárol.</li>
+</ol>`,
+  },
+  send: {
+    title: 'ETH / Token küldése',
+    body: `<p>ETH-t vagy ERC-20 tokent küldhetsz bármely Ethereum-címre.</p>
+<ol>
+  <li>Válassz tokent (ETH, USDC, USDT, WETH) a pill gombokkal.</li>
+  <li>Add meg a <strong>fogadó címet</strong> (0x… vagy ENS: name.eth).</li>
+  <li>Add meg az <strong>összeget</strong>.</li>
+  <li>Kattints a Küldés gombra → arc-scan → megerősítés.</li>
+  <li>A tranzakció broadcastolódik, TX hash megjelenik.</li>
+</ol>
+<p style="color:#6b6b80;font-size:0.8rem;">Minden tranzakció után a vault automatikusan zárol (DCC auto-lock).</p>`,
+  },
+  wc: {
+    title: 'dApp kapcsolat (WalletConnect)',
+    body: `<p>WalletConnect lehetővé teszi, hogy a BioWallettel csatlakozz bármely DeFi alkalmazáshoz.</p>
+<ol>
+  <li>Nyisd meg a dApp-ot (pl. Balancer, Uniswap, Aave) <strong>egy másik böngészőfülön</strong>.</li>
+  <li>Kattints a dApp-on: <strong>Connect Wallet → WalletConnect → Other wallet / Copy URI</strong>.</li>
+  <li>Másold ki az URI-t (wc:… kezdetű szöveg).</li>
+  <li>Kattints ide, illeszd be az URI-t, majd erősítsd meg.</li>
+  <li>A dApp felületén végzed a műveleteket (swap, liquidity stb.).</li>
+  <li>Minden tranzakció jóváhagyása <strong>ebben a BioWallet fülben</strong> történik arc-scannel.</li>
+</ol>
+<p style="color:#6b6b80;font-size:0.8rem;">Támogatott: eth_sendTransaction, personal_sign, wallet_switchEthereumChain.</p>`,
+  },
+  paper: {
+    title: 'Papírképlet készítése',
+    body: `<p>A 24 szavas seed phrase-t a BioWallet <strong>soha nem mutatja meg digitálisan</strong>.</p>
+<p>Ehelyett egy <strong>papírra nyomtatható kódot</strong> generál, amelyből offline visszaállítható a tárca — de csak akkor, ha tudod a személyes számodat (P).</p>
+<ol>
+  <li>Kattints a gombra → arc-scan → a kódok megjelennek.</li>
+  <li>Nyomtasd ki vagy írd le a kódokat biztonságos helyre.</li>
+  <li>A P számot <strong>soha ne tárolj digitálisan</strong> — memorize vagy külön papíron.</li>
+</ol>
+<p style="color:#ffa502;font-size:0.8rem;">Ez az egyetlen mentési lehetőség! Ha elvész a tárca ÉS a papírképlet, a seed visszaszerezhetetlen.</p>`,
+  },
+  lock: {
+    title: 'Azonnali zárolás',
+    body: `<p>A privát kulcsot <strong>azonnal törli</strong> a böngésző memóriájából.</p>
+<ul>
+  <li>Az egyenleg és az Ethereum-cím eltűnik a képernyőről.</li>
+  <li>Újbóli hozzáféréshez arc-scan szükséges.</li>
+  <li>A titkosított vault a localStorage-ban marad — csak az arc nyitja meg.</li>
+</ul>
+<p style="color:#6b6b80;font-size:0.8rem;">Ez automatikusan is megtörténik minden tranzakció és aláírás után (DCC auto-lock biztonsági garancia).</p>`,
+  },
+};
+
+function showInfoModal(key) {
+  const info = INFO_CONTENT[key];
+  if (!info) return;
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:3000;display:flex;align-items:center;justify-content:center;padding:1rem;';
+  ov.innerHTML = `
+    <div style="background:#16161a;border:1px solid #2a2a35;border-radius:16px;width:100%;max-width:420px;max-height:80vh;overflow-y:auto;padding:1.5rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+        <div style="font-size:0.95rem;font-weight:700;color:#e8e8f0;">${info.title}</div>
+        <button id="_info_close" style="background:none;border:none;color:#6b6b80;font-size:1.1rem;cursor:pointer;padding:0.2rem 0.4rem;">✕</button>
+      </div>
+      <div style="font-size:0.82rem;color:#b0b0c0;line-height:1.7;">${info.body}</div>
+    </div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.querySelector('#_info_close').onclick = close;
+  ov.addEventListener('click', e => { if (e.target === ov) close(); });
+}
+
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[data-info]');
+  if (btn) { e.stopPropagation(); showInfoModal(btn.dataset.info); }
+});
