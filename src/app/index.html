@@ -643,18 +643,38 @@
 
   <!-- ── Import panel ── -->
   <div class="panel" id="panel-import">
-    <div class="info-text">
-      Adja meg a 24 szavas BIP39 seed phrase-t (szóközzel elválasztva).
-      A biometriai scan után az Ön arcával titkosítva kerül tárolásra —
-      a szavak nem kerülnek semmilyen szerverre.
+
+    <div class="info-text" style="border-left-color:#ffa502;">
+      <strong style="color:#ffa502;font-size:0.75rem;">Mikor érdemes importálni?</strong><br>
+      Ha meglévő MetaMask / Ledger wallet-ját szeretné arc-scannel védeni.
+      Az importálás után a seed phrase biometriailag titkosítva tárolódik —
+      az eredeti szavak azonnal törlődhetek.
     </div>
-    <textarea class="tx-input" id="import-phrase" rows="5"
-      placeholder="word1 word2 word3 … word24"
-      autocomplete="off" spellcheck="false"
-      style="resize:vertical;line-height:1.7;font-size:0.8rem;font-family:monospace;"></textarea>
+
+    <div class="info-text" style="font-size:0.72rem;line-height:1.6;">
+      <strong style="color:#4CAF50;">Miért biztonságos?</strong><br>
+      A 24 szó soha nem hagyja el a böngészőt — ellenőrizhető:<br>
+      <span style="color:#6b6b80;">DevTools → Network → nincs kérés biowallet.metaspace.bio felé beírás közben.</span><br>
+      Ajánlott: <strong>kapcsolja le az internetet</strong> importálás előtt (PWA offline mód).
+    </div>
+
+    <div style="position:relative;">
+      <textarea class="tx-input" id="import-phrase" rows="5"
+        placeholder="word1 word2 word3 … word24"
+        autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off"
+        style="resize:vertical;line-height:1.7;font-size:0.85rem;font-family:monospace;
+               padding-right:3rem;filter:blur(4px);transition:filter 0.2s;"
+        onfocus="this.style.filter='none'" onblur="this.style.filter='blur(4px)'"></textarea>
+      <span style="position:absolute;right:0.7rem;top:0.6rem;font-size:0.7rem;
+                   color:#6b6b80;pointer-events:none;">👁</span>
+    </div>
+    <div style="font-size:0.7rem;color:#6b6b80;margin-top:-0.5rem;margin-bottom:0.2rem;">
+      A szöveg homályos — kattintson bele az íráshoz / olvasáshoz.
+    </div>
+
     <button class="btn btn-primary" id="btn-import-enroll">
       Beolvasás + importálás
-      <small>5 arc-scan → biometriai titkosítás</small>
+      <small>5 arc-scan → biometriai titkosítás · szavak azonnal törlődnek</small>
     </button>
     <button class="btn btn-ghost" id="btn-import-cancel">
       Vissza
