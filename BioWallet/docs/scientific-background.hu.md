@@ -14,14 +14,14 @@ Az arc-scan egy `Float32Array[128]` beágyazási vektort (FaceNet / face-api.js)
 
 ### Megoldás: BCH hibajavító fuzzy extractor
 
-A BioWallet a 128 dimenziós beágyazást egy tömör bináris lánccá kvantálja, majd **BCH hibajavító kódot** alkalmaz a regisztrálási és a hitelesítési scan közötti eltérés áthidalására.
+A BioWallet a 128 dimenziós beágyazást egy tömör bináris lánccá kvantálja, majd **GF(2⁸) feletti BCH hibajavító kódot** alkalmaz a regisztrálási és a hitelesítési scan közötti eltérés áthidalására.
 
 | Paraméter | Érték | Jelentés |
 |-----------|-------|---------|
-| Kódszó hossza | n = 63 | 63 bites kódszó |
-| Üzenethossz | k = 51 | 51 bit biometriai entrópia |
-| Hibajavítás | t = 6 | Legfeljebb 6 bit-hiba tolerálható a scanek között |
-| Min. Hamming-távolság | d = 13 | Két különböző arc legalább 13 bitben eltér |
+| Kódszó hossza | n = 255 | 255 bites kódszó, GF(2⁸), prím polinom 0x11D |
+| Üzenethossz | k = 55 | 55 bit biometriai entrópia |
+| Hibajavítás | t = 25 | Legfeljebb 25 bit-hiba tolerálható a scanek között |
+| Min. Hamming-távolság | d ≥ 51 | Két különböző arc legalább 51 bitben eltér |
 
 **Regisztráláskor:** a kvantált kódszó `b` BCH-kódolásával szindróma `s` keletkezik. A szindróma a `.P.json` helper fájlban tárolódik.
 
