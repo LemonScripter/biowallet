@@ -851,7 +851,7 @@ btnWc.addEventListener('click', async () => {
     await wcPair(uri);
     setMsg('WC párosítás folyamatban — várja a dApp jóváhagyási kérést...', '');
   } catch (e) {
-    setMsg(`WC hiba: ${e.message}`, 'error');
+    setMsg(`WC hiba: ${e?.message || e?.toString() || 'ismeretlen hiba'}`, 'error');
   }
 });
 
