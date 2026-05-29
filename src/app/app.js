@@ -65,6 +65,8 @@ const btnSwitchWallet = document.getElementById('btn-switch-wallet');
 const btnImportEnroll= document.getElementById('btn-import-enroll');
 const btnImportCancel= document.getElementById('btn-import-cancel');
 const importPhrase   = document.getElementById('import-phrase');
+importPhrase.addEventListener('focus', () => { importPhrase.style.filter = 'none'; });
+importPhrase.addEventListener('blur',  () => { importPhrase.style.filter = 'blur(4px)'; });
 const btnScan        = document.getElementById('btn-scan');
 const btnSign        = document.getElementById('btn-sign');
 const btnPaper       = document.getElementById('btn-paper');
@@ -1026,8 +1028,10 @@ async function handleWCProposal(proposal) {
   const approved = await showWCProposalModal(meta);
   if (approved) {
     await wcApprove(proposal.id, address, currentNetwork.chainId);
+    setMsg(`${meta.name ?? 'dApp'} csatlakoztatva.`, 'ok');
   } else {
     await wcRejectProposal(proposal.id);
+    setMsg('WalletConnect kapcsolat elutasítva.', '');
   }
   updateWCBar();
 }
