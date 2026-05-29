@@ -50,23 +50,21 @@ timestamped, third-party-verifiable proof of the canonical constitution.
 
 | Field        | Value |
 |--------------|-------|
-| **Network**  | Ethereum Mainnet (or Polygon) |
-| **To**       | sender's own address (self-send) |
+| **Network**  | Arbitrum One (Chain ID 42161) |
+| **From**     | `0xcd6317f65d8158163abcf4a4a239c6a68a6e36bb` |
+| **To**       | `0x6898c2c1f07ed80c27c1370cd7c251a52246e052` |
 | **Value**    | 0 ETH |
 | **Data**     | `0x42696f57616c6c657420436f6e737469747574696f6e2076312e30207c20737065632f62696f77616c6c65742e62696f205348412d3235363a2037393363616337343933396436353865336365626465306538303636623261633735346162333465396338353635373034336335663538613061313836366532` |
 | **Decoded**  | `BioWallet Constitution v1.0 \| spec/biowallet.bio SHA-256: 793cac74939d658e3cebde0e8066b2ac754ab34e9c85657043c5f58a0a1866e2` |
-| **TX hash**  | _[PENDING — to be filled after broadcast]_ |
-| **Block**    | _[PENDING]_ |
-| **Explorer** | _[PENDING]_ |
+| **TX hash**  | `0x1c1c485f19fdc1a7f448f06ea8e8c5d0ef0094640cf376e11f42ae14f264a35c` |
+| **Block**    | 468 059 183 (0x1be6042f) |
+| **Explorer** | https://arbiscan.io/tx/0x1c1c485f19fdc1a7f448f06ea8e8c5d0ef0094640cf376e11f42ae14f264a35c |
 
-### How to send the anchor TX (MetaMask / any wallet)
+### Anchor TX — CONFIRMED ✓
 
-1. Open MetaMask → Send
-2. To: your own address
-3. Amount: 0 ETH
-4. Advanced → Hex Data: paste the `Data` value above
-5. Confirm and broadcast
-6. Copy the TX hash and open a PR or issue on this repo to record it
+The anchor transaction was broadcast on **2026-05-30** and confirmed on Arbitrum One.
+The on-chain data field decodes exactly to the constitution hash string above.
+This record is immutable and publicly verifiable on any Arbitrum block explorer.
 
 ---
 
