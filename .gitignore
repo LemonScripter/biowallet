@@ -8,6 +8,9 @@ build/
 .env.*
 *.log
 
+# Deploy scripts contain server IPs and personal data
+deploy/
+
 # Internal working notes — not for public repo
 CLAUDE_HANDOVER_BACKUP.md
 *_HANDOVER*.md

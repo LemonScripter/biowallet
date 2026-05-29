@@ -6,7 +6,7 @@
  * Project ID: cloud.walletconnect.com → ingyenes regisztráció
  */
 
-// ▶ Töltsd ki a saját Project ID-ddel (cloud.walletconnect.com):
+// ▶ Fill in your own Project ID (cloud.walletconnect.com):
 export const WC_PROJECT_ID = 'fdf425d1424d316dc22882ae63c23901';
 
 const WC_METADATA = {
@@ -19,8 +19,8 @@ const WC_METADATA = {
 let _wallet = null;
 
 export async function initWC(handlers) {
-  if (!window.WC2?.WalletKit) throw new Error('wc2.min.js nincs betöltve');
-  if (!WC_PROJECT_ID)         throw new Error('WC_PROJECT_ID nincs beállítva (src/core/wc2.js)');
+  if (!window.WC2?.WalletKit) throw new Error('wc2.min.js not loaded');
+  if (!WC_PROJECT_ID)         throw new Error('WC_PROJECT_ID not set (src/core/wc2.js)');
 
   const core = new window.WC2.Core({ projectId: WC_PROJECT_ID });
   _wallet    = await window.WC2.WalletKit.init({ core, metadata: WC_METADATA });
@@ -33,12 +33,12 @@ export async function initWC(handlers) {
 }
 
 export async function wcPair(uri) {
-  if (!_wallet) throw new Error('WC nincs inicializálva');
+  if (!_wallet) throw new Error('WC not initialised');
   return _wallet.pair({ uri: uri.trim() });
 }
 
 export async function wcApprove(id, address, chainIds) {
-  // Összes ismert lánc a namespace-ben — dApp bármely chainId-re válthat
+  // All known chains in the namespace — dApp can switch to any chainId
   const allChains   = (Array.isArray(chainIds) ? chainIds : [chainIds]).map(c => `eip155:${c}`);
   const allAccounts = allChains.map(c => `${c}:${address}`);
   return _wallet.approveSession({

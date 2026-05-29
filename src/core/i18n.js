@@ -1,0 +1,692 @@
+/**
+ * BioWallet — bilingual UI strings (EN + HU)
+ * Usage: import { t, setLang, getLang, applyI18n, getInfoContent } from './i18n.js';
+ */
+
+const STRINGS = {
+  hu: {
+    /* ── Status badge ──────────────────────────────────────────────── */
+    'status.locked':  'ZÁROLT',
+    'status.expired': 'LEJÁRT',
+
+    /* ── Scan hint ─────────────────────────────────────────────────── */
+    'scan.hint':       'Nézzen egyenesen a kamerába',
+    'scan.hint.active':'Nézzen egyenesen a kamerába...',
+    'scan.hint.done':  'Kész — nyomjon egy gombot',
+
+    /* ── TTL labels ────────────────────────────────────────────────── */
+    'ttl.open':  'NYITVA',
+    'ttl.sign':  'ALÁÍRÁS',
+
+    /* ── Buttons / help ────────────────────────────────────────────── */
+    'btn.help.title': 'Használati útmutató',
+    'btn.info.title': 'Hogyan működik?',
+    'lang.switch':    'EN',
+
+    /* ── Setup panel ───────────────────────────────────────────────── */
+    'setup.info':       'Az arc-adatokból egyedi titkosítókulcs keletkezik a vaulton belül. Az arc-adatok soha nem hagyják el az eszközt.',
+    'btn.enroll':       'Wallet létrehozása',
+    'btn.enroll.sub':   '5 arc-scan → BIP39 seed generálás',
+    'btn.import':       'Wallet importálása',
+    'btn.import.sub':   '24 szavas seed phrase → biometriai titkosítás',
+    'btn.restore':      'Meglévő wallet visszaállítása',
+    'btn.restore.sub':  '.P.json fájl betöltése → arc-scannel megnyitható',
+
+    /* ── Import panel ──────────────────────────────────────────────── */
+    'import.info1': '<strong style="color:#ffa502;font-size:0.75rem;">Mikor érdemes importálni?</strong><br>Ha meglévő MetaMask / Ledger wallet-ját szeretné arc-scannel védeni. Az importálás után a seed phrase biometriailag titkosítva tárolódik — az eredeti szavak azonnal törölhetők.',
+    'import.info2': '<strong style="color:#4CAF50;">Miért biztonságos?</strong><br>A 24 szó soha nem hagyja el a böngészőt — ellenőrizhető:<br><span style="color:#6b6b80;">DevTools → Network → nincs kérés beírás közben.</span><br>Ajánlott: <strong>kapcsolja le az internetet</strong> importálás előtt (PWA offline mód).',
+    'import.blur.hint': 'A szöveg homályos — kattintson bele az íráshoz / olvasáshoz.',
+    'btn.import.enroll':     'Beolvasás + importálás',
+    'btn.import.enroll.sub': '5 arc-scan → biometriai titkosítás · szavak azonnal törlődnek',
+    'btn.import.cancel':     'Vissza',
+
+    /* ── Lock panel ────────────────────────────────────────────────── */
+    'lock.info':             'A privát kulcs titkosítva tárolódik. Kizárólag az Ön arca tudja megnyitni.',
+    'btn.scan':              'Megnyitás arc-scannel',
+    'btn.scan.sub':          'Token érvényessége: 30 mp',
+    'btn.switch.wallet':     'Másik wallet / importálás',
+    'btn.switch.wallet.sub': 'Új wallet létrehozása vagy 24 szó importálása',
+
+    /* ── Vault panel ───────────────────────────────────────────────── */
+    "card.address.label": "Ethereum cím (m/44'/60'/0'/0/0)",
+    'balance.label':      'Egyenleg:',
+    'balance.refresh':    'Egyenleg frissítése',
+    'btn.copy':           '⎘ Cím másolása',
+    'btn.qr':             '▦ QR kód',
+    'card.send.label':    'ETH küldése',
+    'input.to.ph':        '0x… vagy name.eth',
+    'btn.sign':           'ETH küldése',
+    'btn.sign.sub':       'Fogadó cím + összeg megadása · arc-scan · auto-zárolás',
+    'btn.send.token':     '{sym} küldése',
+    'card.tx.label':      'Tranzakciók',
+    'btn.wc':             'dApp kapcsolat',
+    'btn.wc.sub':         'WalletConnect v2 — Uniswap, OpenSea stb.',
+    'btn.paper':          'Papírképlet készítése',
+    'btn.paper.sub':      'Visszafejtő kód — a 24 szó nem jelenik meg digitálisan',
+    'btn.lock':           'Azonnali zárolás',
+    'btn.lock.sub':       'Privát kulcs törlése a memóriából',
+    'footer':             'BioWallet · DCC kauzális lánc · BCH-255 · AES-256-GCM · secp256k1',
+
+    /* ── Dynamic messages ──────────────────────────────────────────── */
+    'msg.camera.error':       'Kamera hiba: {err}',
+    'msg.vault.loaded':       'Vault betöltve — arc-scan a megnyitáshoz.',
+    'msg.vault.outdated':     'Elavult vault formátum — regisztráljon újra.',
+    'msg.vault.corrupted':    'Sérült mentés — hozzon létre új walletot.',
+    'msg.first.launch':       'Első indítás — hozzon létre walletot.',
+    'msg.scanning.face':      'Tartsa arcát a keretben...',
+    'msg.scan.progress':      'Beolvasás {n}/5...',
+    'msg.wallet.created':     'Wallet létrehozva! Mentse el a letöltött fájlokat.',
+    'msg.wallet.imported':    'Wallet importálva! Mentse el a letöltött fájlokat.',
+    'msg.vault.open':         'Vault nyitva.',
+    'msg.vault.locked':       'Vault zárolva. Privát kulcs törölve.',
+    'msg.address.copied':     '✓ Másolva!',
+    'msg.restore.ok':         'Wallet visszaállítva — arc-scan + .biowallet a megnyitáshoz.',
+    'msg.restore.error':      'Visszaállítás hiba: {err}',
+    'msg.invalid.pjson.ver':  'Érvénytelen .P.json fájl (rossz verzió).',
+    'msg.invalid.pjson.bch':  'Érvénytelen .P.json fájl (hiányzó BCH adat).',
+    'msg.import.enter.phrase':'Adja meg a 24 szavas seed phrase-t.',
+    'msg.import.word.count':  '{n} szót adott meg — pontosan 24 szó szükséges.',
+    'msg.import.scanning':    'Tartsa arcát a keretben — biometriai regisztráció...',
+    'msg.open.scanning':      'Arc-scan folyamatban...',
+    'msg.network.fee':        'Hálózati adatok lekérdezése...',
+    'msg.network.switch':     'Hálózat váltva: {name}',
+    'msg.signing':            'Arc-scan az aláíráshoz (10 mp ablak)...',
+    'msg.signing.dapp':       'Arc-scan a dApp TX aláíráshoz...',
+    'msg.signing.msg':        'Arc-scan az üzenet aláíráshoz...',
+    'msg.broadcast':          'Broadcast folyamatban...',
+    'msg.tx.sent':            'Küldés sikeres! TX: {hash}',
+    'msg.tx.cancelled':       'Küldés megszakítva.',
+    'msg.paper.scanning':     'Arc-scan a papírképlet generálásához (5 mp ablak)...',
+    'msg.paper.done':         'Papírképlet generálva. Vault zárolva.',
+    'msg.new.wallet':         'Hozzon létre új walletot vagy importáljon meglévőt.',
+    'msg.wc.pairing':         'WC párosítás folyamatban — várja a dApp jóváhagyási kérést...',
+    'msg.wc.error':           'WC hiba: {err}',
+    'msg.wc.connected':       '{name} csatlakoztatva.',
+    'msg.wc.rejected':        'WalletConnect kapcsolat elutasítva.',
+    'msg.wc.disconnected':    'WalletConnect kapcsolat bontva.',
+    'msg.wc.incoming':        'Bejövő dApp kérés ({method}) — nyissa meg a vaultot az arc-scannel.',
+    'msg.wc.unsupported':     'dApp kérés elutasítva — {method} nem támogatott.',
+    'msg.wc.chain.unknown':   'dApp hálózatváltás elutasítva — chainId {chain} nem ismert.',
+    'msg.wc.tx.rejected':     'dApp TX elutasítva.',
+    'msg.wc.tx.sent':         'dApp TX elküldve: {hash}',
+    'msg.wc.msg.signed':      'Üzenet aláírva.',
+    'msg.wc.no.project.id':   'WalletConnect Project ID nincs beállítva (src/core/wc2.js).',
+    'msg.cooldown':           'Brute-force védelem — {sec}s',
+    'msg.cooldown.over':      'Zárolás feloldva — próbálkozhat újra.',
+    'msg.invalid.address':    'Érvénytelen Ethereum cím.',
+    'msg.invalid.amount':     'Érvénytelen összeg (pl.: 0.001).',
+    'msg.invalid.amount2':    'Érvénytelen összeg (pl.: 1.5).',
+    'msg.insuf.balance':      'Elégtelen ETH egyenleg. {hint}',
+    'msg.insuf.token':        'Elégtelen {sym} egyenleg.',
+    'msg.gas.hint.token':     'Gas díjhoz ~{eth} ETH szükséges.',
+    'msg.gas.hint.eth':       'Kell: ~{eth} ETH (összeg + gas).',
+    'msg.network.error':      'Hálózati hiba: {err}',
+    'msg.ens.resolving':      'ENS feloldás…',
+    'msg.ens.not.found':      'ENS nem található',
+    'msg.no.file':            'Nem választott fájlt',
+    'msg.tx.no.blockscout':   'TX history ezen a hálózaton nem elérhető',
+    'msg.tx.empty':           'Még nincsenek tranzakciók',
+    'msg.tx.unavailable':     'Nem elérhető',
+
+    /* ── Confirm modal ─────────────────────────────────────────────── */
+    'confirm.title':   'Tranzakció megerősítése',
+    'confirm.network': 'Hálózat',
+    'confirm.to':      'Fogadó',
+    'confirm.amount':  'Összeg',
+    'confirm.gas':     'Max. gas',
+    'confirm.cancel':  'Mégse',
+    'confirm.send':    'Küldés',
+
+    /* ── WC modals ─────────────────────────────────────────────────── */
+    'wc.pair.title':       'dApp kapcsolódás',
+    'wc.pair.desc':        'Nyissa meg a dApp-ot (pl. Uniswap), kattintson a <strong style="color:#e8e8f0">WalletConnect</strong> gombra, másolja a URI-t és illessze be ide.',
+    'wc.pair.cancel':      'Mégse',
+    'wc.pair.connect':     'Kapcsolódás',
+    'wc.pair.invalid.uri': 'Érvénytelen WC URI (wc:... formátum szükséges).',
+    'wc.proposal.label':   'dApp kapcsolódási kérés',
+    'wc.proposal.unknown': 'Ismeretlen dApp',
+    'wc.proposal.info':    'A dApp olvasni fogja az Ethereum <strong style="color:#e8e8f0">címét</strong> és aláírási kéréseket küldhet.<br><strong style="color:#4CAF50">Minden aláírás külön arc-scant igényel.</strong>',
+    'wc.proposal.reject':  'Elutasít',
+    'wc.proposal.approve': 'Jóváhagy',
+    'wc.sign.label':       'Üzenet aláírási kérés',
+    'wc.sign.desc':        'A dApp az alábbi üzenetet kéri aláírni:',
+    'wc.sign.reject':      'Elutasít',
+    'wc.sign.sign':        'Arc-scan + Aláír',
+
+    /* ── Network modal ─────────────────────────────────────────────── */
+    'net.title':          'Hálózat választás',
+    'net.testnet':        ' · Testnet',
+    'net.delete.title':   'Törlés',
+    'net.delete.confirm': 'Törölje: {name}?',
+    'net.add.btn':        '+ Hálózat hozzáadása',
+    'net.add.title':      'Egyéni hálózat hozzáadása',
+    'net.add.csp':        '⚠ Az egyéni hálózat RPC URL-je ismeretlen — a szerver CSP miatt kapcsolat problémák léphetnek fel.',
+    'net.add.f.name':     'Hálózat neve',
+    'net.add.f.chain':    'ChainID (szám)',
+    'net.add.f.rpc':      'RPC URL (https://...)',
+    'net.add.f.exp':      'Explorer TX URL (https://.../tx/)',
+    'net.add.f.sym':      'Natív token szimbóluma (pl. ETH)',
+    'net.add.cancel':     'Mégse',
+    'net.add.confirm':    'Hozzáadás',
+    'net.add.err.name':   'Hálózat neve kötelező.',
+    'net.add.err.chain':  'Érvénytelen ChainID.',
+    'net.add.err.rpc':    'RPC URL https://-vel kell kezdődjön.',
+    'net.add.err.exp':    'Explorer URL https://-vel kell kezdődjön.',
+
+    /* ── Recovery paper modal ──────────────────────────────────────── */
+    'paper.step.label':  '2 LÉPÉSES FOLYAMAT — 1. LÉPÉS',
+    'paper.title':       'BioWallet — Papír Recovery (Nyers adatok)',
+    'paper.desc':        'Írja le mindkét papírt, majd folytassa a <strong>recovery_tool.html ENCODE</strong> módban — ott adja meg P-jét, és kapja meg a <strong>Végleges Papír A-t</strong>.',
+    'paper.warn':        '⚠ Ez a NYERS Papír A — P-vel <strong>még nem véglegesítve</strong>! Ne tárolja véglegesen — a 2. lépés után semmisítse meg és csak a Végleges Papír A-t őrizze.',
+    'paper.a.title':     'NYERS PAPÍR A · (raw_A_j) — ideiglenes!',
+    'paper.b.title':     'PAPÍR B · Eltolások (r_j)',
+    'paper.step2.title': '2. LÉPÉS — Véglegesítés (offline)',
+    'paper.step2.steps': '<li>Nyissa meg a <strong>recovery_tool.html</strong> oldalt <strong>offline</strong> (internet lekapcsolva)</li><li>Válassza az <strong>ENCODE</strong> fület</li><li>Írja be a Nyers Papír A számait + a fejben tartott <strong>P-jét</strong></li><li>A kapott <strong>Végleges Papír A-t</strong> nyomtassa ki és tárolja a Papír B-vel KÜLÖN helyen</li><li>Semmisítse meg a Nyers Papír A-t</li>',
+    'paper.step2.note':  '✓ A BioWallet soha nem tudja meg a P értékét — csak Ön és a recovery_tool.html offline kombinálhatja.',
+    'paper.btn.print':   '🖨 Nyomtatás',
+    'paper.btn.close':   'Bezárás · memória törlése',
+
+    /* ── Post-import checklist ─────────────────────────────────────── */
+    'postimport.badge':   'IMPORT SIKERES',
+    'postimport.title':   'Következő lépések',
+    'postimport.desc':    'A wallet biometriailag titkosítva tárolódik. Javasolt sorrendben hajtsa végre:',
+    'postimport.steps': [
+      'Nyissa meg arc-scannel → ellenőrizze, hogy az ETH cím egyezik az eredeti tárcájával.',
+      'Generáljon papír biztonsági mentést (Papírképlet gomb → recovery_tool.html ENCODE offline).',
+      'Ha a papír backup kész és ellenőrzött: törölje az eredeti seed phrase papírját.',
+      'Deaktiválja / törölje az eredeti tárcát (MetaMask / Ledger).',
+    ],
+    'postimport.warning': '⚠ Az eredeti seed phrase-t csak akkor törölje, ha a papír biztonsági mentés elkészült és ellenőrzött. Visszaút nincs.',
+    'postimport.ok':      'Értettem — bezárás',
+
+    /* ── Switch wallet ─────────────────────────────────────────────── */
+    'switch.wallet.confirm': 'A jelenlegi wallet törlődik ebből a böngészőből.\nA .biowallet fájl megmarad — bármikor újra betölthető.\n\nFolytatja?',
+
+    /* ── Error messages ────────────────────────────────────────────── */
+    'err.unknown':       'Ismeretlen hiba.',
+    'err.bio.mismatch':  'Az arc nem egyezik. Tipp: a tárcát abban a böngészőben nyissa meg, amelyikben létrehozta (Firefox ↔ Chrome eltérő képfeldolgozás).',
+    'err.expired':       'A biometriai token lejárt — próbálja újra.',
+    'err.no.token':      'Nincs érvényes biometriai token — szkennelje be arcát.',
+    'err.vault.mismatch':'Rossz .biowallet fájl — ez nem az Ön tárcájához tartozik.',
+    'err.consumed':      'A token már felhasználásra került — próbálja újra.',
+    'err.mnemonic':      'Érvénytelen seed phrase — ellenőrizze a szavakat és a sorrendet (BIP39 szólista).',
+    'bf.remaining':      ' · még {n} próba a zárolásig',
+
+    /* ── Guide modal ───────────────────────────────────────────────── */
+    'guide.modal.title': 'BioWallet — Használati útmutató',
+  },
+
+  en: {
+    /* ── Status badge ──────────────────────────────────────────────── */
+    'status.locked':  'LOCKED',
+    'status.expired': 'EXPIRED',
+
+    /* ── Scan hint ─────────────────────────────────────────────────── */
+    'scan.hint':       'Look directly into the camera',
+    'scan.hint.active':'Look directly into the camera...',
+    'scan.hint.done':  'Ready — press a button',
+
+    /* ── TTL labels ────────────────────────────────────────────────── */
+    'ttl.open':  'OPEN',
+    'ttl.sign':  'SIGNING',
+
+    /* ── Buttons / help ────────────────────────────────────────────── */
+    'btn.help.title': 'User guide',
+    'btn.info.title': 'How does it work?',
+    'lang.switch':    'HU',
+
+    /* ── Setup panel ───────────────────────────────────────────────── */
+    'setup.info':       'A unique encryption key is derived from your face inside the vault. Face data never leaves the device.',
+    'btn.enroll':       'Create wallet',
+    'btn.enroll.sub':   '5 face scans → BIP39 seed generation',
+    'btn.import':       'Import wallet',
+    'btn.import.sub':   '24-word seed phrase → biometric encryption',
+    'btn.restore':      'Restore existing wallet',
+    'btn.restore.sub':  'Load .P.json file → open with face scan',
+
+    /* ── Import panel ──────────────────────────────────────────────── */
+    'import.info1': '<strong style="color:#ffa502;font-size:0.75rem;">When should I import?</strong><br>If you want to protect your existing MetaMask / Ledger wallet with face scan. After import, the seed phrase is biometrically encrypted — the original words can be deleted immediately.',
+    'import.info2': '<strong style="color:#4CAF50;">Why is this secure?</strong><br>The 24 words never leave the browser — verifiable:<br><span style="color:#6b6b80;">DevTools → Network → no request sent while typing.</span><br>Recommended: <strong>go offline</strong> before importing (PWA offline mode).',
+    'import.blur.hint': 'Text is blurred — click inside to read or write.',
+    'btn.import.enroll':     'Scan + import',
+    'btn.import.enroll.sub': '5 face scans → biometric encryption · words erased immediately',
+    'btn.import.cancel':     'Back',
+
+    /* ── Lock panel ────────────────────────────────────────────────── */
+    'lock.info':             'The private key is stored encrypted. Only your face can unlock it.',
+    'btn.scan':              'Unlock with face scan',
+    'btn.scan.sub':          'Token validity: 30 s',
+    'btn.switch.wallet':     'Switch wallet / import',
+    'btn.switch.wallet.sub': 'Create new wallet or import 24 words',
+
+    /* ── Vault panel ───────────────────────────────────────────────── */
+    "card.address.label": "Ethereum address (m/44'/60'/0'/0/0)",
+    'balance.label':      'Balance:',
+    'balance.refresh':    'Refresh balance',
+    'btn.copy':           '⎘ Copy address',
+    'btn.qr':             '▦ QR code',
+    'card.send.label':    'Send ETH',
+    'input.to.ph':        '0x… or name.eth',
+    'btn.sign':           'Send ETH',
+    'btn.sign.sub':       'Enter recipient + amount · face scan · auto-lock',
+    'btn.send.token':     'Send {sym}',
+    'card.tx.label':      'Transactions',
+    'btn.wc':             'dApp connection',
+    'btn.wc.sub':         'WalletConnect v2 — Uniswap, OpenSea etc.',
+    'btn.paper':          'Generate paper recovery',
+    'btn.paper.sub':      'Recovery code — the 24 words never appear digitally',
+    'btn.lock':           'Lock immediately',
+    'btn.lock.sub':       'Erase private key from memory',
+    'footer':             'BioWallet · DCC causal chain · BCH-255 · AES-256-GCM · secp256k1',
+
+    /* ── Dynamic messages ──────────────────────────────────────────── */
+    'msg.camera.error':       'Camera error: {err}',
+    'msg.vault.loaded':       'Vault loaded — face scan to unlock.',
+    'msg.vault.outdated':     'Outdated vault format — please re-enroll.',
+    'msg.vault.corrupted':    'Corrupted save — create a new wallet.',
+    'msg.first.launch':       'First launch — create a wallet.',
+    'msg.scanning.face':      'Keep your face in the frame...',
+    'msg.scan.progress':      'Scanning {n}/5...',
+    'msg.wallet.created':     'Wallet created! Save the downloaded files.',
+    'msg.wallet.imported':    'Wallet imported! Save the downloaded files.',
+    'msg.vault.open':         'Vault open.',
+    'msg.vault.locked':       'Vault locked. Private key erased.',
+    'msg.address.copied':     '✓ Copied!',
+    'msg.restore.ok':         'Wallet restored — face scan + .biowallet to unlock.',
+    'msg.restore.error':      'Restore error: {err}',
+    'msg.invalid.pjson.ver':  'Invalid .P.json file (wrong version).',
+    'msg.invalid.pjson.bch':  'Invalid .P.json file (missing BCH data).',
+    'msg.import.enter.phrase':'Enter your 24-word seed phrase.',
+    'msg.import.word.count':  '{n} words entered — exactly 24 words required.',
+    'msg.import.scanning':    'Keep your face in the frame — biometric enrollment...',
+    'msg.open.scanning':      'Face scan in progress...',
+    'msg.network.fee':        'Fetching network data...',
+    'msg.network.switch':     'Network switched: {name}',
+    'msg.signing':            'Face scan to sign (10 s window)...',
+    'msg.signing.dapp':       'Face scan for dApp TX signing...',
+    'msg.signing.msg':        'Face scan for message signing...',
+    'msg.broadcast':          'Broadcasting...',
+    'msg.tx.sent':            'Sent! TX: {hash}',
+    'msg.tx.cancelled':       'Send cancelled.',
+    'msg.paper.scanning':     'Face scan to generate paper recovery (5 s window)...',
+    'msg.paper.done':         'Paper recovery generated. Vault locked.',
+    'msg.new.wallet':         'Create a new wallet or import an existing one.',
+    'msg.wc.pairing':         'WC pairing in progress — waiting for dApp approval...',
+    'msg.wc.error':           'WC error: {err}',
+    'msg.wc.connected':       '{name} connected.',
+    'msg.wc.rejected':        'WalletConnect connection rejected.',
+    'msg.wc.disconnected':    'WalletConnect disconnected.',
+    'msg.wc.incoming':        'Incoming dApp request ({method}) — open the vault with face scan.',
+    'msg.wc.unsupported':     'dApp request rejected — {method} not supported.',
+    'msg.wc.chain.unknown':   'dApp chain switch rejected — chainId {chain} not recognised.',
+    'msg.wc.tx.rejected':     'dApp TX rejected.',
+    'msg.wc.tx.sent':         'dApp TX sent: {hash}',
+    'msg.wc.msg.signed':      'Message signed.',
+    'msg.wc.no.project.id':   'WalletConnect Project ID not set (src/core/wc2.js).',
+    'msg.cooldown':           'Brute-force protection — {sec}s',
+    'msg.cooldown.over':      'Lockout lifted — you may try again.',
+    'msg.invalid.address':    'Invalid Ethereum address.',
+    'msg.invalid.amount':     'Invalid amount (e.g. 0.001).',
+    'msg.invalid.amount2':    'Invalid amount (e.g. 1.5).',
+    'msg.insuf.balance':      'Insufficient ETH balance. {hint}',
+    'msg.insuf.token':        'Insufficient {sym} balance.',
+    'msg.gas.hint.token':     'Gas fee requires ~{eth} ETH.',
+    'msg.gas.hint.eth':       'Required: ~{eth} ETH (amount + gas).',
+    'msg.network.error':      'Network error: {err}',
+    'msg.ens.resolving':      'Resolving ENS…',
+    'msg.ens.not.found':      'ENS not found',
+    'msg.no.file':            'No file selected',
+    'msg.tx.no.blockscout':   'TX history not available on this network',
+    'msg.tx.empty':           'No transactions yet',
+    'msg.tx.unavailable':     'Unavailable',
+
+    /* ── Confirm modal ─────────────────────────────────────────────── */
+    'confirm.title':   'Confirm transaction',
+    'confirm.network': 'Network',
+    'confirm.to':      'Recipient',
+    'confirm.amount':  'Amount',
+    'confirm.gas':     'Max. gas',
+    'confirm.cancel':  'Cancel',
+    'confirm.send':    'Send',
+
+    /* ── WC modals ─────────────────────────────────────────────────── */
+    'wc.pair.title':       'Connect dApp',
+    'wc.pair.desc':        'Open the dApp (e.g. Uniswap), click the <strong style="color:#e8e8f0">WalletConnect</strong> button, copy the URI and paste it here.',
+    'wc.pair.cancel':      'Cancel',
+    'wc.pair.connect':     'Connect',
+    'wc.pair.invalid.uri': 'Invalid WC URI (must start with wc:...).',
+    'wc.proposal.label':   'dApp connection request',
+    'wc.proposal.unknown': 'Unknown dApp',
+    'wc.proposal.info':    'The dApp will read your Ethereum <strong style="color:#e8e8f0">address</strong> and may send signing requests.<br><strong style="color:#4CAF50">Every signature requires a separate face scan.</strong>',
+    'wc.proposal.reject':  'Reject',
+    'wc.proposal.approve': 'Approve',
+    'wc.sign.label':       'Message signing request',
+    'wc.sign.desc':        'The dApp requests you to sign the following message:',
+    'wc.sign.reject':      'Reject',
+    'wc.sign.sign':        'Face scan + Sign',
+
+    /* ── Network modal ─────────────────────────────────────────────── */
+    'net.title':          'Select network',
+    'net.testnet':        ' · Testnet',
+    'net.delete.title':   'Remove',
+    'net.delete.confirm': 'Remove: {name}?',
+    'net.add.btn':        '+ Add network',
+    'net.add.title':      'Add custom network',
+    'net.add.csp':        '⚠ The custom network RPC URL is unknown — CSP restrictions may cause connection issues.',
+    'net.add.f.name':     'Network name',
+    'net.add.f.chain':    'ChainID (number)',
+    'net.add.f.rpc':      'RPC URL (https://...)',
+    'net.add.f.exp':      'Explorer TX URL (https://.../tx/)',
+    'net.add.f.sym':      'Native token symbol (e.g. ETH)',
+    'net.add.cancel':     'Cancel',
+    'net.add.confirm':    'Add',
+    'net.add.err.name':   'Network name is required.',
+    'net.add.err.chain':  'Invalid ChainID.',
+    'net.add.err.rpc':    'RPC URL must start with https://.',
+    'net.add.err.exp':    'Explorer URL must start with https://.',
+
+    /* ── Recovery paper modal ──────────────────────────────────────── */
+    'paper.step.label':  '2-STEP PROCESS — STEP 1',
+    'paper.title':       'BioWallet — Paper Recovery (Raw data)',
+    'paper.desc':        'Write down both papers, then continue in <strong>recovery_tool.html ENCODE</strong> mode — enter your P value there to get the <strong>Final Paper A</strong>.',
+    'paper.warn':        '⚠ This is the RAW Paper A — <strong>not yet finalised</strong> with P! Do not store permanently — destroy it after step 2 and keep only Final Paper A.',
+    'paper.a.title':     'RAW PAPER A · (raw_A_j) — temporary!',
+    'paper.b.title':     'PAPER B · Offsets (r_j)',
+    'paper.step2.title': 'STEP 2 — Finalise (offline)',
+    'paper.step2.steps': '<li>Open <strong>recovery_tool.html</strong> <strong>offline</strong> (internet disconnected)</li><li>Select the <strong>ENCODE</strong> tab</li><li>Enter the Raw Paper A numbers + your memorised <strong>P value</strong></li><li>Print the resulting <strong>Final Paper A</strong> and store it separately from Paper B</li><li>Destroy the Raw Paper A</li>',
+    'paper.step2.note':  '✓ BioWallet never learns your P value — only you and the offline recovery_tool.html can combine them.',
+    'paper.btn.print':   '🖨 Print',
+    'paper.btn.close':   'Close · erase from memory',
+
+    /* ── Post-import checklist ─────────────────────────────────────── */
+    'postimport.badge':   'IMPORT SUCCESSFUL',
+    'postimport.title':   'Next steps',
+    'postimport.desc':    'Your wallet is biometrically encrypted. Complete these steps in order:',
+    'postimport.steps': [
+      'Open with face scan → verify the ETH address matches your original wallet.',
+      'Generate paper recovery backup (Paper recovery button → recovery_tool.html ENCODE offline).',
+      'Once the paper backup is ready and verified: destroy the original seed phrase paper.',
+      'Deactivate / delete the original wallet (MetaMask / Ledger).',
+    ],
+    'postimport.warning': '⚠ Delete the original seed phrase only after the paper backup is complete and verified. There is no going back.',
+    'postimport.ok':      'Understood — close',
+
+    /* ── Switch wallet ─────────────────────────────────────────────── */
+    'switch.wallet.confirm': 'The current wallet will be removed from this browser.\nThe .biowallet file remains — it can be reloaded at any time.\n\nContinue?',
+
+    /* ── Error messages ────────────────────────────────────────────── */
+    'err.unknown':       'Unknown error.',
+    'err.bio.mismatch':  'Face does not match. Tip: open the wallet in the same browser used for enrollment (Firefox ↔ Chrome use different image processing).',
+    'err.expired':       'Biometric token expired — please try again.',
+    'err.no.token':      'No valid biometric token — scan your face.',
+    'err.vault.mismatch':'Wrong .biowallet file — this does not belong to your wallet.',
+    'err.consumed':      'Token already consumed — please try again.',
+    'err.mnemonic':      'Invalid seed phrase — check the words and their order (BIP39 word list).',
+    'bf.remaining':      ' · {n} attempts left before lockout',
+
+    /* ── Guide modal ───────────────────────────────────────────────── */
+    'guide.modal.title': 'BioWallet — User guide',
+  },
+};
+
+/* ── Info tooltip content ─────────────────────────────────────────────── */
+
+const INFO_CONTENT = {
+  hu: {
+    enroll: {
+      title: 'Wallet létrehozása',
+      body: `<p>A BioWallet <strong>nem jelszót, hanem az arcodat</strong> használja kulcsként.</p>
+<ol><li>Kattints a gombra — a kamera bekapcsol.</li><li>A rendszer <strong>5 arc-scant</strong> kér egymás után.</li><li>Az arcmintából egyedi titkosítókulcs keletkezik.</li><li>Ezzel a kulccsal titkosít egy <strong>BIP39 seed phrase-t</strong> (24 szó).</li><li>A seed phrase-t soha nem látod — az arc az egyetlen hozzáférés.</li></ol>
+<p style="color:#ffa502;font-size:0.8rem;">Mentsd el a papírképletet (Papírképlet gomb) — ez az egyetlen mentési lehetőség!</p>`,
+    },
+    import: {
+      title: 'Wallet importálása',
+      body: `<p>Ha már van meglévő Ethereum tárcád (MetaMask, Ledger, Trezor stb.), itt áthozhatod BioWallet-be.</p>
+<ol><li>Add meg a <strong>24 szavas seed phrase-t</strong> a mezőbe.</li><li>Kattints a Regisztráció gombra — a kamera bekapcsol.</li><li>5 arc-scan után a seed phrase arc-biometriával titkosítva tárolódik.</li><li>A seed phrase ezután csak az arcoddal nyitható meg.</li></ol>
+<p style="color:#ffa502;font-size:0.8rem;">Importálás után töröld a seed phrase-t minden más helyről!</p>`,
+    },
+    restore: {
+      title: 'Meglévő wallet visszaállítása',
+      body: `<p>Ha korábban már volt BioWallet tárcád és elmentetted a <code>.P.json</code> fájlt, itt töltsd vissza.</p>
+<ol><li>Kattints a gombra és válaszd ki a <code>.P.json</code> fájlt.</li><li>A fájl betöltődik — de <strong>zárolva marad</strong>.</li><li>Az arc-scannel nyitható meg, ugyanazzal az arccal, amellyel létrehoztad.</li></ol>
+<p style="color:#6b6b80;font-size:0.8rem;">Más eszközre való átvitelhez: mentsd a .P.json fájlt, majd töltsd vissza az új eszközön.</p>`,
+    },
+    scan: {
+      title: 'Megnyitás arc-scannel',
+      body: `<p>A privát kulcsot csak az <strong>arcoddal</strong> tudod előhívni.</p>
+<ol><li>Kattints a gombra — a kamera bekapcsol.</li><li>Tartsd az arcodat a kamera elé, jól megvilágított helyen.</li><li>A rendszer összehasonlítja a regisztrációkori arcmintával.</li><li>Ha egyeznek: a vault <strong>30 másodpercre</strong> kinyílik.</li><li>Ez idő alatt végezhetsz egy műveletet (küldés, aláírás, dApp kérés).</li><li>Után a vault automatikusan zárol.</li></ol>`,
+    },
+    send: {
+      title: 'ETH / Token küldése',
+      body: `<p>ETH-t vagy ERC-20 tokent küldhetsz bármely Ethereum-címre.</p>
+<ol><li>Válassz tokent (ETH, USDC, USDT, WETH) a pill gombokkal.</li><li>Add meg a <strong>fogadó címet</strong> (0x… vagy ENS: name.eth).</li><li>Add meg az <strong>összeget</strong>.</li><li>Kattints a Küldés gombra → arc-scan → megerősítés.</li><li>A tranzakció broadcastolódik, TX hash megjelenik.</li></ol>
+<p style="color:#6b6b80;font-size:0.8rem;">Minden tranzakció után a vault automatikusan zárol (DCC auto-lock).</p>`,
+    },
+    wc: {
+      title: 'dApp kapcsolat (WalletConnect)',
+      body: `<p>WalletConnect lehetővé teszi, hogy a BioWallettel csatlakozz bármely DeFi alkalmazáshoz.</p>
+<ol><li>Nyisd meg a dApp-ot <strong>egy másik böngészőfülön</strong>.</li><li>Kattints: <strong>Connect Wallet → WalletConnect → Copy URI</strong>.</li><li>Másold ki az URI-t (wc:… kezdetű).</li><li>Kattints ide, illeszd be, erősítsd meg.</li><li>Minden tranzakció jóváhagyása <strong>ebben a BioWallet fülben</strong> történik arc-scannel.</li></ol>
+<p style="color:#6b6b80;font-size:0.8rem;">Támogatott: eth_sendTransaction, personal_sign, wallet_switchEthereumChain.</p>`,
+    },
+    paper: {
+      title: 'Papírképlet készítése',
+      body: `<p>A 24 szavas seed phrase-t a BioWallet <strong>soha nem mutatja meg digitálisan</strong>.</p>
+<p>Ehelyett egy <strong>papírra nyomtatható kódot</strong> generál, amelyből offline visszaállítható a tárca — de csak akkor, ha tudod a személyes számodat (P).</p>
+<ol><li>Kattints a gombra → arc-scan → a kódok megjelennek.</li><li>Nyomtasd ki vagy írd le a kódokat biztonságos helyre.</li><li>A P számot <strong>soha ne tárolj digitálisan</strong>.</li></ol>
+<p style="color:#ffa502;font-size:0.8rem;">Ez az egyetlen mentési lehetőség! Ha elvész a tárca ÉS a papírképlet, a seed visszaszerezhetetlen.</p>`,
+    },
+    lock: {
+      title: 'Azonnali zárolás',
+      body: `<p>A privát kulcsot <strong>azonnal törli</strong> a böngésző memóriájából.</p>
+<ul><li>Az egyenleg és az Ethereum-cím eltűnik a képernyőről.</li><li>Újbóli hozzáféréshez arc-scan szükséges.</li><li>A titkosított vault a localStorage-ban marad — csak az arc nyitja meg.</li></ul>
+<p style="color:#6b6b80;font-size:0.8rem;">Ez automatikusan is megtörténik minden tranzakció és aláírás után (DCC auto-lock).</p>`,
+    },
+  },
+
+  en: {
+    enroll: {
+      title: 'Create wallet',
+      body: `<p>BioWallet uses <strong>your face — not a password</strong> — as the key.</p>
+<ol><li>Click the button — the camera activates.</li><li>The system takes <strong>5 face scans</strong> in sequence.</li><li>A unique encryption key is derived from your face.</li><li>This key encrypts a <strong>BIP39 seed phrase</strong> (24 words).</li><li>You never see the seed phrase — your face is the only access.</li></ol>
+<p style="color:#ffa502;font-size:0.8rem;">Save the paper recovery (Paper recovery button) — it is the only backup method!</p>`,
+    },
+    import: {
+      title: 'Import wallet',
+      body: `<p>If you already have an Ethereum wallet (MetaMask, Ledger, Trezor etc.), you can bring it into BioWallet.</p>
+<ol><li>Enter your <strong>24-word seed phrase</strong> in the text area.</li><li>Click the Enroll button — the camera activates.</li><li>After 5 face scans, the seed phrase is biometrically encrypted.</li><li>The seed phrase can only be unlocked with your face from now on.</li></ol>
+<p style="color:#ffa502;font-size:0.8rem;">After import, delete the seed phrase from everywhere else!</p>`,
+    },
+    restore: {
+      title: 'Restore existing wallet',
+      body: `<p>If you previously had a BioWallet and saved the <code>.P.json</code> file, load it here.</p>
+<ol><li>Click the button and select the <code>.P.json</code> file.</li><li>The file loads — but the vault stays <strong>locked</strong>.</li><li>Open it with the face scan used during enrollment.</li></ol>
+<p style="color:#6b6b80;font-size:0.8rem;">To transfer to another device: copy the .P.json file, then load it on the new device.</p>`,
+    },
+    scan: {
+      title: 'Unlock with face scan',
+      body: `<p>The private key can only be retrieved with <strong>your face</strong>.</p>
+<ol><li>Click the button — the camera activates.</li><li>Hold your face in front of the camera in good lighting.</li><li>The system compares against the enrollment scan.</li><li>On match: the vault opens for <strong>30 seconds</strong>.</li><li>During this window you can perform one operation.</li><li>The vault auto-locks afterwards.</li></ol>`,
+    },
+    send: {
+      title: 'Send ETH / Token',
+      body: `<p>Send ETH or any ERC-20 token to any Ethereum address.</p>
+<ol><li>Select the token (ETH, USDC, USDT, WETH) with the pill buttons.</li><li>Enter the <strong>recipient address</strong> (0x… or ENS: name.eth).</li><li>Enter the <strong>amount</strong>.</li><li>Click Send → face scan → confirm.</li><li>The transaction is broadcast and the TX hash appears.</li></ol>
+<p style="color:#6b6b80;font-size:0.8rem;">The vault auto-locks after every transaction (DCC auto-lock).</p>`,
+    },
+    wc: {
+      title: 'dApp connection (WalletConnect)',
+      body: `<p>WalletConnect lets you connect BioWallet to any DeFi application.</p>
+<ol><li>Open the dApp <strong>in another browser tab</strong>.</li><li>Click: <strong>Connect Wallet → WalletConnect → Copy URI</strong>.</li><li>Copy the URI (starts with wc:…).</li><li>Click here, paste it, confirm.</li><li>All transaction approvals happen <strong>in this BioWallet tab</strong> with face scan.</li></ol>
+<p style="color:#6b6b80;font-size:0.8rem;">Supported: eth_sendTransaction, personal_sign, wallet_switchEthereumChain.</p>`,
+    },
+    paper: {
+      title: 'Generate paper recovery',
+      body: `<p>BioWallet <strong>never displays the 24-word seed phrase digitally</strong>.</p>
+<p>Instead it generates a <strong>printable recovery code</strong> that reconstructs the wallet offline — but only if you know your personal number (P).</p>
+<ol><li>Click the button → face scan → codes appear.</li><li>Print or write the codes in a safe place.</li><li><strong>Never store the P value digitally.</strong></li></ol>
+<p style="color:#ffa502;font-size:0.8rem;">This is the only backup method! If both the vault AND the paper recovery are lost, the seed is unrecoverable.</p>`,
+    },
+    lock: {
+      title: 'Lock immediately',
+      body: `<p>The private key is <strong>immediately erased</strong> from browser memory.</p>
+<ul><li>The balance and Ethereum address disappear from the screen.</li><li>Face scan is required for access again.</li><li>The encrypted vault remains in localStorage — only the face unlocks it.</li></ul>
+<p style="color:#6b6b80;font-size:0.8rem;">This also happens automatically after every transaction and signing (DCC auto-lock guarantee).</p>`,
+    },
+  },
+};
+
+/* ── Guide modal HTML ─────────────────────────────────────────────────── */
+
+const GUIDE_HTML = {
+  hu: `
+    <div class="guide-section">
+      <div class="guide-h2">Mi a BioWallet?</div>
+      <p class="guide-p">A BioWallet egy biometrikailag védett Ethereum-tárca. A privát kulcsát <strong>nem jelszó, hanem az Ön arca</strong> védi — a titkosítókulcs kizárólag az Ön arcából keletkezik, és soha nem tárolódik lemezen.</p>
+      <p class="guide-p">Technológia: BCH(255,55,25) hibajavító kód + DCC kauzális lánc + AES-256-GCM + Web Worker kripto-sandbox. Formálisan bizonyított: Z3 SMT solver, <strong>51/51 invariáns PASS</strong>.</p>
+    </div>
+    <hr class="guide-sep">
+    <div class="guide-section">
+      <div class="guide-h2">1. Wallet létrehozása</div>
+      <ol class="guide-ol"><li>Kattintson a <strong>Wallet létrehozása</strong> gombra.</li><li>Nézzen egyenesen a kamerába, tartsa stabilan a fejét.</li><li>A rendszer 5 arc-scant végez (~10 másodperc).</li><li>A böngésző automatikusan letölt két fájlt:</li></ol>
+      <table class="guide-table" style="margin-top:0.6rem"><thead><tr><th>Fájl</th><th>Tartalom</th><th>Tárolás</th></tr></thead><tbody>
+        <tr><td><code style="font-size:0.75rem">*.biowallet</code></td><td>Titkosított kulcstartó (AES-256-GCM)</td><td>Kötelező</td></tr>
+        <tr><td><code style="font-size:0.75rem">*.P.json</code></td><td>Biometriai segédadat — BCH szindróma, NEM arc-kép</td><td>Kötelező</td></tr>
+      </tbody></table>
+      <div class="guide-note">⚠ Mentse mindkét fájlt biztonságos helyre. Ha elveszíti őket és nincs seed phrase backup, a wallet visszaállíthatatlan.</div>
+    </div>
+    <hr class="guide-sep">
+    <div class="guide-section">
+      <div class="guide-h2">2. Vault megnyitása</div>
+      <ol class="guide-ol"><li>Kattintson a <strong>Megnyitás arc-scannel</strong> gombra.</li><li>Válassza ki a <code style="font-size:0.75rem">*.biowallet</code> fájlt.</li><li>Nézzen a kamerába — 3 scan (~5 másodperc).</li><li>Sikeres egyezés esetén <strong>30 másodperces időablak</strong> nyílik.</li></ol>
+      <div class="guide-ok">✓ Az időablakot a TTL-csíkok mutatják valós időben.</div>
+    </div>
+    <hr class="guide-sep">
+    <div class="guide-section">
+      <div class="guide-h2">3. ETH küldése</div>
+      <ol class="guide-ol"><li>Válassza ki a hálózatot (<strong>Sepolia</strong> = testnet, <strong>Mainnet</strong> = éles).</li><li>Adja meg a fogadó Ethereum-cím (0x… vagy ENS).</li><li>Adja meg az összeget ETH-ben.</li><li>Kattintson az <strong>ETH küldése</strong> gombra — díjbecslés + egyenlegellenőrzés.</li><li>Egy <strong>megerősítő ablak</strong> jelenik meg: ellenőrizze, majd kattintson a <strong>Küldés</strong> gombra.</li><li>Végezzen el egy újabb arc-scant — 10 másodperces aláírási ablak.</li><li>A vault automatikusan <strong>zárolódik</strong>.</li></ol>
+      <div class="guide-note">⚠ Sepolia = ingyenes tesztnet. Mainnet használatához valódi ETH szükséges.</div>
+    </div>
+    <hr class="guide-sep">
+    <div class="guide-section">
+      <div class="guide-h2">4. Biztonsági útmutató</div>
+      <table class="guide-table"><thead><tr><th>Adat</th><th>Hol tárolja?</th><th>Nyilvános?</th></tr></thead><tbody>
+        <tr><td><code style="font-size:0.75rem">*.biowallet</code></td><td>Pendrive / titkosított felhő</td><td>NEM</td></tr>
+        <tr><td><code style="font-size:0.75rem">*.P.json</code></td><td>Pendrive / titkosított felhő</td><td>NEM</td></tr>
+        <tr><td>Seed phrase (24 szó)</td><td>Papír, páncélszekrény</td><td>SOHA</td></tr>
+        <tr><td>Ethereum cím</td><td>Bárhol</td><td>Igen</td></tr>
+      </tbody></table>
+    </div>
+    <hr class="guide-sep">
+    <div class="guide-section">
+      <div class="guide-h2">5. Hibaelhárítás</div>
+      <table class="guide-table"><thead><tr><th>Hibaüzenet</th><th>Teendő</th></tr></thead><tbody>
+        <tr><td><span class="guide-badge badge-err">FE_DECODE_FAIL</span></td><td>Jobb megvilágítás, egyenes tartás, próbálja újra</td></tr>
+        <tr><td><span class="guide-badge badge-err">EXPIRED</span></td><td>Az időablak lejárt — indítson új arc-scant</td></tr>
+        <tr><td><span class="guide-badge badge-err">BIO_MISMATCH</span></td><td>Az arc nem egyezik — különböző kulcs keletkezett</td></tr>
+        <tr><td><span class="guide-badge badge-err">Kamera hiba</span></td><td>HTTPS szükséges; helyi tesztnél: <code style="font-size:0.72rem">http://localhost:3333</code></td></tr>
+      </tbody></table>
+      <div class="guide-ok" style="margin-top:0.7rem">✓ Tipp: egyenes tartás, közvetlen fényforrás szemből, kerülje az erős háttérvilágítást.</div>
+    </div>
+    <hr class="guide-sep">
+    <p style="font-size:0.68rem;color:var(--muted);text-align:center;line-height:1.6">MetaSpace.Bio Logic Engine | metaspace.bio</p>`,
+
+  en: `
+    <div class="guide-section">
+      <div class="guide-h2">What is BioWallet?</div>
+      <p class="guide-p">BioWallet is a biometrically protected Ethereum wallet. Your private key is protected <strong>not by a password, but by your face</strong> — the encryption key is derived solely from your face scan and is never stored on disk.</p>
+      <p class="guide-p">Technology: BCH(255,55,25) error-correcting code + DCC causal chain + AES-256-GCM + Web Worker crypto sandbox. Formally verified: Z3 SMT solver, <strong>51/51 invariants PASS</strong>.</p>
+    </div>
+    <hr class="guide-sep">
+    <div class="guide-section">
+      <div class="guide-h2">1. Create wallet</div>
+      <ol class="guide-ol"><li>Click the <strong>Create wallet</strong> button.</li><li>Look straight into the camera, hold your head still.</li><li>The system performs 5 face scans (~10 seconds).</li><li>The browser automatically downloads two files:</li></ol>
+      <table class="guide-table" style="margin-top:0.6rem"><thead><tr><th>File</th><th>Contents</th><th>Storage</th></tr></thead><tbody>
+        <tr><td><code style="font-size:0.75rem">*.biowallet</code></td><td>Encrypted key store (AES-256-GCM)</td><td>Required</td></tr>
+        <tr><td><code style="font-size:0.75rem">*.P.json</code></td><td>Biometric helper data — BCH syndrome, NOT a face image</td><td>Required</td></tr>
+      </tbody></table>
+      <div class="guide-note">⚠ Save both files to a secure location. If lost without a seed phrase backup, the wallet is unrecoverable.</div>
+    </div>
+    <hr class="guide-sep">
+    <div class="guide-section">
+      <div class="guide-h2">2. Open vault</div>
+      <ol class="guide-ol"><li>Click the <strong>Unlock with face scan</strong> button.</li><li>Select the <code style="font-size:0.75rem">*.biowallet</code> file.</li><li>Look into the camera — 3 scans (~5 seconds).</li><li>On success, a <strong>30-second window</strong> opens.</li></ol>
+      <div class="guide-ok">✓ The TTL bars show the remaining time in real time.</div>
+    </div>
+    <hr class="guide-sep">
+    <div class="guide-section">
+      <div class="guide-h2">3. Send ETH</div>
+      <ol class="guide-ol"><li>Select the network (<strong>Sepolia</strong> = testnet, <strong>Mainnet</strong> = live).</li><li>Enter the recipient Ethereum address (0x… or ENS).</li><li>Enter the amount in ETH.</li><li>Click <strong>Send ETH</strong> — fee estimation + balance check.</li><li>A <strong>confirmation dialog</strong> appears — verify, then click <strong>Send</strong>.</li><li>Perform another face scan — 10-second signing window.</li><li>The vault auto-<strong>locks</strong>.</li></ol>
+      <div class="guide-note">⚠ Sepolia = free testnet. Real ETH is required for Mainnet.</div>
+    </div>
+    <hr class="guide-sep">
+    <div class="guide-section">
+      <div class="guide-h2">4. Security guide</div>
+      <table class="guide-table"><thead><tr><th>Data</th><th>Where to store</th><th>Public?</th></tr></thead><tbody>
+        <tr><td><code style="font-size:0.75rem">*.biowallet</code></td><td>USB drive / encrypted cloud</td><td>NO</td></tr>
+        <tr><td><code style="font-size:0.75rem">*.P.json</code></td><td>USB drive / encrypted cloud</td><td>NO</td></tr>
+        <tr><td>Seed phrase (24 words)</td><td>Paper, fireproof safe</td><td>NEVER</td></tr>
+        <tr><td>Ethereum address</td><td>Anywhere</td><td>Yes</td></tr>
+      </tbody></table>
+    </div>
+    <hr class="guide-sep">
+    <div class="guide-section">
+      <div class="guide-h2">5. Troubleshooting</div>
+      <table class="guide-table"><thead><tr><th>Error</th><th>Action</th></tr></thead><tbody>
+        <tr><td><span class="guide-badge badge-err">FE_DECODE_FAIL</span></td><td>Better lighting, hold head straight, try again</td></tr>
+        <tr><td><span class="guide-badge badge-err">EXPIRED</span></td><td>Window expired — start a new face scan</td></tr>
+        <tr><td><span class="guide-badge badge-err">BIO_MISMATCH</span></td><td>Face does not match — different key generated</td></tr>
+        <tr><td><span class="guide-badge badge-err">Camera error</span></td><td>HTTPS required; for local testing: <code style="font-size:0.72rem">http://localhost:3333</code></td></tr>
+      </tbody></table>
+      <div class="guide-ok" style="margin-top:0.7rem">✓ Tip: hold head straight, direct front lighting, avoid strong backlight.</div>
+    </div>
+    <hr class="guide-sep">
+    <p style="font-size:0.68rem;color:var(--muted);text-align:center;line-height:1.6">MetaSpace.Bio Logic Engine | metaspace.bio</p>`,
+};
+
+/* ── Public API ───────────────────────────────────────────────────────── */
+
+let _lang = localStorage.getItem('bw_lang') ?? 'hu';
+
+export function getLang()       { return _lang; }
+
+export function setLang(lang) {
+  _lang = lang;
+  localStorage.setItem('bw_lang', lang);
+  applyI18n();
+}
+
+export function t(key, vars = {}) {
+  const str = (STRINGS[_lang] ?? STRINGS.hu)[key] ?? key;
+  if (typeof str !== 'string') return key;
+  return Object.entries(vars).reduce(
+    (s, [k, v]) => s.replaceAll(`{${k}}`, String(v)), str
+  );
+}
+
+export function tArr(key) {
+  return ((STRINGS[_lang] ?? STRINGS.hu)[key]) ?? [];
+}
+
+export function getInfoContent(key) {
+  return (INFO_CONTENT[_lang] ?? INFO_CONTENT.hu)[key];
+}
+
+export function getGuideHTML() {
+  return GUIDE_HTML[_lang] ?? GUIDE_HTML.hu;
+}
+
+export function applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => {
+    el.innerHTML = t(el.dataset.i18nHtml);
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    el.title = t(el.dataset.i18nTitle);
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+    el.placeholder = t(el.dataset.i18nPh);
+  });
+  document.documentElement.lang = _lang;
+}
