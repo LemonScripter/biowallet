@@ -117,7 +117,74 @@ let vaultReady     = false;   // worker-ben van-e aktív vault
   }
 
   startTimer();
+  showVersionHash(); // non-blocking
 })();
+
+// ── Verzió hash (Phase 9.1e) — verifiable build fingerprint ──────────────
+async function showVersionHash() {
+  const FILES = [
+    ['/app/index.html',           'index.html'],
+    ['/app/app.js',               'app.js'],
+    ['/app/vault_worker.js',      'vault_worker.js'],
+    ['/core/vault.js',            'vault.js'],
+    ['/core/recovery_formula.js', 'recovery_formula.js'],
+  ];
+  try {
+    const results = await Promise.all(FILES.map(async ([url, name]) => {
+      const buf  = await fetch(url).then(r => r.arrayBuffer());
+      const hash = await crypto.subtle.digest('SHA-256', buf);
+      const hex  = Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, '0')).join('');
+      return { name, hex };
+    }));
+
+    const combined = await crypto.subtle.digest('SHA-256',
+      new TextEncoder().encode(results.map(r => r.hex).join('')));
+    const fp = Array.from(new Uint8Array(combined), b => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
+
+    const footer = document.getElementById('app-footer');
+    if (!footer) return;
+
+    const el = document.createElement('div');
+    el.style.cssText = [
+      'margin-top:0.35rem',
+      'font-family:"SF Mono","Fira Code",monospace',
+      'font-size:0.6rem',
+      'color:#3a3a55',
+      'letter-spacing:0.04em',
+      'cursor:pointer',
+      'user-select:none',
+    ].join(';');
+    el.innerHTML = `Build <span id="fp-value" style="color:#52527a">${fp}</span>`;
+    el.title = 'Kattints a részletekért · SHA-256 ellenőrzés';
+
+    el.addEventListener('click', () => {
+      const existing = document.getElementById('hash-detail-box');
+      if (existing) { existing.remove(); return; }
+
+      const box = document.createElement('div');
+      box.id = 'hash-detail-box';
+      box.style.cssText = [
+        'position:fixed', 'bottom:3.5rem', 'left:50%', 'transform:translateX(-50%)',
+        'background:#16161a', 'border:1px solid #2a2a35', 'border-radius:12px',
+        'padding:1rem 1.2rem', 'font-family:monospace', 'font-size:0.68rem',
+        'color:#e8e8f0', 'white-space:pre', 'z-index:999', 'line-height:1.8',
+        'box-shadow:0 8px 32px rgba(0,0,0,0.7)', 'max-width:calc(100vw - 2rem)',
+        'overflow-x:auto',
+      ].join(';');
+
+      const lines = results.map(r =>
+        `${r.name.padEnd(22)} ${r.hex.slice(0, 16)}…`
+      ).join('\n');
+      box.textContent =
+        `SHA-256 Build Fingerprint\n${'─'.repeat(40)}\n${lines}\n\nCombined: ${fp}`;
+
+      document.body.appendChild(box);
+      setTimeout(() => box.remove(), 10000);
+    });
+
+    footer.appendChild(el);
+  } catch { /* offline vagy fetch hiba — hash nem jelenik meg */ }
+}
 
 // ── Enrollment ────────────────────────────────────────────────────────────
 btnEnroll.addEventListener('click', async () => {
