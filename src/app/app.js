@@ -16,7 +16,7 @@ import {
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
-const worker  = new Worker('./vault_worker.js?v=17', { type: 'module' });
+const worker  = new Worker('./vault_worker.js?v=18', { type: 'module' });
 let _nextId   = 0;
 const _pending = new Map();
 
@@ -89,6 +89,7 @@ let timerID        = null;
 let currentNetwork = NETWORKS.sepolia;
 let vaultReady     = false;   // worker-ben van-e aktív vault
 let ensResolved    = null;    // ENS → ETH cím (ha feloldva)
+let inCooldown     = false;   // brute-force védelem aktív
 
 // ── Init ──────────────────────────────────────────────────────────────────
 (async () => {
@@ -128,6 +129,39 @@ let ensResolved    = null;    // ENS → ETH cím (ha feloldva)
   startTimer();
   showVersionHash(); // non-blocking
 })();
+
+// ── Brute-force védelem (C5) ──────────────────────────────────────────────
+const BF_AFTER = 3;    // mismatch darabszám, ami után cooldown indul
+const BF_BASE  = 30;   // alap cooldown másodpercben
+
+function _bfGet() {
+  try { return JSON.parse(localStorage.getItem('biowallet_bf') ?? 'null') ?? { n: 0, until: 0 }; }
+  catch { return { n: 0, until: 0 }; }
+}
+
+function bioFail() {
+  const s = _bfGet();
+  s.n++;
+  if (s.n % BF_AFTER === 0) {
+    const mult = Math.min(2 ** (s.n / BF_AFTER - 1), 8); // 30s → 60s → 120s → 240s (max)
+    s.until = Date.now() + BF_BASE * mult * 1000;
+  }
+  localStorage.setItem('biowallet_bf', JSON.stringify(s));
+}
+
+function bioSuccess() {
+  localStorage.removeItem('biowallet_bf');
+}
+
+function cooldownMs() {
+  return Math.max(0, _bfGet().until - Date.now());
+}
+
+function bioFailHint() {
+  const s = _bfGet();
+  const left = BF_AFTER - (s.n % BF_AFTER);
+  return s.n > 0 && left < BF_AFTER ? ` · még ${left} próba a zárolásig` : '';
+}
 
 // ── Verzió hash (Phase 9.1e) — verifiable build fingerprint ──────────────
 async function showVersionHash() {
@@ -537,6 +571,7 @@ function showPostImportChecklist() {
 
 // ── Megnyitás ─────────────────────────────────────────────────────────────
 btnScan.addEventListener('click', async () => {
+  if (cooldownMs() > 0) return;
   btnScan.disabled = true;
   setScanning(true);
   setMsg('Arc-scan folyamatban...', '');
@@ -547,6 +582,7 @@ btnScan.addEventListener('click', async () => {
     const embedding = await captureEmbedding(video);
 
     await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
+    bioSuccess();
 
     const encBuf = await vaultFile.arrayBuffer();
     const { address } = await callWorker('OPEN', { encryptedVault: encBuf, P: meta.P }, [encBuf]);
@@ -558,7 +594,8 @@ btnScan.addEventListener('click', async () => {
     showPanel('vault');
   } catch (e) {
     setScanning(false);
-    setMsg(friendlyError(e.message), 'error');
+    if (e.message.includes('BIO_MISMATCH')) bioFail();
+    setMsg(friendlyError(e.message) + bioFailHint(), 'error');
     btnScan.disabled = false;
   }
 });
@@ -627,6 +664,7 @@ btnSign.addEventListener('click', async () => {
   }
 
   // Arc-scan + aláírás (Worker)
+  if (cooldownMs() > 0) return;
   btnSign.disabled = true;
   setScanning(true);
   setMsg('Arc-scan az aláíráshoz (10 mp ablak)...', '');
@@ -635,6 +673,7 @@ btnSign.addEventListener('click', async () => {
     const meta      = JSON.parse(localStorage.getItem('biowallet_meta'));
     const embedding = await captureEmbedding(video);
     await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
+    bioSuccess();
 
     const { signed } = await callWorker('SIGN', {
       tx: {
@@ -670,13 +709,15 @@ btnSign.addEventListener('click', async () => {
 
   } catch (e) {
     setScanning(false);
-    setMsg(e.message, 'error');
+    if (e.message.includes('BIO_MISMATCH')) bioFail();
+    setMsg(friendlyError(e.message) + bioFailHint(), 'error');
     btnSign.disabled = false;
   }
 });
 
 // ── Papírképlet (Phase 9.1b — P soha nem kerül az app-ba) ────────────────
 btnPaper.addEventListener('click', async () => {
+  if (cooldownMs() > 0) return;
   setScanning(true);
   setMsg('Arc-scan a papírképlet generálásához (5 mp ablak)...', '');
 
@@ -684,6 +725,7 @@ btnPaper.addEventListener('click', async () => {
     const meta      = JSON.parse(localStorage.getItem('biowallet_meta'));
     const embedding = await captureEmbedding(video);
     await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
+    bioSuccess();
 
     const { rawA, r } = await callWorker('RECOVERY_FORMULA', {});
 
@@ -693,7 +735,8 @@ btnPaper.addEventListener('click', async () => {
     showPanel('lock');
   } catch (e) {
     setScanning(false);
-    setMsg(friendlyError(e.message), 'error');
+    if (e.message.includes('BIO_MISMATCH')) bioFail();
+    setMsg(friendlyError(e.message) + bioFailHint(), 'error');
   }
 });
 
@@ -883,6 +926,21 @@ async function fetchTokenBalances(address) {
 function startTimer() {
   clearInterval(timerID);
   timerID = setInterval(async () => {
+    // Cooldown ellenőrzés — vaultReady-től független
+    const cd = cooldownMs();
+    if (cd > 0) {
+      inCooldown = true;
+      btnScan.disabled = true;
+      setMsg(`Brute-force védelem — ${Math.ceil(cd / 1000)}s`, 'error');
+      return;
+    }
+    if (inCooldown) {
+      inCooldown = false;
+      btnScan.disabled = false;
+      setMsg('Zárolás feloldva — próbálkozhat újra.', '');
+      return;
+    }
+
     if (!vaultReady) return;
     let s;
     try { s = await callWorker('STATUS'); } catch { return; }
