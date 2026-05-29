@@ -11,8 +11,8 @@ import {
   NETWORKS, getBalance, getNonce,
   getFeeData, estimateGas, broadcastTx,
   ethToWei, weiToEth, isValidAddress, resolveENS,
-  getTokenBalance, formatToken,
-} from '../core/rpc.js?v=15';
+  getTokenBalance, formatToken, fetchTxHistory,
+} from '../core/rpc.js?v=16';
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
@@ -74,6 +74,8 @@ const sendToInput    = document.getElementById('send-to');
 const sendAmountInput= document.getElementById('send-amount');
 const txResult       = document.getElementById('tx-result');
 const txLink         = document.getElementById('tx-link');
+const txHistoryCard  = document.getElementById('tx-history-card');
+const txHistoryList  = document.getElementById('tx-history-list');
 const btnQR          = document.getElementById('btn-qr');
 const qrWrap         = document.getElementById('qr-wrap');
 const qrCanvas       = document.getElementById('qr-canvas');
@@ -775,6 +777,68 @@ async function fetchBalance(address) {
     ethBalance.textContent = '?';
   }
   fetchTokenBalances(address);
+  renderTxHistory(address);
+}
+
+async function renderTxHistory(address) {
+  const networkKey = currentNetwork === NETWORKS.mainnet ? 'mainnet' : 'sepolia';
+  txHistoryCard.style.display = 'block';
+  txHistoryList.innerHTML =
+    '<div style="font-size:0.75rem;color:var(--muted);padding:0.3rem 0;">…</div>';
+
+  try {
+    const txs = await fetchTxHistory(address, networkKey);
+    txHistoryList.innerHTML = '';
+
+    if (!txs.length) {
+      txHistoryList.innerHTML =
+        '<div style="font-size:0.75rem;color:var(--muted);padding:0.3rem 0;">Nincs tranzakció</div>';
+      return;
+    }
+
+    for (const tx of txs) {
+      const out   = tx.from?.hash?.toLowerCase() === address.toLowerCase();
+      const val   = weiToEth(tx.value ?? '0');
+      const short = tx.hash.slice(0, 6) + '…' + tx.hash.slice(-4);
+      const ok    = tx.status === 'ok';
+
+      const row = document.createElement('div');
+      row.className = 'tx-hist-row';
+
+      const dir  = document.createElement('span');
+      dir.textContent = out ? '→' : '←';
+      dir.style.cssText = `color:${out ? '#ffa502' : '#4CAF50'};width:1.1rem;flex-shrink:0;font-size:0.8rem;`;
+
+      const amount = document.createElement('span');
+      amount.style.cssText = `flex:1;font-family:monospace;color:${ok ? 'var(--text)' : 'var(--danger)'};`;
+      amount.textContent = (ok ? '' : '✗ ') + val + ' ETH';
+
+      const link = document.createElement('a');
+      link.className = 'tx-hist-hash';
+      link.href = currentNetwork.explorer + tx.hash;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = short;
+
+      const age = document.createElement('span');
+      age.style.cssText = 'color:var(--muted);font-size:0.68rem;width:2rem;text-align:right;flex-shrink:0;';
+      age.textContent = txAge(tx.timestamp);
+
+      row.append(dir, amount, link, age);
+      txHistoryList.appendChild(row);
+    }
+  } catch {
+    txHistoryList.innerHTML =
+      '<div style="font-size:0.75rem;color:var(--muted);padding:0.3rem 0;">Nem elérhető</div>';
+  }
+}
+
+function txAge(ts) {
+  const s = (Date.now() - new Date(ts).getTime()) / 1000;
+  if (s < 60)    return `${Math.floor(s)}mp`;
+  if (s < 3600)  return `${Math.floor(s / 60)}p`;
+  if (s < 86400) return `${Math.floor(s / 3600)}ó`;
+  return `${Math.floor(s / 86400)}n`;
 }
 
 async function fetchTokenBalances(address) {
@@ -894,8 +958,10 @@ function showPanel(name) {
     sendAmountInput.value   = '';
     sendToInput.classList.remove('error');
     sendAmountInput.classList.remove('error');
-    tokenBalances.innerHTML = '';
-    ensResolved             = null;
+    tokenBalances.innerHTML     = '';
+    txHistoryCard.style.display = 'none';
+    txHistoryList.innerHTML     = '';
+    ensResolved                 = null;
     ensHint.style.display   = 'none';
     qrWrap.style.display    = 'none';
   }
