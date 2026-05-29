@@ -28,18 +28,21 @@ class CausalToken {
   #vaultId;
   #issuedAt;
   #consumed;
+  #txHash;      // string | null — SHA-256 of committed tx (SIGN only)
 
-  constructor(R, vaultId) {
+  constructor(R, vaultId, txHash = null) {
     this.#R        = R;
     this.#vaultId  = vaultId;
     this.#issuedAt = Date.now();
     this.#consumed = false;
+    this.#txHash   = txHash;
   }
 
   age()            { return Date.now() - this.#issuedAt; }
   fresh(ttl)       { return !this.#consumed && this.age() < ttl; }
   R()              { return this.#R; }
   boundTo(vaultId) { return this.#vaultId === vaultId; }
+  txHash()         { return this.#txHash; }
 
   consume() {
     if (this.#consumed) throw new DCCError('ALREADY_CONSUMED', 'consume');
@@ -52,22 +55,24 @@ class CausalChain {
 
   /**
    * Called after a physical biometric event.
-   * @param {Uint8Array} R        — fuzzy extractor stable key
-   * @param {string}     vaultId  — unique vault identifier
+   * @param {Uint8Array}  R        — fuzzy extractor stable key
+   * @param {string}      vaultId  — unique vault identifier
+   * @param {string|null} txHash   — SHA-256 of committed tx (SIGN flow only)
    */
-  issue(R, vaultId) {
-    this.#token = new CausalToken(R, vaultId);
+  issue(R, vaultId, txHash = null) {
+    this.#token = new CausalToken(R, vaultId, txHash);
   }
 
   /**
    * Causal gate — verifies and consumes the token.
    * If any condition fails → DCCError (UNSAT).
    *
-   * @param {string} operation  — 'OPEN' | 'SIGN' | 'EXPORT'
-   * @param {string} vaultId    — the affected vault ID
-   * @returns {Uint8Array} R    — on success (vault KDF input)
+   * @param {string}      operation       — 'OPEN' | 'SIGN' | 'EXPORT'
+   * @param {string}      vaultId         — the affected vault ID
+   * @param {string|null} expectedTxHash  — for SIGN: SHA-256 of the tx being signed
+   * @returns {Uint8Array} R              — on success (vault KDF input)
    */
-  gate(operation, vaultId) {
+  gate(operation, vaultId, expectedTxHash = null) {
     const ttl = TTL[operation];
     if (!ttl) throw new DCCError('UNKNOWN_OP', operation);
 
@@ -82,6 +87,12 @@ class CausalChain {
     // P4: vault binding
     if (!this.#token.boundTo(vaultId)) {
       throw new DCCError('VAULT_ID_MISMATCH', operation);
+    }
+
+    // TX commitment check: if expectedTxHash provided, the token must be bound to the same tx.
+    // null token.txHash() means commitTx() was never called → also fails (mismatch).
+    if (expectedTxHash !== null && this.#token.txHash() !== expectedTxHash) {
+      throw new DCCError('TX_MISMATCH', operation);
     }
 
     // P3: single-use (token inactive after consume)

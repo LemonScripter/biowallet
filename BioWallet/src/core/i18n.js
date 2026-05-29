@@ -129,13 +129,15 @@ const STRINGS = {
     'msg.tx.unavailable':     'Nem elérhető',
 
     /* ── Confirm modal ─────────────────────────────────────────────── */
-    'confirm.title':   'Tranzakció megerősítése',
-    'confirm.network': 'Hálózat',
-    'confirm.to':      'Fogadó',
-    'confirm.amount':  'Összeg',
-    'confirm.gas':     'Max. gas',
-    'confirm.cancel':  'Mégse',
-    'confirm.send':    'Küldés',
+    'confirm.title':    'Tranzakció megerősítése',
+    'confirm.network':  'Hálózat',
+    'confirm.to':       'Fogadó',
+    'confirm.amount':   'Összeg',
+    'confirm.gas':      'Max. gas',
+    'confirm.cancel':   'Mégse',
+    'confirm.send':     'Küldés',
+    'confirm.fp.label': 'Tranzakció ujjlenyomat',
+    'confirm.fp.hint':  'Írd be az első 4 karaktert:',
 
     /* ── WC modals ─────────────────────────────────────────────────── */
     'wc.pair.title':       'dApp kapcsolódás',
@@ -210,6 +212,7 @@ const STRINGS = {
     'err.vault.mismatch':'Rossz .biowallet fájl — ez nem az Ön tárcájához tartozik.',
     'err.consumed':      'A token már felhasználásra került — próbálja újra.',
     'err.mnemonic':      'Érvénytelen seed phrase — ellenőrizze a szavakat és a sorrendet (BIP39 szólista).',
+    'err.tx.mismatch':   'Tranzakció ujjlenyomat mismatch — aláírás blokkolva.',
     'bf.remaining':      ' · még {n} próba a zárolásig',
 
     /* ── Guide modal ───────────────────────────────────────────────── */
@@ -341,13 +344,15 @@ const STRINGS = {
     'msg.tx.unavailable':     'Unavailable',
 
     /* ── Confirm modal ─────────────────────────────────────────────── */
-    'confirm.title':   'Confirm transaction',
-    'confirm.network': 'Network',
-    'confirm.to':      'Recipient',
-    'confirm.amount':  'Amount',
-    'confirm.gas':     'Max. gas',
-    'confirm.cancel':  'Cancel',
-    'confirm.send':    'Send',
+    'confirm.title':    'Confirm transaction',
+    'confirm.network':  'Network',
+    'confirm.to':       'Recipient',
+    'confirm.amount':   'Amount',
+    'confirm.gas':      'Max. gas',
+    'confirm.cancel':   'Cancel',
+    'confirm.send':     'Send',
+    'confirm.fp.label': 'Transaction fingerprint',
+    'confirm.fp.hint':  'Enter the first 4 characters:',
 
     /* ── WC modals ─────────────────────────────────────────────────── */
     'wc.pair.title':       'Connect dApp',
@@ -422,6 +427,7 @@ const STRINGS = {
     'err.vault.mismatch':'Wrong .biowallet file — this does not belong to your wallet.',
     'err.consumed':      'Token already consumed — please try again.',
     'err.mnemonic':      'Invalid seed phrase — check the words and their order (BIP39 word list).',
+    'err.tx.mismatch':   'Transaction fingerprint mismatch — signing blocked.',
     'bf.remaining':      ' · {n} attempts left before lockout',
 
     /* ── Guide modal ───────────────────────────────────────────────── */

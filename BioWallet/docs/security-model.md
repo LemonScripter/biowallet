@@ -16,96 +16,134 @@ Your private key (seed) never leaves the browser's background Worker thread in p
 
 Your seed is encrypted with **AES-256-GCM** and stored locally in the browser. The decryption key is derived from your face scan using a fuzzy extractor and a 300,000-iteration PBKDF2-SHA256 key derivation function. Without your face — captured live, in the right lighting, at the right angle — the vault cannot be opened.
 
-There is no password, no PIN, no recovery phrase stored in the app. The only key is your face plus the helper data (`P` file) stored alongside the vault.
+There is no password, no PIN, no recovery phrase stored in the app. The only key is your face plus the helper data stored alongside the vault.
 
 ### 2. The DCC Causal Chain
 
-Every sensitive operation is guarded by the **Digital Causal Closure (DCC)** chain. This is a formal security invariant built into the vault layer — not just a UI check, but a hard gate in the cryptographic code.
+Every sensitive operation is guarded by the **Digital Causal Closure (DCC)** chain. This is a formal security invariant enforced in the cryptographic layer — not a UI check, but a hard gate that the signing code cannot bypass regardless of what the page layer does.
 
-How it works:
+**The constitutional sequence for signing:**
 
-- After a successful face scan, the system issues a **causal token** — a one-time, time-limited proof that a physical biometric event just occurred.
-- Every vault operation (open, sign, export) must consume a valid token before it can proceed.
-- If the token is missing, expired, or already used, the operation is **hard-rejected** — the vault does not open, the transaction is not signed.
+```
+BIO_CAPTURE #1  →  OPEN  →  COMMIT_TX  →  [fingerprint entry]  →  BIO_CAPTURE #2  →  SIGN  →  auto-lock
+```
 
-The token has four properties that cannot be bypassed:
+Signing requires **two separate biometric events** and a **manual transaction commitment step**:
+
+1. The first scan opens the vault — its token is consumed immediately.
+2. Before the second scan, the app sends the transaction to the Worker (`COMMIT_TX`). The Worker computes `SHA-256(canonical(tx))` and stores it internally. It returns the first 8 characters as a fingerprint.
+3. The confirm modal displays the transaction details **and the 8-character fingerprint**. The user must manually type the first 4 characters into an input field.
+4. The second face scan issues a token that is **cryptographically bound to the committed transaction hash**.
+5. At signing, the Worker re-computes the hash of the transaction it received and verifies it matches the token-bound hash. Any substitution fails.
+
+Each token has four properties enforced at the code level:
 
 | Property | What it means |
 |---|---|
-| **Must exist (P1)** | No operation without a prior face scan |
-| **Must be fresh (P2)** | Open: valid for 30 s · Sign: 10 s · Export: 5 s |
-| **Single-use (P3)** | Used once, then destroyed — no replay attacks |
-| **Vault-bound (P4)** | A token from one vault cannot open another |
+| **P1 — Must exist** | No operation without a prior face scan |
+| **P2 — Must be fresh** | Open: 30 s · Sign: 10 s · Export: 5 s |
+| **P3 — Single-use** | Consumed on first use — no replay |
+| **P4 — Vault-bound** | A token issued for one vault cannot open another |
 
-And two behavioural rules:
+And three behavioural rules that shape the full sequence:
 
 | Rule | What it means |
 |---|---|
-| **P5** | Every signing operation requires a new face scan — an open vault is not enough |
-| **P7** | The vault auto-locks after every signing — it does not stay open |
+| **P5 — Sign always re-scans** | Opening the vault is not enough to sign — a new scan is required |
+| **P6 — TX commitment** | The second scan token is bound to the exact transaction committed by the user. Any attempt to sign a different transaction fails with `TX_MISMATCH` at the gate |
+| **P7 — Auto-lock after sign** | The vault locks unconditionally after every signing operation |
 
-**In practice:** Even if an attacker injects code into the page and tries to call `vault.sign()`, they cannot — the DCC gate requires a token, and the token only exists for seconds after a real face capture.
+**What this means in practice:** Any attempt to trigger a signing operation — whether from the page, from injected code, or from a simulated UI event — hits the DCC gate. The gate requires a valid token bound to the correct transaction. The token only exists for 10 seconds after a real face capture, and it carries the hash of exactly the transaction the user typed a fingerprint prefix for. Without that physical anchor, the chain stops.
 
 ### 3. Worker thread isolation
 
-All cryptographic operations run in a dedicated **Module Worker** (`vault_worker.js`). The main page thread can send messages to the Worker — but it cannot read the Worker's memory. The seed, the decryption key, and all intermediate cryptographic material live and die inside the Worker.
-
-After signing, the seed bytes are explicitly zeroed (`seed.fill(0)`) before the auto-lock.
+All cryptographic operations run in a dedicated **Module Worker** (`vault_worker.js`). The main page thread cannot read the Worker's memory. After signing, the seed bytes are explicitly zeroed in memory before auto-lock.
 
 ### 4. No plaintext seed, ever
 
-BioWallet has no "show seed phrase" button. The 24-word mnemonic is never displayed in the UI. It exists in memory only for the instant it is needed to sign a transaction, and nowhere else.
+There is no "show seed phrase" button. The 24-word mnemonic never appears in the UI. It exists in Worker memory only for the milliseconds needed to sign a transaction.
 
 ---
 
 ## When the system fully protects you
 
-| State | What is happening | Protection level |
+| State | What is happening | Protection |
 |---|---|---|
 | **Locked** (default) | Vault encrypted, no token, Worker idle | ✅ Full |
-| **Scanning** | Face capture in progress | ✅ Full (key not yet derived) |
-| **Open, waiting** | Token valid, vault decrypted in Worker | ✅ Full (seed stays in Worker) |
-| **Signing** | Transaction being signed | ✅ Full — auto-lock follows immediately |
-| **Brute-force block** | 3 failed scans → escalating cooldown | ✅ Full (lockout enforced) |
-| **Export / paper recovery** | rawA + r generated, P never included | ✅ Full — see Recovery section |
+| **Scanning** | Face capture in progress | ✅ Full |
+| **Open, waiting** | First token consumed, vault decrypted in Worker | ✅ Full — seed in Worker only |
+| **Confirm modal** | TX committed to Worker, fingerprint shown, user enters prefix | ✅ Full — physical attention anchor |
+| **Signing** | Second scan complete, TX hash verified, transaction being signed | ✅ Full — auto-lock follows immediately |
+| **Brute-force block** | 3 failed scans → escalating cooldown (30 s → 60 s → 120 s → 240 s) | ✅ Full |
+| **Export / paper recovery** | rawA + r generated inside Worker, P never included | ✅ Full |
+| **Offline / PWA mode** | App running from local cache, no network | ✅ Full — signing works entirely offline |
+
+---
+
+## Browser extensions and the DCC
+
+This deserves its own section because it is frequently misunderstood.
+
+**What a browser extension can do to the page:**
+- Simulate button clicks and UI events
+- Read `localStorage` (including the encrypted vault blob and the helper data `P`)
+- Inject JavaScript into the page context via a MAIN-world script
+- Hook `Worker.prototype.postMessage` to intercept messages between the page and the crypto Worker
+
+**What this achieves against the DCC:** Nothing useful for an unauthenticated operation. Simulating a click on the scan button starts the camera — but the face recognition model reads the **real camera stream**. If no face is present, `fuzzy_extract` produces no valid key and no token is issued. The causal chain stops at the first gate.
+
+### Transaction substitution (the MAIN-world extension threat)
+
+A more sophisticated attack: a MAIN-world extension hooks `Worker.postMessage` and attempts to substitute the user's transaction with a malicious one. This was a real residual risk before P6.
+
+**P6 closes this attack.** The sequence is:
+
+1. Extension intercepts `COMMIT_TX { tx: userTx }` and sends `{ tx: maliciousTx }` to the Worker instead.
+2. The Worker stores `hash(maliciousTx)` and returns `fingerprint = hash(maliciousTx)[:8]`.
+3. The extension intercepts the response and shows the user a **fake fingerprint** — `hash(userTx)[:8]`.
+4. The user reads the fake fingerprint on screen and types the first 4 characters.
+5. Those 4 characters are sent to the Worker in `BIO_CAPTURE`. The Worker checks: does the user's input match `hash(maliciousTx)[:4]`?
+6. Because `hash(userTx)[:4] ≠ hash(maliciousTx)[:4]` (SHA-256 collision probability: 1 in 2³²), the Worker throws `TX_MISMATCH` and blocks the operation.
+
+Even if the extension also intercepts `BIO_CAPTURE` and replaces the user's input with the correct prefix of `hash(maliciousTx)` — the SIGN gate provides a second independent check: it recomputes `hash(tx_received)` and verifies it matches the token-bound hash. If the extension delivers the correct fingerprint at BIO_CAPTURE but the user later sees the wrong transaction details in their wallet history, there is a forensic trail.
+
+**What about `getUserMedia` spoofing?** To advance the biometric part of the chain, the extension would need to inject a fake video stream — substituting a pre-recorded face video for the real camera feed. This requires:
+
+1. A prior recording of the enrolled face at sufficient resolution and angle
+2. A recording that falls within the fuzzy extractor's tolerance window — not just "looks like you" but biometrically close enough to reproduce the same stable key
+3. The malicious extension to have been **installed before going offline**, with the face data already embedded
+
+In offline/PWA mode the extension cannot fetch face data on demand. Everything must be pre-loaded. This means the attack is no longer a software attack — it is a **targeted physical-world operation** that requires prior physical proximity, prior device access to install the extension, and biometric precision. Anyone capable of mounting that attack has simpler options available (see: physical coercion below).
+
+**Conclusion:** Browser extensions, as a generic threat category, are defeated by the DCC causal chain and the P6 transaction commitment. The only residual biometric risk — a pre-loaded `getUserMedia` spoof — collapses into the physical-world biometric spoofing threat, which is a separate category.
 
 ---
 
 ## When protection is limited or absent
 
-These are not bugs — they are the boundaries of what any browser-based wallet can guarantee. You should understand them.
+### ❶ Biometric spoofing (photo or video)
 
-### ❶ Malicious browser extension
+BioWallet does not currently include liveness detection. A high-quality photograph or video of your face, presented to the camera, could theoretically produce an embedding close enough to pass the fuzzy extractor.
 
-A browser extension has full access to the page's DOM and can intercept keystrokes, read displayed values, and inject JavaScript. If a malicious extension is installed, it could observe your Ethereum address, intercept a signing request, or manipulate the UI.
+This threat applies whether delivered via a physical print, a screen playing a recording, or (as discussed above) a `getUserMedia`-hooking extension with a pre-loaded recording. In all cases the attacker needs prior biometric data that matches your enrolled face.
 
-**What to do:** Only use BioWallet in a browser profile with no extensions, or in a dedicated browser instance.
+**What to do:** Be mindful of who can obtain high-resolution face recordings of you. This risk is similar to fingerprint biometrics — your face is not secret the way a password is. Future versions will add liveness detection (Phase 6+).
 
 ### ❷ Compromised operating system
 
-If your device's OS is compromised (malware, rootkit), an attacker may be able to take memory snapshots, capture camera frames, or log network traffic. No browser wallet can protect against OS-level compromise.
+A kernel-level compromise (rootkit, malware with OS privileges) can capture camera frames before they reach the browser, dump process memory, or log all input. No browser-based application can protect against OS-level access.
 
-**What to do:** Keep your OS updated. Do not use BioWallet on a shared or infected machine.
+**What to do:** Keep your operating system updated. Do not use BioWallet on a shared or untrusted machine.
 
-### ❸ Camera spoofing
+### ❸ Physical coercion
 
-BioWallet uses a face recognition model to derive the encryption key. It does **not** currently include liveness detection (checking that a real face is present, not a photo). A high-quality photo of your face, held in front of the camera, could theoretically open the vault.
+If someone forces you to present your face to the camera, the vault will open. No cryptographic system can protect against this.
 
-**What to do:** Be aware of who can photograph your face and at what resolution. This risk is similar to a fingerprint wallet — your biometric is not a secret in the way a password is.
+### ❹ recovery_tool.html used on a connected machine
 
-### ❹ Physical coercion
+The offline recovery tool decodes your paper backup into the 24-word seed phrase. If you run it on a machine connected to the internet, or with browser extensions active, the words are visible in a browser tab that could be observed.
 
-If someone forces you to scan your face in front of the camera, the vault will open. No cryptographic system can protect against this.
-
-### ❺ recovery_tool.html used online
-
-The offline recovery tool (`recovery_tool.html`) decodes your paper backup into the 24-word seed phrase. If you run it on a machine connected to the internet, the words appear in a browser tab that could theoretically be read by extensions, clipboard monitors, or screen capture.
-
-**What to do:** Always use `recovery_tool.html` on an air-gapped machine (no network, no extensions). Print the result immediately and close the browser. See the Recovery section below.
-
-### ❻ Between open and sign
-
-After the DCC gate passes, the decrypted seed data exists in Worker memory until `sign()` completes and `lock()` is called. This window is very short (milliseconds to seconds), but it exists. The 10-second SIGN TTL is a hard upper bound — after that, the token expires and the vault auto-locks on the next operation attempt.
+**What to do:** Use `recovery_tool.html` only on an air-gapped machine with no extensions. Print or write down the result immediately. Close the browser and clear its data.
 
 ---
 
@@ -113,96 +151,78 @@ After the DCC gate passes, the decrypted seed data exists in Worker memory until
 
 These are hard guarantees, verifiable in the source code:
 
-- **Never sends your seed or private key over the network** — no outbound calls contain key material
-- **Never stores the seed in plaintext** — only the encrypted vault blob is written to localStorage
+- **Never sends seed or private key over the network** — no outbound call carries key material
+- **Never stores the seed in plaintext** — only the AES-GCM encrypted blob is written to `localStorage`
 - **Never shows the 24-word mnemonic in the UI** — there is no reveal function
-- **Never includes your personal number (P) in the app** — P is only used offline, in `recovery_tool.html`
-- **Never uses a cloud service for key operations** — all cryptography runs locally
-- **Never keeps the vault open after signing** — P7 auto-lock is unconditional
+- **Never includes your personal number P in the app** — P is applied only offline, in `recovery_tool.html`
+- **Never uses a cloud service for key operations** — all cryptography runs locally in the Worker
+- **Never keeps the vault open after signing** — P7 auto-lock is unconditional and cannot be disabled
+- **Never signs a transaction that wasn't committed before the second scan** — P6 binds the signing token to the exact transaction hash; any substitution is rejected at the gate
 
 ---
 
 ## Recovery security
 
-The paper backup system is designed so that no single document recovers your wallet — you need three pieces:
+The paper backup requires three pieces. No single piece recovers the wallet — all three are needed together:
 
 | What | Where | Contains |
 |---|---|---|
 | **Final Paper A** | Stored safely (e.g. bank vault) | 24 encoded numbers |
-| **Paper B** | Stored separately from Paper A | 24 random offsets |
+| **Paper B** | Stored **separately** from Paper A | 24 random offsets |
 | **Personal number P** | Memorised — never written down | Your personal modifier |
 
 **How it is generated:**
 
-1. BioWallet generates Raw Paper A (inside the Worker, seed never leaves) and outputs 24 numbers.
-2. You take these to `recovery_tool.html` on an **air-gapped machine**.
-3. You enter your personal number P. The tool applies P to produce Final Paper A and immediately erases P from the input field.
-4. You print or write down Final Paper A.
-5. Paper B (the random offsets) was also generated by the app and given to you separately.
+1. Inside the Worker (seed never leaves), BioWallet computes Raw Paper A and the random offsets for Paper B.
+2. You take Raw Paper A to `recovery_tool.html` on an **air-gapped machine**.
+3. You enter P. The tool applies it to produce Final Paper A, then immediately erases P from the field.
+4. You print or write down Final Paper A and Paper B separately.
 
 **To recover:**
 
-- Open `recovery_tool.html` on an air-gapped machine.
-- Enter Final Paper A + Paper B + P.
-- The tool computes the 24 BIP39 words.
-- Write them down immediately. Close and clear the browser.
-- Import into any BIP39-compatible wallet (MetaMask, etc.).
+Open `recovery_tool.html` air-gapped. Enter Final Paper A + Paper B + P. Write down the 24 words. Close and clear the browser. Import into any BIP39-compatible wallet.
 
-**P is never in the system.** Neither the app nor `recovery_tool.html` stores P. If you forget P, the recovery cannot be completed.
+**P is never in the system.** If you forget P, the paper backup cannot be decoded.
 
 ---
 
 ## How to verify what you are running
 
-BioWallet includes a build verification system so you can confirm the server has not tampered with the files you are running.
+### Check the build fingerprint
 
-### Step 1 — Check the footer hash
+The footer of the running app shows a SHA-256 build fingerprint. Compare it against the published hash on GitHub (run `build_hash.py` locally, or check the release notes). A mismatch means the server may have served modified files.
 
-When BioWallet is open in your browser, the footer shows a short build fingerprint, for example:
+### Inspect the source
 
-```
-Build: fe7f8317…
-```
+All code is published at: **https://github.com/LemonScripter/biowallet**
 
-### Step 2 — Compare with the published hash
+Security-critical files:
+- `src/core/vault.js` — encryption, key derivation, DCC gating, TX commitment
+- `src/core/causal_chain.js` — the DCC token logic (P1–P7), txHash binding
+- `src/app/vault_worker.js` — Worker entry point; COMMIT_TX, CANCEL_TX, BIO_CAPTURE, SIGN
+- `src/core/fuzzy_extractor.js` — biometric → stable key conversion
 
-Run `build_hash.py` locally (from the source code) or check the `HASHES.md` file on GitHub for the current release. The SHA-256 hash of `index.html` and `app.js` should match what is shown in the footer.
+### Run offline
 
-If the hashes do not match, the server may have served modified files.
-
-### Step 3 — Inspect the source
-
-The full source is available at: https://github.com/LemonScripter/biowallet
-
-The security-critical files are:
-- `src/core/vault.js` — encryption, key derivation, DCC gating
-- `src/core/causal_chain.js` — the DCC token logic (P1–P7)
-- `src/app/vault_worker.js` — Worker entry point
-- `src/core/fuzzy_extractor.js` — biometric → key conversion
-
-### Step 4 — Run offline
-
-BioWallet is a **Progressive Web App (PWA)**. After the first load, it caches all files locally. You can:
-1. Load the app once on a trusted network.
-2. Disconnect from the internet.
-3. Reload — the app continues to work from the local cache.
-
-All signing operations function entirely offline. RPC calls (balance checks, transaction broadcasting) require internet, but they handle no key material.
+After the first load, BioWallet runs entirely from its PWA cache. Disconnect from the internet and reload — the app works. All signing operations function offline. RPC calls (balance checks, broadcasting) require internet but handle no key material.
 
 ---
 
 ## Summary table
 
-| Threat | Protected? | Notes |
+| Threat | Protected? | How |
 |---|---|---|
-| Someone steals your device | ✅ Yes | Vault is encrypted; face required to open |
-| Someone knows your browser localStorage | ✅ Yes | Only encrypted blob stored |
+| Stolen / lost device | ✅ Yes | Vault encrypted; face required to derive key |
+| Stolen `localStorage` contents | ✅ Yes | AES-GCM encrypted blob; key not stored |
 | Brute-force face spoofing | ✅ Yes | Escalating cooldown after 3 failures |
-| Replay attack (reuse signed TX) | ✅ Yes | Single-use DCC token + nonce in TX |
-| Phishing / fake site | ✅ Partial | Build fingerprint lets you verify the real site |
-| Malicious browser extension | ⚠️ Limited | Extensions have DOM access; use a clean profile |
-| Compromised OS | ❌ No | OS-level attacks are outside the wallet's scope |
-| Camera photo spoofing | ⚠️ Limited | No liveness detection; risk depends on photo quality |
+| Replay attack on signed transaction | ✅ Yes | Single-use DCC token (P3) + transaction nonce |
+| Injected code or simulated UI events | ✅ Yes | DCC requires real biometric; no face = no token |
+| Browser extension (generic) | ✅ Yes | DCC causal chain cannot be advanced without physical face scan |
+| Browser extension — tx substitution (MAIN world) | ✅ Yes | P6: Worker verifies tx hash against token-bound commitment; fingerprint mismatch blocks substitution |
+| Phishing / tampered server files | ✅ Partial | Build fingerprint lets you detect tampering |
+| Biometric spoofing (photo / video) | ⚠️ Limited | No liveness detection; planned for Phase 6+ |
+| Browser extension + pre-loaded face spoof | ⚠️ Limited | Collapses to biometric spoofing; requires prior physical access |
+| Compromised operating system | ❌ No | OS-level access is outside the wallet's scope |
 | Physical coercion | ❌ No | Cryptography cannot stop physical force |
-| recovery_tool used online | ⚠️ Limited | Use only air-gapped |
-| Forgotten personal number P | ❌ No recovery | P is never stored; if lost, paper backup is unusable |
+| recovery_tool used on a connected machine | ⚠️ Limited | Use air-gapped only |
+| Forgotten personal number P | ❌ No recovery | P is never stored anywhere |
