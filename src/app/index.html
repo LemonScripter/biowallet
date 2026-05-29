@@ -545,6 +545,22 @@
       padding-right: 0.2rem;
     }
 
+    /* ── Token pill selector ── */
+    .token-pill {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 0.2rem 0.65rem;
+      border-radius: 99px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.04em;
+    }
+    .token-pill:hover { border-color: var(--accent); color: var(--text); }
+    .token-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
     /* ── TX history ── */
     .tx-hist-row {
       display: flex;
@@ -744,9 +760,10 @@
       </div>
     </div>
 
-    <!-- ETH küldő form -->
+    <!-- ETH / Token küldő form -->
     <div class="card">
-      <div class="card-label">ETH küldése</div>
+      <div class="card-label" id="send-card-label">ETH küldése</div>
+      <div id="token-selector" style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.6rem;"></div>
       <input class="tx-input" id="send-to" type="text"
              placeholder="0x… vagy name.eth"
              autocomplete="off" spellcheck="false">
@@ -755,7 +772,7 @@
       <div class="amount-row">
         <input class="tx-input" id="send-amount" type="text"
                placeholder="0.001" autocomplete="off">
-        <span class="amount-unit">ETH</span>
+        <span class="amount-unit" id="amount-unit">ETH</span>
       </div>
       <div class="tx-result" id="tx-result" style="display:none">
         <span class="tx-result-label">TX hash</span>
@@ -764,7 +781,7 @@
     </div>
 
     <button class="btn btn-success" id="btn-sign">
-      ETH küldése
+      <span id="send-btn-label">ETH küldése</span>
       <small>Fogadó cím + összeg megadása · arc-scan · auto-zárolás</small>
     </button>
 
@@ -981,6 +998,6 @@
 <script src="../vendor/qrcode.min.js"></script>
 <script src="../vendor/face-api.min.js"></script>
 <script src="../vendor/ethers.umd.min.js"></script>
-<script type="module" src="app.js?v=18"></script>
+<script type="module" src="app.js?v=19"></script>
 </body>
 </html>

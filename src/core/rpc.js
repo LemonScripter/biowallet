@@ -70,8 +70,8 @@ export async function getFeeData(rpcUrl) {
   return { maxFeePerGas: baseNext + maxPrio, maxPriorityFeePerGas: maxPrio };
 }
 
-/** Gáz limit becslése — eth_estimateGas + 20% puffer. Fallback: 21000. */
-export async function estimateGas(tx, rpcUrl) {
+/** Gáz limit becslése — eth_estimateGas + 20% puffer. Fallback: 21000 (ETH) / 65000 (token). */
+export async function estimateGas(tx, rpcUrl, fallback = 21000n) {
   try {
     const hex = await rpcCall(rpcUrl, 'eth_estimateGas', [{
       from:  tx.from,
@@ -81,7 +81,7 @@ export async function estimateGas(tx, rpcUrl) {
     }]);
     return BigInt(hex) * 12n / 10n;
   } catch {
-    return 21000n;
+    return fallback;
   }
 }
 
@@ -141,6 +141,21 @@ export function formatToken(amount, decimals) {
   const whole = amount / d;
   const frac  = (amount % d).toString().padStart(decimals, '0').slice(0, 2);
   return `${whole}.${frac}`;
+}
+
+/** "1.5" token string → raw BigInt (decimals alapján). Lebegőpontos hiba nélkül. */
+export function tokenToRaw(amountStr, decimals) {
+  const clean = amountStr.trim().replace(',', '.');
+  const [whole = '0', frac = ''] = clean.split('.');
+  const fracPadded = frac.padEnd(decimals, '0').slice(0, decimals);
+  return BigInt(whole) * (BigInt(10) ** BigInt(decimals)) + BigInt(fracPadded || '0');
+}
+
+/** ERC-20 transfer(address,uint256) calldata — 0xa9059cbb + 64+64 byte ABI encoding. */
+export function encodeTransfer(to, amount) {
+  return '0xa9059cbb'
+    + to.slice(2).padStart(64, '0')
+    + amount.toString(16).padStart(64, '0');
 }
 
 /**

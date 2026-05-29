@@ -12,11 +12,12 @@ import {
   getFeeData, estimateGas, broadcastTx,
   ethToWei, weiToEth, isValidAddress, resolveENS,
   getTokenBalance, formatToken, fetchTxHistory,
-} from '../core/rpc.js?v=16';
+  tokenToRaw, encodeTransfer,
+} from '../core/rpc.js?v=19';
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
-const worker  = new Worker('./vault_worker.js?v=18', { type: 'module' });
+const worker  = new Worker('./vault_worker.js?v=19', { type: 'module' });
 let _nextId   = 0;
 const _pending = new Map();
 
@@ -76,6 +77,10 @@ const txResult       = document.getElementById('tx-result');
 const txLink         = document.getElementById('tx-link');
 const txHistoryCard  = document.getElementById('tx-history-card');
 const txHistoryList  = document.getElementById('tx-history-list');
+const sendCardLabel  = document.getElementById('send-card-label');
+const tokenSelector  = document.getElementById('token-selector');
+const amountUnit     = document.getElementById('amount-unit');
+const sendBtnLabel   = document.getElementById('send-btn-label');
 const btnQR          = document.getElementById('btn-qr');
 const qrWrap         = document.getElementById('qr-wrap');
 const qrCanvas       = document.getElementById('qr-canvas');
@@ -84,12 +89,14 @@ const ensHint        = document.getElementById('ens-hint');
 const dots = [0,1,2,3,4].map(i => document.getElementById(`dot-${i}`));
 
 // ── State ─────────────────────────────────────────────────────────────────
-let stream         = null;
-let timerID        = null;
-let currentNetwork = NETWORKS.sepolia;
-let vaultReady     = false;   // worker-ben van-e aktív vault
-let ensResolved    = null;    // ENS → ETH cím (ha feloldva)
-let inCooldown     = false;   // brute-force védelem aktív
+let stream            = null;
+let timerID           = null;
+let currentNetwork    = NETWORKS.sepolia;
+let vaultReady        = false;      // worker-ben van-e aktív vault
+let ensResolved       = null;       // ENS → ETH cím (ha feloldva)
+let inCooldown        = false;      // brute-force védelem aktív
+let selectedToken     = null;       // null=ETH, egyéb={ symbol,address,decimals }
+const tokenBalanceCache = new Map(); // symbol → raw BigInt
 
 // ── Init ──────────────────────────────────────────────────────────────────
 (async () => {
@@ -589,6 +596,7 @@ btnScan.addEventListener('click', async () => {
 
     ethAddress.textContent = address;
     fetchBalance(address);
+    updateTokenSelector();
     setScanning(false, true);
     setMsg('Vault nyitva.', 'ok');
     showPanel('vault');
@@ -600,32 +608,58 @@ btnScan.addEventListener('click', async () => {
   }
 });
 
-// ── ETH küldése ───────────────────────────────────────────────────────────
+// ── ETH / ERC-20 küldése ─────────────────────────────────────────────────
 btnSign.addEventListener('click', async () => {
-  const toAddr    = ensResolved || sendToInput.value.trim();
+  if (cooldownMs() > 0) return;
+
+  const recipient = ensResolved || sendToInput.value.trim();
   const amountStr = sendAmountInput.value.trim().replace(',', '.');
   const address   = ethAddress.textContent;
 
-  // Input validáció
-  if (!isValidAddress(toAddr)) {
+  if (!isValidAddress(recipient)) {
     sendToInput.classList.add('error');
     setMsg('Érvénytelen Ethereum cím.', 'error');
     return;
   }
   sendToInput.classList.remove('error');
 
-  let valueWei;
-  try {
-    valueWei = ethToWei(amountStr);
-    if (valueWei <= 0n) throw new Error();
-  } catch {
-    sendAmountInput.classList.add('error');
-    setMsg('Érvénytelen összeg (pl.: 0.001).', 'error');
-    return;
+  // ── TX paraméterek (ETH vagy ERC-20 ág) ──────────────────────────────
+  let txTo = recipient, txValue = 0n, txData = '0x', confirmAmount;
+
+  if (!selectedToken) {
+    // ETH küldés
+    try {
+      txValue = ethToWei(amountStr);
+      if (txValue <= 0n) throw new Error();
+    } catch {
+      sendAmountInput.classList.add('error');
+      setMsg('Érvénytelen összeg (pl.: 0.001).', 'error');
+      return;
+    }
+    confirmAmount = amountStr + ' ETH';
+  } else {
+    // ERC-20 küldés
+    let tokenAmount;
+    try {
+      tokenAmount = tokenToRaw(amountStr, selectedToken.decimals);
+      if (tokenAmount <= 0n) throw new Error();
+    } catch {
+      sendAmountInput.classList.add('error');
+      setMsg(`Érvénytelen összeg (pl.: 1.5).`, 'error');
+      return;
+    }
+    const cachedBal = tokenBalanceCache.get(selectedToken.symbol) ?? 0n;
+    if (tokenAmount > cachedBal) {
+      setMsg(`Elégtelen ${selectedToken.symbol} egyenleg.`, 'error');
+      return;
+    }
+    txTo          = selectedToken.address;
+    txData        = encodeTransfer(recipient, tokenAmount);
+    confirmAmount = `${amountStr} ${selectedToken.symbol}`;
   }
   sendAmountInput.classList.remove('error');
 
-  // Egyenleg-ellenőrzés
+  // ── Hálózati díjak + gas ──────────────────────────────────────────────
   setMsg('Hálózati adatok lekérdezése...', '');
   let nonce, feeData, gasLimit;
   try {
@@ -633,16 +667,19 @@ btnSign.addEventListener('click', async () => {
       getNonce(address, currentNetwork.rpc),
       getFeeData(currentNetwork.rpc),
     ]);
+    const gasFallback = txData !== '0x' ? 65000n : 21000n;
     gasLimit = await estimateGas(
-      { from: address, to: toAddr, value: valueWei },
-      currentNetwork.rpc
+      { from: address, to: txTo, value: txValue, data: txData },
+      currentNetwork.rpc, gasFallback,
     );
-    const gasCost = gasLimit * feeData.maxFeePerGas;
-    const totalWei = valueWei + gasCost;
+    const gasCost    = gasLimit * feeData.maxFeePerGas;
+    const ethNeeded  = txValue + gasCost;   // token küldésnél txValue=0n → csak gas
     const balanceEth = parseFloat(ethBalance.textContent);
-    const totalEth   = Number(totalWei) / 1e18;
-    if (totalEth > balanceEth + 0.000001) {
-      setMsg(`Elégtelen egyenleg. Kell: ~${totalEth.toFixed(6)} ETH (összeg + gas).`, 'error');
+    if (Number(ethNeeded) / 1e18 > balanceEth + 0.000001) {
+      const hint = selectedToken
+        ? `Gas díjhoz ~${weiToEth(gasCost)} ETH szükséges.`
+        : `Kell: ~${(Number(ethNeeded) / 1e18).toFixed(6)} ETH (összeg + gas).`;
+      setMsg(`Elégtelen ETH egyenleg. ${hint}`, 'error');
       return;
     }
   } catch (e) {
@@ -650,20 +687,16 @@ btnSign.addEventListener('click', async () => {
     return;
   }
 
-  // Megerősítő overlay
-  const gasCostEth = weiToEth(gasLimit * feeData.maxFeePerGas);
-  const confirmed  = await showConfirm({
-    to:      toAddr,
-    amount:  amountStr + ' ETH',
-    gas:     `~${gasCostEth} ETH`,
+  // ── Megerősítő overlay ────────────────────────────────────────────────
+  const confirmed = await showConfirm({
+    to:      recipient,
+    amount:  confirmAmount,
+    gas:     `~${weiToEth(gasLimit * feeData.maxFeePerGas)} ETH`,
     network: currentNetwork.name,
   });
-  if (!confirmed) {
-    setMsg('Küldés megszakítva.', '');
-    return;
-  }
+  if (!confirmed) { setMsg('Küldés megszakítva.', ''); return; }
 
-  // Arc-scan + aláírás (Worker)
+  // ── Arc-scan + aláírás ────────────────────────────────────────────────
   if (cooldownMs() > 0) return;
   btnSign.disabled = true;
   setScanning(true);
@@ -677,8 +710,9 @@ btnSign.addEventListener('click', async () => {
 
     const { signed } = await callWorker('SIGN', {
       tx: {
-        to:                   toAddr,
-        value:                valueWei.toString(),     // BigInt → string (strukturált klónozás)
+        to:                   txTo,
+        value:                txValue.toString(),
+        data:                 txData,
         nonce,
         gasLimit:             gasLimit.toString(),
         chainId:              currentNetwork.chainId,
@@ -697,7 +731,6 @@ btnSign.addEventListener('click', async () => {
     txLink.textContent = txHash;
     setMsg(`Küldés sikeres! TX: ${txHash.slice(0,10)}…`, 'ok');
 
-    // Auto-zárolás
     setTimeout(async () => {
       await callWorker('LOCK');
       ethAddress.textContent = '—';
@@ -764,6 +797,7 @@ btnNetwork.addEventListener('click', () => {
   currentNetwork = currentNetwork === NETWORKS.sepolia ? NETWORKS.mainnet : NETWORKS.sepolia;
   btnNetwork.textContent = currentNetwork.name;
   btnNetwork.classList.toggle('mainnet', currentNetwork === NETWORKS.mainnet);
+  updateTokenSelector();
   const addr = ethAddress.textContent;
   if (addr && addr !== '—') fetchBalance(addr);
 });
@@ -906,10 +940,12 @@ async function fetchTokenBalances(address) {
   const key    = currentNetwork === NETWORKS.mainnet ? 'mainnet' : 'sepolia';
   const tokens = TOKEN_LIST[key] ?? [];
   tokenBalances.innerHTML = '';
+  tokenBalanceCache.clear();
 
   await Promise.allSettled(tokens.map(async tok => {
     try {
       const raw = await getTokenBalance(tok.address, address, currentNetwork.rpc);
+      tokenBalanceCache.set(tok.symbol, raw);
       if (raw === 0n) return;
       const row = document.createElement('div');
       row.className = 'balance-row';
@@ -920,6 +956,38 @@ async function fetchTokenBalances(address) {
       tokenBalances.appendChild(row);
     } catch { /* ismeretlen token vagy RPC hiba — kihagyás */ }
   }));
+}
+
+function updateTokenSelector() {
+  const key    = currentNetwork === NETWORKS.mainnet ? 'mainnet' : 'sepolia';
+  const tokens = TOKEN_LIST[key] ?? [];
+  tokenSelector.innerHTML = '';
+
+  for (const tok of [{ symbol: 'ETH' }, ...tokens]) {
+    const isEth    = tok.symbol === 'ETH';
+    const isActive = isEth ? selectedToken === null : selectedToken?.symbol === tok.symbol;
+    const btn      = document.createElement('button');
+    btn.className  = 'token-pill' + (isActive ? ' active' : '');
+    btn.textContent = tok.symbol;
+    btn.addEventListener('click', () => {
+      selectedToken = isEth ? null : tok;
+      const label = selectedToken ? `${selectedToken.symbol} küldése` : 'ETH küldése';
+      sendCardLabel.textContent = label;
+      amountUnit.textContent    = selectedToken?.symbol ?? 'ETH';
+      sendBtnLabel.textContent  = label;
+      updateTokenSelector();
+    });
+    tokenSelector.appendChild(btn);
+  }
+
+  // Ha az aktuálisan kiválasztott token nem elérhető az új hálózaton
+  if (selectedToken && !tokens.find(t => t.symbol === selectedToken.symbol)) {
+    selectedToken = null;
+    sendCardLabel.textContent = 'ETH küldése';
+    amountUnit.textContent    = 'ETH';
+    sendBtnLabel.textContent  = 'ETH küldése';
+    updateTokenSelector();
+  }
 }
 
 // ── Token timer (Worker STATUS polling) ───────────────────────────────────
@@ -1035,8 +1103,14 @@ function showPanel(name) {
     sendToInput.classList.remove('error');
     sendAmountInput.classList.remove('error');
     tokenBalances.innerHTML     = '';
+    tokenBalanceCache.clear();
     txHistoryCard.style.display = 'none';
     txHistoryList.innerHTML     = '';
+    selectedToken               = null;
+    sendCardLabel.textContent   = 'ETH küldése';
+    amountUnit.textContent      = 'ETH';
+    sendBtnLabel.textContent    = 'ETH küldése';
+    tokenSelector.innerHTML     = '';
     ensResolved                 = null;
     ensHint.style.display   = 'none';
     qrWrap.style.display    = 'none';
