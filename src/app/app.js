@@ -374,6 +374,10 @@ function _getVaultVersion(buf) {
 // ── WebAuthn PRF helpers ──────────────────────────────────────────────────
 
 async function enrollWebAuthn() {
+  // Check platform authenticator availability upfront
+  const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable?.().catch(() => false);
+  if (!available) return null;
+
   const prfSalt = crypto.getRandomValues(new Uint8Array(32));
   let credential;
   try {
@@ -397,11 +401,31 @@ async function enrollWebAuthn() {
           userVerification:        'required',
         },
         extensions: { prf: { eval: { first: prfSalt } } },
+        timeout: 60000,
       },
     });
   } catch { return null; }
 
-  const prfResult = credential.getClientExtensionResults()?.prf?.results?.first;
+  // Try PRF from create() response (Chrome 116+ returns it immediately on most platforms)
+  let prfResult = credential.getClientExtensionResults()?.prf?.results?.first;
+
+  // Fallback: some platforms (e.g. older Windows Hello) only expose PRF on get(), not create()
+  if (!prfResult) {
+    try {
+      const getC = await navigator.credentials.get({
+        publicKey: {
+          challenge:        crypto.getRandomValues(new Uint8Array(32)),
+          rpId:             location.hostname,
+          allowCredentials: [{ type: 'public-key', id: credential.rawId }],
+          userVerification: 'required',
+          extensions:       { prf: { eval: { first: prfSalt } } },
+          timeout:          60000,
+        },
+      });
+      prfResult = getC?.getClientExtensionResults()?.prf?.results?.first;
+    } catch { /* platform doesn't support PRF at all */ }
+  }
+
   if (!prfResult) return null;
 
   return {
@@ -416,11 +440,12 @@ async function getDevicePrf(credentialId, prfSalt) {
   try {
     credential = await navigator.credentials.get({
       publicKey: {
-        challenge: crypto.getRandomValues(new Uint8Array(32)),
-        rpId: location.hostname,
+        challenge:        crypto.getRandomValues(new Uint8Array(32)),
+        rpId:             location.hostname,
         allowCredentials: [{ type: 'public-key', id: new Uint8Array(credentialId) }],
         userVerification: 'required',
-        extensions: { prf: { eval: { first: new Uint8Array(prfSalt) } } },
+        extensions:       { prf: { eval: { first: new Uint8Array(prfSalt) } } },
+        timeout:          60000,
       },
     });
   } catch { return null; }
