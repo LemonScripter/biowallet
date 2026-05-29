@@ -189,6 +189,6 @@ Mindkét szkript önálló, és minden egyes tulajdonsághoz emberi olvasásra a
 
 ## Licenc
 
-MIT © 2025–2026 [Szőke László](https://github.com/LemonScripter) / Citrom Média Kft.
+MIT © 2025–2026 Szőke László-Ferenc — [MetaSpace.Bio Logic Engine](https://metaspace.bio) | admin@metaspace.bio
 
 A BioWallet nyílt forráskódú. Szabadon auditálható, forkizálható és önállóan üzemeltethető. Ha biztonsági problémát találsz, kérjük, először olvasd el a [SECURITY.md](SECURITY.md) fájlt, mielőtt nyilvánosságra hoznád.
