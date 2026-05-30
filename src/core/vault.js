@@ -1,17 +1,17 @@
 /**
- * BioWallet — AES-256-GCM Vault (v2)
+ * BioWallet — AES-256-GCM Vault
  *
  * v1: vault_key = PBKDF2(face_R, salt)           — single factor (legacy)
  * v2: vault_key = random 32 bytes, wrapped twice:
  *     faceWrap:   AES-GCM( PBKDF2(face_R, salt),                    vault_key )
  *     deviceWrap: AES-GCM( HKDF(face_R ‖ device_prf, salt), vault_key ) — optional
- *
- * Open paths (v2):
- *   Same device:  device_prf available → device path (stronger)
- *   New device:   no device_prf → face-only path (always works with P.json)
- *
- * Device enrollment requires vault to be open (#faceR, #vaultKeyRaw in memory).
- * Both are zeroed on lock (P7).
+ * v3: same as v2 but PIN mandatory: PBKDF2(face_R ‖ PIN, salt)
+ * v4: SSS 2-of-3  (arc x=1 · device x=2 · paper x=3)
+ * v5: SSS 2-of-3 + genesis DNA chain
+ *     genesis.dna = SHA-256(face_R_0 ‖ ts_u64be)   ← arc-only, device-független
+ *     dna_chain[0].hash = SHA-256("" + genesis.dna + ts)
+ *     dna_chain[n].hash = SHA-256(prev_hash + genesis.dna + ts)
+ *     genesis.dna never changes; chain grows on re-enrollment.
  */
 
 import { CausalChain, DCCError } from './causal_chain.js?v=11';
@@ -34,13 +34,16 @@ class BioVault {
   #vaultKeyRaw  = null;   // Uint8Array — vault_key (v2 only), zeroed on lock
   #faceR        = null;   // Uint8Array — face_R from last OPEN, for device enrollment
   #pendingTxHash= null;
+  #genesis      = null;   // { dna: hex, ts: number } — v5 only, null otherwise
+  #openedViaFace= false;  // true if face share was used in last OPEN (for genesis check)
 
   constructor(vaultId) {
     this.#vaultId = vaultId;
     this.#chain   = new CausalChain();
   }
 
-  get id() { return this.#vaultId; }
+  get id()      { return this.#vaultId; }
+  get genesis() { return this.#genesis ? { ...this.#genesis } : null; }
 
   // ── TX commitment (P6) ────────────────────────────────────────────────────
 
@@ -139,10 +142,102 @@ class BioVault {
     } finally { vaultKeyRaw.fill(0); }
   }
 
+  // ── genesis DNA helpers (v5) ──────────────────────────────────────────────
+
+  // SHA-256(face_R_0 ‖ ts_u64be) — arc-only, device-independent
+  static async _computeGenesisDna(R, ts) {
+    const tsBytes = new Uint8Array(8);
+    new DataView(tsBytes.buffer).setBigUint64(0, BigInt(ts));
+    const buf = new Uint8Array(R.length + 8);
+    buf.set(R, 0);
+    buf.set(tsBytes, R.length);
+    const hash = await crypto.subtle.digest('SHA-256', buf);
+    return toHex(new Uint8Array(hash));
+  }
+
+  // SHA-256(prevHash + genesisDna + ts.toString())
+  static async _buildChainEntry(prevHash, genesisDna, ts, gen, method) {
+    const input = new TextEncoder().encode(prevHash + genesisDna + ts.toString());
+    const hash  = await crypto.subtle.digest('SHA-256', input);
+    return { gen, hash: toHex(new Uint8Array(hash)), ts, method };
+  }
+
+  static async _encryptSeedV5(seedBytes, embedding, devicePrf, credentialId, prfSalt) {
+    const vaultId = crypto.randomUUID();
+    const ts      = Date.now();
+    const { R, P } = await fuzzyCommit(embedding);
+    const salt     = crypto.getRandomValues(new Uint8Array(32));
+
+    const genesisDna  = await BioVault._computeGenesisDna(R, ts);
+    const chainEntry  = await BioVault._buildChainEntry('', genesisDna, ts, 0, 'initial_enrollment');
+
+    const vaultKeyRaw = crypto.getRandomValues(new Uint8Array(32));
+    try {
+      const vaultKey  = await importRawKey(vaultKeyRaw);
+      const plaintext = encode({ seed: toHex(seedBytes), accounts: [], vaultId, created: ts });
+      const { iv, ciphertext } = await aesEncrypt(vaultKey, plaintext);
+
+      const shares = sssSplit(vaultKeyRaw, 3, 2);
+      try {
+        const faceKey   = await deriveKey(R, salt, null);
+        const faceShare = { x: shares[0].x, ...await wrapBytes(faceKey, shares[0].y) };
+
+        let deviceShare = null;
+        if (devicePrf && credentialId && prfSalt) {
+          const devKey = await deriveKeyDevice(R, new Uint8Array(devicePrf), salt);
+          deviceShare  = {
+            x: shares[1].x,
+            ...await wrapBytes(devKey, shares[1].y),
+            credentialId: toHex(new Uint8Array(credentialId)),
+            prfSalt:      toHex(new Uint8Array(prfSalt)),
+          };
+        }
+
+        const paperShareY = shares[2].y.slice();
+
+        const vault = {
+          v: 5, vaultId,
+          salt:      toHex(salt),
+          iv:        toHex(iv),
+          ct:        toHex(new Uint8Array(ciphertext)),
+          genesis:   { dna: genesisDna, ts },
+          dna_chain: [chainEntry],
+          sss:       { faceShare, deviceShare, paperX: 3 },
+        };
+
+        return {
+          vaultId,
+          P,
+          encryptedVault: new TextEncoder().encode(JSON.stringify(vault)).buffer,
+          paperShareY,
+        };
+      } finally {
+        shares[0].y.fill(0);
+        shares[1].y.fill(0);
+        shares[2].y.fill(0);
+      }
+    } finally { vaultKeyRaw.fill(0); }
+  }
+
   static async importFromMnemonic(mnemonic, embedding, pin = null) {
     const seedBytes = mnemonicToSeed(mnemonic);
     try {
       return await BioVault._encryptSeed(seedBytes, embedding, pin);
+    } finally { seedBytes.fill(0); }
+  }
+
+  // ── Vault v5 creation (SSS 2-of-3 + genesis DNA chain) ───────────────────
+  static async createV5(embedding, devicePrf = null, credentialId = null, prfSalt = null) {
+    const seed = crypto.getRandomValues(new Uint8Array(32));
+    try {
+      return await BioVault._encryptSeedV5(seed, embedding, devicePrf, credentialId, prfSalt);
+    } finally { seed.fill(0); }
+  }
+
+  static async importFromMnemonicV5(mnemonic, embedding, devicePrf = null, credentialId = null, prfSalt = null) {
+    const seedBytes = mnemonicToSeed(mnemonic);
+    try {
+      return await BioVault._encryptSeedV5(seedBytes, embedding, devicePrf, credentialId, prfSalt);
     } finally { seedBytes.fill(0); }
   }
 
@@ -194,8 +289,8 @@ class BioVault {
       const v2   = JSON.parse(new TextDecoder().decode(encryptedVault));
       const salt = fromHex(v2.salt);
 
-      // ── v4: SSS 2-of-3 reconstruction ─────────────────────────────────────
-      if (v2.v === 4) {
+      // ── v4 / v5: SSS 2-of-3 reconstruction ───────────────────────────────
+      if (v2.v === 4 || v2.v === 5) {
         let shareA = null; // face share
         let shareB = null; // device or paper share
 
@@ -247,14 +342,19 @@ class BioVault {
         const address   = await seedToAddress(seedBytes);
         seedBytes.fill(0);
 
+        if (v2.v === 5 && v2.genesis) this.#genesis = v2.genesis;
+        this.#openedViaFace = (shareA !== null);
+
         return {
           address,
           hasDevice:  !!v2.sss.deviceShare,
           usedDevice: shareB?.x === 2,
-          isV4:       true,
+          isV4:       v2.v === 4,
+          isV5:       v2.v === 5,
+          genesis:    v2.v === 5 ? (v2.genesis ?? null) : null,
         };
       }
-      // ── end v4 ─────────────────────────────────────────────────────────────
+      // ── end v4/v5 ──────────────────────────────────────────────────────────
 
       let vaultKeyRaw  = null;
       let usedDevice   = false;
@@ -366,6 +466,7 @@ class BioVault {
 
   async sign(tx) {
     if (!this.#cryptoKey || !this.#vaultData) throw new DCCError('VAULT_LOCKED', 'SIGN');
+    await this._checkGenesis('SIGN');
     const canonical = JSON.stringify(tx, Object.keys(tx).sort());
     const hashBuf   = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
     const txHash    = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2,'0')).join('');
@@ -380,6 +481,7 @@ class BioVault {
 
   async personalSign(message) {
     if (!this.#cryptoKey || !this.#vaultData) throw new DCCError('VAULT_LOCKED', 'SIGN');
+    await this._checkGenesis('PERSONAL_SIGN');
     this.#chain.gate('SIGN', this.#vaultId);
     const seed = fromHex(this.#vaultData.seed);
     const sig  = await signPersonal(message, seed);
@@ -444,6 +546,156 @@ class BioVault {
     } finally { vaultKeyRaw.fill(0); }
   }
 
+  // ── Upgrade v2/v3 → v5 (SSS 2-of-3 + genesis DNA chain) ─────────────────
+  async upgradeToV5(devicePrf = null, credentialId = null, prfSalt = null) {
+    if (!this.#vaultData || !this.#faceR) throw new DCCError('VAULT_LOCKED', 'UPGRADE_V5');
+
+    const R    = this.#faceR;
+    const ts   = Date.now();
+    const salt = crypto.getRandomValues(new Uint8Array(32));
+
+    const genesisDna = await BioVault._computeGenesisDna(R, ts);
+    const chainEntry = await BioVault._buildChainEntry('', genesisDna, ts, 0, 'initial_enrollment');
+
+    const vaultKeyRaw = crypto.getRandomValues(new Uint8Array(32));
+    try {
+      const vaultKey  = await importRawKey(vaultKeyRaw);
+      const { iv, ciphertext } = await aesEncrypt(vaultKey, encode(this.#vaultData));
+
+      const shares = sssSplit(vaultKeyRaw, 3, 2);
+      try {
+        const faceKey   = await deriveKey(R, salt, null);
+        const faceShare = { x: shares[0].x, ...await wrapBytes(faceKey, shares[0].y) };
+
+        let deviceShare = null;
+        if (devicePrf && credentialId && prfSalt) {
+          const devKey = await deriveKeyDevice(R, new Uint8Array(devicePrf), salt);
+          deviceShare  = {
+            x: shares[1].x,
+            ...await wrapBytes(devKey, shares[1].y),
+            credentialId: toHex(new Uint8Array(credentialId)),
+            prfSalt:      toHex(new Uint8Array(prfSalt)),
+          };
+        }
+
+        const paperShareY = shares[2].y.slice();
+
+        const vault = {
+          v: 5, vaultId: this.#vaultId,
+          salt:      toHex(salt),
+          iv:        toHex(iv),
+          ct:        toHex(new Uint8Array(ciphertext)),
+          genesis:   { dna: genesisDna, ts },
+          dna_chain: [chainEntry],
+          sss:       { faceShare, deviceShare, paperX: 3 },
+        };
+
+        this.#vaultKeyRaw   = vaultKeyRaw.slice();
+        this.#cryptoKey     = await importRawKey(this.#vaultKeyRaw);
+        this.#vaultFormat   = vault;
+        this.#genesis       = { dna: genesisDna, ts };
+        this.#openedViaFace = true;
+
+        return {
+          encryptedVault: new TextEncoder().encode(JSON.stringify(vault)).buffer,
+          paperShareY,
+        };
+      } finally {
+        shares[0].y.fill(0);
+        shares[1].y.fill(0);
+        shares[2].y.fill(0);
+      }
+    } finally { vaultKeyRaw.fill(0); }
+  }
+
+  // ── Face re-enrollment (v5 only) ──────────────────────────────────────────
+  // Re-commits face BCH, refreshes SSS share wrappings, appends chain entry.
+  // genesis.dna is preserved; vault key (and ct) unchanged.
+  // Device share is cleared if no new devicePrf provided — re-enroll device separately.
+  async reEnrollFace(newEmbedding, devicePrf = null, credentialId = null, prfSalt = null) {
+    if (!this.#vaultData || !this.#vaultKeyRaw) throw new DCCError('VAULT_LOCKED', 'RE_ENROLL');
+    if (!this.#vaultFormat || this.#vaultFormat.v !== 5)
+      throw new DCCError('NOT_V5', 'RE_ENROLL');
+
+    const { R: newR, P: newP } = await fuzzyCommit(newEmbedding);
+    const newSalt = crypto.getRandomValues(new Uint8Array(32));
+    const ts      = Date.now();
+
+    const shares = sssSplit(this.#vaultKeyRaw, 3, 2);
+    try {
+      const faceKey   = await deriveKey(newR, newSalt, null);
+      const faceShare = { x: shares[0].x, ...await wrapBytes(faceKey, shares[0].y) };
+
+      let deviceShare = null;
+      if (devicePrf && credentialId && prfSalt) {
+        const devKey = await deriveKeyDevice(newR, new Uint8Array(devicePrf), newSalt);
+        deviceShare  = {
+          x: shares[1].x,
+          ...await wrapBytes(devKey, shares[1].y),
+          credentialId: toHex(new Uint8Array(credentialId)),
+          prfSalt:      toHex(new Uint8Array(prfSalt)),
+        };
+      }
+
+      const paperShareY = shares[2].y.slice();
+
+      const vault    = this.#vaultFormat;
+      const chain    = vault.dna_chain;
+      const prevHash = chain[chain.length - 1].hash;
+      const entry    = await BioVault._buildChainEntry(
+        prevHash, vault.genesis.dna, ts, chain.length, 're-enrollment'
+      );
+      chain.push(entry);
+      vault.salt = toHex(newSalt);
+      vault.sss  = { faceShare, deviceShare, paperX: 3 };
+
+      this.#faceR = newR.slice();
+
+      return {
+        P:              newP,
+        encryptedVault: new TextEncoder().encode(JSON.stringify(vault)).buffer,
+        paperShareY,
+      };
+    } finally {
+      shares[0].y.fill(0);
+      shares[1].y.fill(0);
+      shares[2].y.fill(0);
+    }
+  }
+
+  // ── Genesis check (Use Case C — DCC SIGN guard) ──────────────────────────
+  // Only runs on v5 vaults opened via face. Skipped for device+paper fallback path.
+  // Also skipped for re-enrolled vaults (dna_chain.length > 1) since new face R ≠ genesis R.
+  async _checkGenesis(op) {
+    if (!this.#genesis || !this.#openedViaFace || !this.#faceR) return;
+    if (this.#vaultFormat?.dna_chain?.length > 1) return;
+    const check = await BioVault._computeGenesisDna(this.#faceR, this.#genesis.ts);
+    if (check !== this.#genesis.dna) {
+      this.lock();
+      throw new DCCError('GENESIS_MISMATCH', op);
+    }
+  }
+
+  // ── DNA chain extension (v5 re-enrollment) ───────────────────────────────
+  // Appends a new chain entry to the vault JSON (no re-encryption needed).
+  // Call after updating the face BCH codeword (Fázis 4).
+  async addChainEntry(method) {
+    if (!this.#vaultFormat || this.#vaultFormat.v !== 5)
+      throw new DCCError('NOT_V5', 'ADD_CHAIN');
+    if (!this.#vaultData)
+      throw new DCCError('VAULT_LOCKED', 'ADD_CHAIN');
+
+    const vault    = this.#vaultFormat;
+    const chain    = vault.dna_chain;
+    const prevHash = chain[chain.length - 1].hash;
+    const ts       = Date.now();
+    const entry    = await BioVault._buildChainEntry(
+      prevHash, vault.genesis.dna, ts, chain.length, method
+    );
+    chain.push(entry);
+    return new TextEncoder().encode(JSON.stringify(vault)).buffer;
+  }
+
   // ── Paper recovery ────────────────────────────────────────────────────────
 
   async makeRecoveryFormula() {
@@ -469,6 +721,8 @@ class BioVault {
     this.#vaultData     = null;
     this.#pendingTxHash = null;
     this.#vaultFormat   = null;
+    this.#genesis       = null;
+    this.#openedViaFace = false;
     if (this.#vaultKeyRaw) { this.#vaultKeyRaw.fill(0); this.#vaultKeyRaw = null; }
     if (this.#faceR)       { this.#faceR.fill(0);       this.#faceR = null; }
   }

@@ -23,7 +23,7 @@ import {
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
-const worker  = new Worker('./vault_worker.js?v=22', { type: 'module' });
+const worker  = new Worker('./vault_worker.js?v=23', { type: 'module' });
 let _nextId   = 0;
 const _pending = new Map();
 
@@ -1024,7 +1024,7 @@ btnScan.addEventListener('click', async () => {
     let pin = null;
     let paperShareY = null;
 
-    if (vaultVersion === 4) {
+    if (vaultVersion >= 4) {
       const paperInput = document.getElementById('sss-paper-input');
       const hexStr = (paperInput?.value ?? '').trim().toLowerCase().replace(/\s/g, '');
       if (hexStr.length === 64 && /^[0-9a-f]+$/.test(hexStr)) {
@@ -1040,7 +1040,7 @@ btnScan.addEventListener('click', async () => {
       }
     }
 
-    const { address, hasDevice, usedDevice, isV4 } = await callWorker(
+    const { address, hasDevice, usedDevice, isV4, isV5 } = await callWorker(
       'OPEN',
       { encryptedVault: encBuf, P: meta.P, devicePrf, pin, paperShareY },
       [encBuf]
@@ -1054,9 +1054,12 @@ btnScan.addEventListener('click', async () => {
 
     _updateDeviceRow(hasDevice, usedDevice);
     deviceRow.style.display = '';
-    // Show 2-of-3 upgrade button only for non-v4 vaults
+    // Show 2-of-3 upgrade button only for non-v4/v5 vaults
     const sssRow = document.getElementById('sss-row');
-    if (sssRow) sssRow.style.display = isV4 ? 'none' : '';
+    if (sssRow) sssRow.style.display = (isV4 || isV5) ? 'none' : '';
+    // Show re-enrollment button for v5 vaults
+    const reenrollRow = document.getElementById('reenroll-row');
+    if (reenrollRow) reenrollRow.style.display = isV5 ? '' : 'none';
 
     showPanel('vault');
     ensureWCInit().catch(() => {});
@@ -1243,7 +1246,7 @@ btnSign.addEventListener('click', async () => {
 
   } catch (e) {
     setScanning(false);
-    if (e.message.includes('BIO_MISMATCH')) bioFail();
+    if (e.message.includes('BIO_MISMATCH') || e.message.includes('GENESIS_MISMATCH')) bioFail();
     setMsg(friendlyError(e.message) + bioFailHint(), 'error');
     btnSign.disabled = false;
   }
@@ -1365,7 +1368,7 @@ document.getElementById('btn-sss')?.addEventListener('click', async () => {
   }
 
   try {
-    const { encryptedVault, paperShareY } = await callWorker('UPGRADE_V4', {
+    const { encryptedVault, paperShareY } = await callWorker('UPGRADE_V5', {
       devicePrf:    wa?.devicePrf    ?? null,
       credentialId: wa?.credentialId ?? null,
       prfSalt:      wa?.prfSalt      ?? null,
@@ -1389,11 +1392,62 @@ document.getElementById('btn-sss')?.addEventListener('click', async () => {
   }
 });
 
+// ── btn-reenroll: re-enroll face for v5 vaults ────────────────────────────
+document.getElementById('btn-reenroll')?.addEventListener('click', async () => {
+  const meta = JSON.parse(localStorage.getItem('biowallet_meta') ?? 'null');
+  if (!meta) return;
+
+  const confirmed = confirm(t('msg.reenroll.confirm'));
+  if (!confirmed) return;
+
+  setScanning(true);
+  enrollDots.style.display = 'flex';
+  setMsg(t('msg.scanning.face'), '');
+
+  let embedding;
+  try {
+    embedding = await enrollEmbedding(video, (n) => {
+      dots.forEach((d, i) => d.classList.toggle('done', i < n));
+      setMsg(t('msg.scan.progress', { n }), '');
+    });
+  } catch (e) {
+    setScanning(false);
+    enrollDots.style.display = 'none';
+    setMsg(friendlyError(e.message), 'error');
+    return;
+  }
+
+  setScanning(false);
+  enrollDots.style.display = 'none';
+
+  try {
+    const { P, encryptedVault, paperShareY } = await callWorker(
+      'RE_ENROLL_FACE', { embedding }, [embedding.buffer]
+    );
+
+    const paperHex = Array.from(paperShareY).map(b => b.toString(16).padStart(2, '0')).join('');
+    await showPaperShareModal(paperHex);
+
+    meta.P         = P;
+    meta.vaultJson = new TextDecoder().decode(encryptedVault);
+    meta.device    = null; // device share invalidated by new salt; re-enroll device separately
+    localStorage.setItem('biowallet_meta', JSON.stringify(meta));
+
+    const walletName = await showSaveModal(encryptedVault, JSON.stringify(P), 'reenroll', meta.walletName || 'biowallet');
+    meta.walletName = walletName;
+    localStorage.setItem('biowallet_meta', JSON.stringify(meta));
+
+    setMsg(t('msg.reenroll.done'), 'ok');
+  } catch (e) {
+    setMsg(friendlyError(e.message), 'error');
+  }
+});
+
 // ── Load vault file ──────────────────────────────────────────────────────────
 function _applyVaultJson(meta, vaultText) {
   meta.vaultJson = vaultText;
   const vMatch = vaultText.match(/"v"\s*:\s*(\d+)/);
-  if (vMatch && parseInt(vMatch[1]) === 4) {
+  if (vMatch && parseInt(vMatch[1]) >= 4) {
     const pr = document.getElementById('sss-paper-row');
     if (pr) pr.style.display = '';
   }
@@ -1854,7 +1908,7 @@ async function handleWCEthSend(topic, id, wcTx) {
     setMsg(t('msg.wc.tx.sent', { hash: txHash.slice(0,10) + '…' }), 'ok');
   } catch (e) {
     setScanning(false);
-    if (e.message?.includes('BIO_MISMATCH')) bioFail();
+    if (e.message?.includes('BIO_MISMATCH') || e.message?.includes('GENESIS_MISMATCH')) bioFail();
     await wcRespondError(topic, id, e.message);
     setMsg(friendlyError(e.message) + bioFailHint(), 'error');
   }
@@ -1879,7 +1933,7 @@ async function handleWCPersonalSign(topic, id, hexMsg) {
     setMsg(t('msg.wc.msg.signed'), 'ok');
   } catch (e) {
     setScanning(false);
-    if (e.message?.includes('BIO_MISMATCH')) bioFail();
+    if (e.message?.includes('BIO_MISMATCH') || e.message?.includes('GENESIS_MISMATCH')) bioFail();
     await wcRespondError(topic, id, e.message);
     setMsg(friendlyError(e.message) + bioFailHint(), 'error');
   }
@@ -2219,8 +2273,9 @@ async function pickFile(accept) {
 // ── Friendly error messages ───────────────────────────────────────────────
 function friendlyError(m) {
   if (!m) return t('err.unknown');
-  if (m.includes('TX_MISMATCH'))     return t('err.tx.mismatch');
-  if (m.includes('BIO_MISMATCH'))    return t('err.bio.mismatch');
+  if (m.includes('TX_MISMATCH'))       return t('err.tx.mismatch');
+  if (m.includes('GENESIS_MISMATCH'))  return t('err.genesis.mismatch');
+  if (m.includes('BIO_MISMATCH'))      return t('err.bio.mismatch');
   if (m.includes('EXPIRED'))         return t('err.expired');
   if (m.includes('NO_TOKEN'))        return t('err.no.token');
   if (m.includes('VAULT_ID_MISMATCH')) return t('err.vault.mismatch');

@@ -273,7 +273,12 @@ const STRINGS = {
     'err.consumed':      'A token már felhasználásra került — próbálja újra.',
     'err.mnemonic':      'Érvénytelen seed phrase — ellenőrizze a szavakat és a sorrendet (BIP39 szólista).',
     'err.tx.mismatch':   'Tranzakció ujjlenyomat mismatch — aláírás blokkolva.',
+    'err.genesis.mismatch': 'Biometriai azonosság nem egyezik a tárca létrehozójával — aláírás blokkolva.',
     'err.device.prf':    'WebAuthn PRF nem támogatott ezen az eszközön/böngészőn.',
+    'btn.reenroll':      'Arc profil frissítése',
+    'btn.reenroll.sub':  'Új arc-beolvasás regisztrálása (pl. böngészőváltás után)',
+    'msg.reenroll.done': 'Arc profil sikeresen frissítve. Mentse el az új .biowallet fájlt.',
+    'msg.reenroll.confirm': 'Arc profil újra-regisztrálása?\n\nA régi papír share érvénytelenné válik — új papír share-t kell felírni.\n\nFolytatja?',
     'bf.remaining':      ' · még {n} próba a zárolásig',
 
     /* ── Guide modal ───────────────────────────────────────────────── */
@@ -549,7 +554,12 @@ const STRINGS = {
     'err.consumed':      'Token already consumed — please try again.',
     'err.mnemonic':      'Invalid seed phrase — check the words and their order (BIP39 word list).',
     'err.tx.mismatch':   'Transaction fingerprint mismatch — signing blocked.',
+    'err.genesis.mismatch': 'Biometric identity does not match the wallet creator — signing blocked.',
     'err.device.prf':    'WebAuthn PRF not supported on this device/browser.',
+    'btn.reenroll':      'Update face profile',
+    'btn.reenroll.sub':  'Register a new face scan (e.g. after browser migration)',
+    'msg.reenroll.done': 'Face profile updated successfully. Save the new .biowallet file.',
+    'msg.reenroll.confirm': 'Update face profile?\n\nThe old paper share becomes invalid — you must write down a new paper share.\n\nContinue?',
     'bf.remaining':      ' · {n} attempts left before lockout',
 
     /* ── Guide modal ───────────────────────────────────────────────── */
