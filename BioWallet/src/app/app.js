@@ -147,8 +147,20 @@ function _refreshDynamicLabels() {
 
 // ── Init ──────────────────────────────────────────────────────────────────
 (async () => {
-  if ('serviceWorker' in navigator)
+  if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/app/sw.js').catch(() => {});
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      const banner = document.getElementById('update-banner');
+      const btn    = document.getElementById('update-reload-btn');
+      const text   = document.getElementById('update-banner-text');
+      if (!banner) return;
+      const isHu = document.documentElement.lang !== 'en';
+      text.textContent = isHu ? '🔄 Új verzió elérhető' : '🔄 New version available';
+      btn.textContent  = isHu ? 'Frissítés' : 'Reload';
+      btn.onclick = () => window.location.reload();
+      banner.classList.add('visible');
+    });
+  }
 
   try {
     stream = await openCamera(video, m => setMsg(m, ''));
