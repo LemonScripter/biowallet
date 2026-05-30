@@ -41,7 +41,7 @@ All vendor libraries (FaceNet, ethers.js, WalletConnect, QRCode) are bundled at 
 ### What BioWallet does NOT protect against
 
 **A fully compromised browser**
-If the browser process itself is controlled by an attacker, Worker isolation provides no protection. Use a dedicated browser profile for high-value wallets.
+If the browser process itself is controlled by an attacker, Worker isolation provides no protection. Use a dedicated browser profile for high-value wallets. See *Hardened Deployment* below for a kernel-level mitigation.
 
 **The enrolled face itself being replicated**
 BioWallet uses FaceNet embeddings, which are based on 2D video frames from a webcam. A high-quality photograph or a 3D face mask could potentially bypass liveness detection. For high-value holdings, combine BioWallet with a hardware recovery key (Phase 10 roadmap).
@@ -90,6 +90,43 @@ Please include:
 We will acknowledge your report within 48 hours and aim to release a fix within 14 days for critical vulnerabilities.
 
 We do not currently offer a bug bounty program, but we will publicly credit responsible disclosure in the release notes.
+
+---
+
+## Hardened Deployment: BioWallet + BioOS (experimental)
+
+BioWallet's cryptographic guarantees operate at the browser layer. A fully
+compromised OS or browser process can, in principle, bypass Worker isolation.
+
+The **DCC Ring 0** project addresses this attack surface at the Linux kernel
+layer using eBPF LSM hooks:
+
+| BPF Program | Hook | Effect |
+|---|---|---|
+| `dcc_causality_monitor` | `raw_tp/input_event` | Only hardware IRQ events generate causal tokens |
+| `dcc_axiom_validator` | `lsm/file_permission` | File writes blocked without a valid causal token |
+| `dcc_read_guard` | `lsm/file_open` | File reads blocked for non-whitelisted processes |
+| `dcc_network_guard` | `lsm/socket_connect` | Network blocked for non-whitelisted processes |
+| `dcc_exec_guard` | `lsm/bprm_check_security` | Exec blocked for non-whitelisted processes |
+| `dcc_fork_inherit` | `raw_tp/sched_process_fork` | Token inheritance enforced at fork |
+
+`token_map` is frozen at load time (`bpf_map_freeze`) — fake token injection via
+`bpftool` returns `EPERM`.
+
+When BioWallet runs on a BioOS-protected host with DCC Ring 0 active, the causal
+chain is enforced at kernel level: a process cannot read, write, or execute without
+a hardware-rooted causal token derived from a physical hardware event. This closes
+the "fully compromised browser" attack vector described above.
+
+**Current status: experimental — do not rely on this for production deployments yet.**
+Known open issues:
+
+- Comm-based whitelist is spoofable via `prctl(PR_SET_NAME)` — inode-based fix planned
+- BPF programs are not yet formally verified with Z3
+- BioWallet ↔ DCC Ring 0 joint integration not yet end-to-end tested
+- No external security audit of the kernel-level components
+
+This is a Phase 10 roadmap item: a fully validated BioWallet + BioOS joint deployment.
 
 ---
 
