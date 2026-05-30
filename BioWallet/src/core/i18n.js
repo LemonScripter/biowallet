@@ -44,6 +44,9 @@ const STRINGS = {
     'lock.info':             'A privát kulcs titkosítva tárolódik. Kizárólag az Ön arca tudja megnyitni.',
     'btn.load.vault':        'Vault fájl betöltése',
     'btn.load.vault.sub':    '.biowallet · egyszer kell, aztán gyorsítótárazva',
+    'vault.paste.title':     'Vault JSON beillesztése',
+    'vault.paste.desc':      'Nyisd meg a .biowallet fájlt szövegszerkesztővel, másold ki az összes tartalmat, majd illeszd be ide:',
+    'vault.paste.btn':       'Betöltés',
     'btn.scan':              'Megnyitás arc-scannel',
     'btn.scan.sub':          'Sikeres scan után 30 mp-es nyitva tartás',
     'btn.switch.wallet':     'Másik wallet / importálás',
@@ -315,6 +318,9 @@ const STRINGS = {
     'lock.info':             'The private key is stored encrypted. Only your face can unlock it.',
     'btn.load.vault':        'Load Vault File',
     'btn.load.vault.sub':    '.biowallet · one-time load, then cached',
+    'vault.paste.title':     'Paste Vault JSON',
+    'vault.paste.desc':      'Open the .biowallet file with a text editor, copy all the content, then paste it here:',
+    'vault.paste.btn':       'Load',
     'btn.scan':              'Unlock with face scan',
     'btn.scan.sub':          'Vault stays open 30 s after successful scan',
     'btn.switch.wallet':     'Switch wallet / import',
@@ -671,6 +677,12 @@ const INFO_CONTENT = {
 
 const GUIDE_HTML = {
   hu: `
+    <div class="guide-note" style="border-color:#6c63ff;text-align:center;padding:0.9rem 1rem;margin-bottom:0.2rem">
+      <strong style="color:#6c63ff;font-size:1rem">Ajánlott böngésző</strong><br>
+      <span style="font-size:0.83rem">Legjobb élmény: <strong>Chrome</strong> (asztali &amp; Android PWA) · <strong>Edge</strong> (asztali)<br>
+      Firefox alapvetően működik · <strong style="color:#ffa502">Samsung Internet: nem támogatott</strong> — fájlválasztásnál a kameraválasztó jelenik meg, fájlkezelés nem megbízható.</span>
+    </div>
+    <hr class="guide-sep">
     <div class="guide-section">
       <div class="guide-h2">Mi a BioWallet?</div>
       <p class="guide-p">A BioWallet biometrikailag védett Ethereum-tárca. A privát kulcsát <strong>az Ön arca + egy PIN-kód</strong> védi — a titkosítókulcs soha nem tárolódik lemezen, kizárólag arc-scan + PIN kombinációjából keletkezik.</p>
@@ -731,6 +743,7 @@ const GUIDE_HTML = {
         <tr><td><span class="guide-badge badge-err">TX_MISMATCH</span></td><td>Ujjlenyomat nem egyezett — tranzakció módosult, aláírás blokkolva</td></tr>
         <tr><td><span class="guide-badge badge-sym">Vault nem nyílik / rossz PIN</span></td><td>Ellenőrizze a PIN-kódot — ugyanazt kell megadni, amit létrehozáskor beállított</td></tr>
         <tr><td><span class="guide-badge badge-err">Kamera hiba</span></td><td>HTTPS szükséges; helyi tesztnél: <code style="font-size:0.72rem">http://localhost:3333</code></td></tr>
+        <tr><td><span class="guide-badge badge-sym">Samsung Internet böngésző</span></td><td><strong>Nem támogatott.</strong> Fájlválasztáskor kameraválasztó jelenik meg. Használjon <strong>Chrome-ot</strong> (lehetőleg PWA-ként telepítve).</td></tr>
       </tbody></table>
       <div class="guide-ok" style="margin-top:0.7rem">✓ Tipp: egyenes tartás, közvetlen fényforrás szemből, kerülje az erős háttérvilágítást.</div>
     </div>
@@ -767,6 +780,12 @@ const GUIDE_HTML = {
     </p>`,
 
   en: `
+    <div class="guide-note" style="border-color:#6c63ff;text-align:center;padding:0.9rem 1rem;margin-bottom:0.2rem">
+      <strong style="color:#6c63ff;font-size:1rem">Recommended browser</strong><br>
+      <span style="font-size:0.83rem">Best experience: <strong>Chrome</strong> (desktop &amp; Android PWA) · <strong>Edge</strong> (desktop)<br>
+      Firefox works with basic support · <strong style="color:#ffa502">Samsung Internet: not supported</strong> — file picker shows camera chooser; file handling is unreliable.</span>
+    </div>
+    <hr class="guide-sep">
     <div class="guide-section">
       <div class="guide-h2">What is BioWallet?</div>
       <p class="guide-p">BioWallet is a biometrically protected Ethereum wallet. Your private key is protected by <strong>your face + a PIN code</strong> — the encryption key is derived solely from your face scan combined with your PIN, and is never stored on disk.</p>
@@ -827,6 +846,7 @@ const GUIDE_HTML = {
         <tr><td><span class="guide-badge badge-err">TX_MISMATCH</span></td><td>Fingerprint mismatch — transaction was altered, signing blocked</td></tr>
         <tr><td><span class="guide-badge badge-sym">Vault won't open / wrong PIN</span></td><td>Check your PIN — it must match what you set at wallet creation</td></tr>
         <tr><td><span class="guide-badge badge-err">Camera error</span></td><td>HTTPS required; for local testing: <code style="font-size:0.72rem">http://localhost:3333</code></td></tr>
+        <tr><td><span class="guide-badge badge-sym">Samsung Internet browser</span></td><td><strong>Not supported.</strong> File picker shows a camera chooser instead of Files. Use <strong>Chrome</strong> (preferably installed as a PWA).</td></tr>
       </tbody></table>
       <div class="guide-ok" style="margin-top:0.7rem">✓ Tip: hold head straight, direct front lighting, avoid strong backlight.</div>
     </div>
