@@ -90,7 +90,7 @@ BioWallet, Ledger, Trezor and MetaMask rated across 8 threat categories (scale 1
   <img src="docs/radar_chart.svg" alt="Security radar chart — BioWallet vs Ledger vs Trezor vs MetaMask" width="560"/>
 </p>
 
-Full analysis with data tables and bar charts: [English](docs/security_comparison_en.html) · [Magyar](docs/security_comparison_hu.html)
+Full analysis with data tables and bar charts: <a href="https://biowallet.metaspace.bio/docs/security_comparison_en.html" target="_blank" rel="noopener">English</a> · <a href="https://biowallet.metaspace.bio/docs/security_comparison_hu.html" target="_blank" rel="noopener">Magyar</a>
 
 ---
 
