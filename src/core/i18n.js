@@ -42,6 +42,8 @@ const STRINGS = {
 
     /* ── Lock panel ────────────────────────────────────────────────── */
     'lock.info':             'A privát kulcs titkosítva tárolódik. Kizárólag az Ön arca tudja megnyitni.',
+    'btn.load.vault':        'Vault fájl betöltése',
+    'btn.load.vault.sub':    '.biowallet · egyszer kell, aztán gyorsítótárazva',
     'btn.scan':              'Megnyitás arc-scannel',
     'btn.scan.sub':          'Sikeres scan után 30 mp-es nyitva tartás',
     'btn.switch.wallet':     'Másik wallet / importálás',
@@ -87,6 +89,9 @@ const STRINGS = {
     /* ── Dynamic messages ──────────────────────────────────────────── */
     'msg.camera.error':       'Kamera hiba: {err}',
     'msg.vault.loaded':       'Vault betöltve — arc-scan a megnyitáshoz.',
+    'msg.vault.file.loaded':   'Vault fájl betöltve — most scannelhetsz.',
+    'msg.vault.file.required': 'Előbb töltse be a vault fájlt (.biowallet)!',
+    'msg.invalid.vault.file':  'Érvénytelen vault fájl.',
     'msg.vault.outdated':     'Elavult vault formátum — regisztráljon újra.',
     'msg.vault.corrupted':    'Sérült mentés — hozzon létre új walletot.',
     'msg.first.launch':       'Első indítás — hozzon létre walletot.',
@@ -97,7 +102,7 @@ const STRINGS = {
     'msg.vault.open':         'Vault nyitva.',
     'msg.vault.locked':       'Vault zárolva. Privát kulcs törölve.',
     'msg.address.copied':     '✓ Másolva!',
-    'msg.restore.ok':         'Wallet visszaállítva — arc-scan + .biowallet a megnyitáshoz.',
+    'msg.restore.ok':         'Wallet visszaállítva — töltse be a .biowallet fájlt, aztán scannelhet.',
     'msg.restore.error':      'Visszaállítás hiba: {err}',
     'msg.invalid.pjson.ver':  'Érvénytelen .P.json fájl (rossz verzió).',
     'msg.invalid.pjson.bch':  'Érvénytelen .P.json fájl (hiányzó BCH adat).',
@@ -308,6 +313,8 @@ const STRINGS = {
 
     /* ── Lock panel ────────────────────────────────────────────────── */
     'lock.info':             'The private key is stored encrypted. Only your face can unlock it.',
+    'btn.load.vault':        'Load Vault File',
+    'btn.load.vault.sub':    '.biowallet · one-time load, then cached',
     'btn.scan':              'Unlock with face scan',
     'btn.scan.sub':          'Vault stays open 30 s after successful scan',
     'btn.switch.wallet':     'Switch wallet / import',
@@ -353,6 +360,9 @@ const STRINGS = {
     /* ── Dynamic messages ──────────────────────────────────────────── */
     'msg.camera.error':       'Camera error: {err}',
     'msg.vault.loaded':       'Vault loaded — face scan to unlock.',
+    'msg.vault.file.loaded':   'Vault file loaded — you can now scan.',
+    'msg.vault.file.required': 'Load the vault file (.biowallet) first!',
+    'msg.invalid.vault.file':  'Invalid vault file.',
     'msg.vault.outdated':     'Outdated vault format — please re-enroll.',
     'msg.vault.corrupted':    'Corrupted save — create a new wallet.',
     'msg.first.launch':       'First launch — create a wallet.',
@@ -363,7 +373,7 @@ const STRINGS = {
     'msg.vault.open':         'Vault open.',
     'msg.vault.locked':       'Vault locked. Private key erased.',
     'msg.address.copied':     '✓ Copied!',
-    'msg.restore.ok':         'Wallet restored — face scan + .biowallet to unlock.',
+    'msg.restore.ok':         'Wallet restored — load the .biowallet file, then scan.',
     'msg.restore.error':      'Restore error: {err}',
     'msg.invalid.pjson.ver':  'Invalid .P.json file (wrong version).',
     'msg.invalid.pjson.bch':  'Invalid .P.json file (missing BCH data).',

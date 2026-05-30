@@ -189,6 +189,8 @@ function _refreshDynamicLabels() {
         }
         showPanel('lock');
         setMsgK('msg.vault.loaded');
+        const lvr = document.getElementById('load-vault-row');
+        if (lvr) lvr.style.display = meta.vaultJson ? 'none' : '';
       }
     } catch {
       localStorage.clear();
@@ -825,6 +827,8 @@ btnRestore.addEventListener('click', async () => {
     vaultReady = true;
     showPanel('lock');
     setMsgK('msg.restore.ok', 'ok');
+    const lvr = document.getElementById('load-vault-row');
+    if (lvr) lvr.style.display = '';
   } catch (e) {
     setMsg(t('msg.restore.error', { err: e.message }), 'error');
   }
@@ -971,15 +975,23 @@ function showPostImportChecklist() {
 // ── Open vault (face scan + optional device) ──────────────────────────────
 btnScan.addEventListener('click', async () => {
   if (cooldownMs() > 0) return;
+
+  // Guard: vault must be pre-loaded via btn-load-vault before scanning.
+  // Calling pickFile() after async awaits breaks the user-gesture chain on Samsung Browser,
+  // causing it to open its native media picker (camera/video/photo) instead of the file manager.
+  const meta = JSON.parse(localStorage.getItem('biowallet_meta') ?? 'null');
+  if (!meta?.vaultJson) {
+    setMsgK('msg.vault.file.required', 'error');
+    const lvr = document.getElementById('load-vault-row');
+    if (lvr) lvr.style.display = '';
+    return;
+  }
+
   btnScan.disabled = true;
   setScanning(true);
   setMsg(t('msg.open.scanning'), '');
 
   try {
-    const meta = JSON.parse(localStorage.getItem('biowallet_meta'));
-
-    // Face scan FIRST — before any file picker (file picker backgrounds the tab on mobile,
-    // suspending the camera stream and causing detection to fail on return)
     const embedding = await captureEmbedding(video);
     await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
     bioSuccess();
@@ -994,19 +1006,8 @@ btnScan.addEventListener('click', async () => {
       if (!devicePrf) setMsg(t('msg.device.fallback'), '');
     }
 
-    // Get vault: localStorage first (same device), file picker only on new/restored device
-    let encBuf;
-    if (meta.vaultJson) {
-      encBuf = new TextEncoder().encode(meta.vaultJson).buffer;
-    } else {
-      const vaultFile = await pickFile('.biowallet,application/octet-stream,*/*');
-      encBuf = await vaultFile.arrayBuffer();
-      // Cache JSON vault (v2/v3) for future opens — skips file picker on this device
-      if (new Uint8Array(encBuf)[0] === 0x7b) {
-        meta.vaultJson = new TextDecoder().decode(encBuf);
-        localStorage.setItem('biowallet_meta', JSON.stringify(meta));
-      }
-    }
+    // Vault from cache — guaranteed present by the guard above
+    const encBuf = new TextEncoder().encode(meta.vaultJson).buffer;
 
     // v3 vault without device PRF → PIN required
     // v4 vault → collect paper share from input if provided
@@ -1376,6 +1377,32 @@ document.getElementById('btn-sss')?.addEventListener('click', async () => {
     setMsg(t('sss.paper.done'), 'ok');
   } catch (e) {
     setMsg(e.message, 'error');
+  }
+});
+
+// ── Load vault file (mobile-safe: direct user gesture, no prior awaits) ──────
+document.getElementById('btn-load-vault')?.addEventListener('click', async () => {
+  const meta = JSON.parse(localStorage.getItem('biowallet_meta') ?? 'null');
+  if (!meta) return;
+  try {
+    const vaultFile = await pickFile('.biowallet');
+    const encBuf    = await vaultFile.arrayBuffer();
+    if (new Uint8Array(encBuf)[0] !== 0x7b) {
+      setMsg(t('msg.invalid.vault.file'), 'error');
+      return;
+    }
+    meta.vaultJson = new TextDecoder().decode(encBuf);
+    // Detect v4 vault and show paper share input if needed
+    const vMatch = meta.vaultJson.match(/"v"\s*:\s*(\d+)/);
+    if (vMatch && parseInt(vMatch[1]) === 4) {
+      const pr = document.getElementById('sss-paper-row');
+      if (pr) pr.style.display = '';
+    }
+    localStorage.setItem('biowallet_meta', JSON.stringify(meta));
+    document.getElementById('load-vault-row').style.display = 'none';
+    setMsgK('msg.vault.file.loaded', 'ok');
+  } catch (e) {
+    if (e.message && !e.message.includes('no.file')) setMsg(friendlyError(e.message), 'error');
   }
 });
 

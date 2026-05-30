@@ -796,6 +796,13 @@
     <div class="info-text" data-i18n="lock.info">
       A privát kulcs titkosítva tárolódik. Kizárólag az Ön arca tudja megnyitni.
     </div>
+    <!-- vault file not cached — shown only when .biowallet is absent on this device -->
+    <div id="load-vault-row" style="display:none">
+      <button class="btn btn-ghost" id="btn-load-vault">
+        <span data-i18n="btn.load.vault">Vault fájl betöltése</span>
+        <small data-i18n="btn.load.vault.sub">.biowallet · egyszer kell, aztán gyorsítótárazva</small>
+      </button>
+    </div>
     <!-- v4 paper share input — hidden for v2/v3 vaults -->
     <div id="sss-paper-row" style="display:none;margin-bottom:0.75rem">
       <label style="font-size:0.72rem;color:#a0a0b0;display:block;margin-bottom:0.3rem" data-i18n="sss.lock.paper.label">Papír share (ha nincs regisztrált eszköz)</label>
