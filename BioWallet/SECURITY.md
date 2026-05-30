@@ -4,8 +4,8 @@
 
 | Version | Status |
 |---|---|
-| v13 (current, `main` branch) | ✅ Actively maintained |
-| v12 and below | ❌ No security fixes |
+| v29 (current, `main` branch) | ✅ Actively maintained |
+| v28 and below | ❌ No security fixes |
 
 ---
 
@@ -19,7 +19,7 @@ BioWallet is designed for a specific set of threats. Understanding what it prote
 The private key exists in memory only inside `vault_worker.js` for the duration of a single operation (< 30 seconds). A memory-scraping attack would need to target the Worker thread at exactly the right moment. The DCC auto-lock ensures the key is not resident across idle periods.
 
 **Stolen `.biowallet` file**
-The vault is encrypted with AES-256-GCM using a key derived from the user's face embedding via a BCH(63,51,t=6) fuzzy extractor. An attacker with the file but without the enrolled face cannot decrypt it by brute force.
+The vault is encrypted with AES-256-GCM using a key derived from the user's face embedding via a BCH(255,55,t=25) fuzzy extractor. An attacker with the file but without the enrolled face cannot decrypt it by brute force.
 
 **Phishing and credential theft**
 There are no credentials to steal. No password, no seed phrase stored on the device or transmitted over any network.
@@ -34,7 +34,7 @@ The DCC token is single-use and expires after 30 seconds. Replaying a captured e
 The fuzzy extractor tolerates small biometric variations; however, a face scan from a different person (or a significantly different browser's image pipeline) will produce an embedding that is too far from the enrolled one to pass BCH correction.
 
 **CDN supply chain attacks**
-All vendor libraries (FaceNet, ethers.js, WalletConnect, QRCode) are bundled at build time and served from the same origin. No runtime CDN fetch occurs.
+All vendor libraries (FaceNet, ethers.js, WalletConnect, QRCode) are bundled at build time and served from the same origin. No runtime CDN fetch occurs. All four vendor files carry SHA-384 SRI integrity attributes — a tampered file is rejected by the browser before execution.
 
 ---
 
@@ -78,7 +78,7 @@ Authentication:
 
 If you discover a security vulnerability in BioWallet, please **do not open a public GitHub issue**.
 
-**Email:** admin@metaspace.bio  
+**Email:** hello@lemonscript.info  
 **Subject:** `[BioWallet Security]`
 
 Please include:
