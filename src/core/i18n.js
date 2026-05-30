@@ -697,6 +697,19 @@ const GUIDE_HTML = {
       <div class="guide-ok" style="margin-top:0.5rem">✓ PWA módban offline is működik — arc-scan + vault megnyitás internet nélkül is. (ETH küldés, egyenleglekérdezés internetkapcsolatot igényel.)</div>
     </div>
     <hr class="guide-sep">
+    <div class="guide-section">
+      <div class="guide-h2">8. Kanonikus verzió és alkotmányvédelem</div>
+      <p class="guide-p"><strong style="color:#ffa502;">Csak a hivatalos telepítési forrásból telepített alkalmazás megbízható.</strong></p>
+      <p class="guide-p">A BioWallet kanonikus, ellenőrzött példánya kizárólag itt érhető el:</p>
+      <p class="guide-p" style="text-align:center;margin:0.5rem 0"><a href="https://biowallet.metaspace.bio" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:700;font-size:1rem;">https://biowallet.metaspace.bio</a></p>
+      <p class="guide-p">A forráskód nyilvános, de a <strong>DCC alkotmány</strong> (<code style="font-size:0.75rem">spec/biowallet.bio</code>) módosítása kriptográfiailag detektálható — az eredeti fájl SHA-256 lenyomata blokkláncon rögzített:</p>
+      <div class="guide-ok" style="font-family:'SF Mono','Fira Code',monospace;font-size:0.67rem;word-break:break-all;margin-top:0.4rem">
+        793cac74939d658e3cebde0e8066b2ac754ab34e9c85657043c5f58a0a1866e2<br>
+        <span style="color:var(--muted)">Arbitrum One · TX: 0x1c1c485f19fdc1a7f448f06ea8e8c5d0ef0094640cf376e11f42ae14f264a35c</span>
+      </div>
+      <div class="guide-note" style="margin-top:0.6rem">⚠ Ha olyan "BioWallet" alkalmazást lát, amely <strong>nem a fenti URL-ről</strong> érhető el, ne használja — a biztonsági alkotmány módosítva lehet. Ellenőrizze a hash-t: <code style="font-size:0.72rem">sha256sum spec/biowallet.bio</code></div>
+    </div>
+    <hr class="guide-sep">
     <p style="font-size:0.75rem;color:var(--muted);text-align:center;line-height:1.9">
       Nyílt forráskód · <a href="https://github.com/LemonScripter/biowallet" target="_blank" rel="noopener" style="color:#6c63ff;">github.com/LemonScripter/biowallet</a><br>
       <span style="font-size:0.68rem">MetaSpace.Bio Logic Engine · metaspace.bio</span>
@@ -777,6 +790,19 @@ const GUIDE_HTML = {
         <tr><td>iOS Safari</td><td>Share (□↑) → Add to Home Screen</td></tr>
       </tbody></table>
       <div class="guide-ok" style="margin-top:0.5rem">✓ Works offline in PWA mode — face scan + vault open without internet. (ETH send and balance queries require a connection.)</div>
+    </div>
+    <hr class="guide-sep">
+    <div class="guide-section">
+      <div class="guide-h2">8. Canonical version &amp; constitution protection</div>
+      <p class="guide-p"><strong style="color:#ffa502;">Only the app installed from the official source is trustworthy.</strong></p>
+      <p class="guide-p">The canonical, verified instance of BioWallet is available exclusively at:</p>
+      <p class="guide-p" style="text-align:center;margin:0.5rem 0"><a href="https://biowallet.metaspace.bio" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:700;font-size:1rem;">https://biowallet.metaspace.bio</a></p>
+      <p class="guide-p">The source code is open, but any modification to the <strong>DCC constitution</strong> (<code style="font-size:0.75rem">spec/biowallet.bio</code>) is cryptographically detectable — the original file's SHA-256 fingerprint is anchored on-chain:</p>
+      <div class="guide-ok" style="font-family:'SF Mono','Fira Code',monospace;font-size:0.67rem;word-break:break-all;margin-top:0.4rem">
+        793cac74939d658e3cebde0e8066b2ac754ab34e9c85657043c5f58a0a1866e2<br>
+        <span style="color:var(--muted)">Arbitrum One · TX: 0x1c1c485f19fdc1a7f448f06ea8e8c5d0ef0094640cf376e11f42ae14f264a35c</span>
+      </div>
+      <div class="guide-note" style="margin-top:0.6rem">⚠ If you encounter a "BioWallet" app <strong>not served from the URL above</strong>, do not use it — the security constitution may have been altered. Verify the hash: <code style="font-size:0.72rem">sha256sum spec/biowallet.bio</code></div>
     </div>
     <hr class="guide-sep">
     <p style="font-size:0.75rem;color:var(--muted);text-align:center;line-height:1.9">
