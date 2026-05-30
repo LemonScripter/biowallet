@@ -22,7 +22,7 @@ const STRINGS = {
     'btn.help.title': 'Használati útmutató',
     'btn.info.title': 'Hogyan működik?',
     'lang.switch':    'EN',
-    'header.security':      '↗ Összehasonlítás',
+    'header.security':      '↗ Összehas.',
     'header.security.href': '/docs/security_comparison_hu.html',
 
     /* ── Setup panel ───────────────────────────────────────────────── */
