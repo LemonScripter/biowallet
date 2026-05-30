@@ -203,8 +203,29 @@ function bioFail() {
   localStorage.setItem('biowallet_bf', JSON.stringify(s));
 }
 
+function playBioSuccessSound() {
+  try {
+    const ctx   = new AudioContext();
+    const notes = [523.25, 659.25, 783.99]; // C5 → E5 → G5 (dúr akkord)
+    notes.forEach((freq, i) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const t = ctx.currentTime + i * 0.09;
+      gain.gain.setValueAtTime(0.28, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+      osc.start(t);
+      osc.stop(t + 0.18);
+    });
+  } catch { /* AudioContext nem elérhető — csend */ }
+}
+
 function bioSuccess() {
   localStorage.removeItem('biowallet_bf');
+  playBioSuccessSound();
 }
 
 function cooldownMs() {
