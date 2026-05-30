@@ -199,6 +199,6 @@ Mindkét szkript önálló, és minden egyes tulajdonsághoz emberi olvasásra a
 
 ## Licenc
 
-MIT + Commons Clause (Non-Commercial) © 2025–2026 Szőke László-Ferenc — [MetaSpace.Bio Logic Engine](https://metaspace.bio) | hello@lemonscript.info
+MIT + Commons Clause (Non-Commercial) © 2025–2026 Szőke László-Ferenc — [MetaSpace.Bio Logic Engine](https://metaspace.bio) | admin@metaspace.bio
 
 A BioWallet nyílt forráskódú. Személyes és kutatási célra szabadon auditálható, forkizálható és önállóan üzemeltethető. Kereskedelmi felhasználáshoz írásos engedély szükséges. Ha biztonsági problémát találsz, kérjük, először olvasd el a [SECURITY.md](SECURITY.md) fájlt, mielőtt nyilvánosságra hoznád.

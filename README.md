@@ -222,6 +222,6 @@ biowallet/
 
 ## License
 
-MIT + Commons Clause (Non-Commercial) © 2025–2026 Szőke László-Ferenc — [MetaSpace.Bio Logic Engine](https://metaspace.bio) | hello@lemonscript.info
+MIT + Commons Clause (Non-Commercial) © 2025–2026 Szőke László-Ferenc — [MetaSpace.Bio Logic Engine](https://metaspace.bio) | admin@metaspace.bio
 
 BioWallet is open source. You are free to audit, fork, and self-host for personal or research use. Commercial use requires written permission. If you find a security issue, please read [SECURITY.md](SECURITY.md) before disclosing publicly.
