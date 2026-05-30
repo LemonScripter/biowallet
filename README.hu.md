@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://biowallet.metaspace.bio"><img src="https://img.shields.io/badge/live-biowallet.metaspace.bio-6c63ff" alt="Live" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/licenc-MIT-green" alt="Licenc: MIT" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licenc-Non--Commercial-orange" alt="Licenc: Non-Commercial" /></a>
   <a href="tests/verify_biowallet.py"><img src="https://img.shields.io/badge/Z3%20invariáns-51%2F51%20PASS-brightgreen" alt="Z3 51/51" /></a>
   <a href="tests/verify_sss_gf256.py"><img src="https://img.shields.io/badge/SSS%20GF(2%E2%81%B8)-13%2F13%20PASS-brightgreen" alt="SSS GF(2^8)" /></a>
   <img src="https://img.shields.io/badge/CDN%20függőség-nulla-blue" alt="Nincs CDN" />
@@ -33,14 +33,15 @@ A legtöbb tárca azt mondja: bízz bennünk. A BioWallet megmutatja a bizonyít
 | Állítás | Mechanizmus | Bizonyíték |
 |---|---|---|
 | A privát kulcs nem érinti a main thredet | Web Worker izoláció — minden aláírás a `vault_worker.js`-ben történik | [src/app/vault_worker.js](src/app/vault_worker.js) |
-| Az arc-adat visszafejthetetlen a kulcshoz | BCH(63,51,t=6) fuzzy extractor + HKDF — egyirányú deriválás | [src/core/fuzzy_extractor.js](src/core/fuzzy_extractor.js) |
+| Az arc-adat visszafejthetetlen a kulcshoz | BCH(255,55,t=25) fuzzy extractor + HKDF — egyirányú deriválás | [src/core/fuzzy_extractor.js](src/core/fuzzy_extractor.js) |
 | A vault kulcsa minden művelet után törlődik | DCC auto-lock: `SIGN → LOCK` azonos kauzális láncban | [DCC-4 formális bizonyíték](tests/verify_biowallet.py) |
 | Vault nem nyílik meg friss biometrikus token nélkül | Token TTL = 30 s, egyszer használatos, Z3-mal verifikált | [DCC-1, DCC-2](tests/verify_biowallet.py) |
 | Más eszközről csak arc + PIN-nel nyitható | v3 vault: `PBKDF2(face_R ‖ PIN, salt, 300k)` — helytelen PIN helytelen kulcsot ad, megkülönböztethetetlen a rossz arctól | [src/core/vault.js](src/core/vault.js) |
 | Regisztrált eszközön PIN nélkül nyitható | WebAuthn PRF: `HKDF(face_R ‖ device_prf, salt)` — az eszközfaktor kiegészítő, nem helyettesíti a biometriát | [src/core/vault.js](src/core/vault.js) |
 | Shamir GF(2⁸) aritmetika bizonyítottan helyes | Z3 BitVec, 196 608 kimerítő eset verifikálva | [tests/verify_sss_gf256.py](tests/verify_sss_gf256.py) |
-| Futásidőben nem töltődik le külső kód | Minden vendor bundlolva, SHA-256 build-ujjlenyomat | [src/vendor/](src/vendor/) |
+| Futásidőben nem töltődik le külső kód | Minden vendor bundlolva, SHA-256 build-ujjlenyomat, SRI integrity attribútumok | [src/vendor/](src/vendor/) |
 | Offline visszaállítás a seed phrase feltárása nélkül | Kétlépéses papírképlet — a P-érték soha nem kerül az alkalmazásba | [recovery\_tool.html](recovery_tool.html) |
+| DCC alkotmány tamper-evident | `spec/biowallet.bio` SHA-256 lenyomata Arbitrum One blokkláncon rögzítve | [CONSTITUTION.md](CONSTITUTION.md) |
 
 ### Formális verifikáció eredménye
 
@@ -131,6 +132,9 @@ Eredmény: 13 / 13  PASS ✓
 | v23 | P6 TX Commitment Invariant — 8 karakteres ujjlenyomat kötve a tranzakció hash-éhez; a második scanelés előtt a felhasználónak be kell gépelni az első 4 karaktert |
 | v25 | WebAuthn PRF eszközfaktor — platformhitelesítő (ujjlenyomat / Face ID) regisztrálható eszközönként; regisztrált eszközön PIN nélkül nyitja a vaultot |
 | v26 | PIN kötelező 2FA — v3 vault: `PBKDF2(face_R ‖ PIN, salt, 300k)`; új/nem regisztrált eszközön a PIN kötelező; eszközös útvonal mindig PIN nélküli |
+| v27 | Mobil kamera kompatibilitás (Samsung ideal constraints, Firefox file picker fix, WebAuthn 60 s timeout) |
+| v28 | Névadásos mentési modal (`showSaveFilePicker`), tudományos háttér docs (EN + HU), SW cache v12 |
+| v29 | DCC alkotmány on-chain anchor (Arbitrum One), SRI integrity a vendor JS-eken, CSP fejlécek, Non-Commercial licenc, PWA auto-update banner |
 
 ---
 
@@ -143,7 +147,7 @@ A teljes technikai leírást — köztük a vault-formátumot, a DCC-állapotgé
 ## Kriptográfia
 
 A teljes kriptográfiai specifikációt lásd a [docs/cryptography.md](docs/cryptography.md) fájlban:
-- BCH(63,51,t=6) fuzzy extractor HKDF-SHA-256-tal
+- BCH(255,55,t=25) fuzzy extractor HKDF-SHA-256-tal
 - AES-256-GCM vault-titkosítás (vault formátum p3)
 - BIP39 mnemonik → BIP44 HD-kulcsderiválás
 - Shamir-féle titkos megosztás GF(2⁸) felett (10. fázis)
@@ -195,6 +199,6 @@ Mindkét szkript önálló, és minden egyes tulajdonsághoz emberi olvasásra a
 
 ## Licenc
 
-MIT © 2025–2026 Szőke László-Ferenc — [MetaSpace.Bio Logic Engine](https://metaspace.bio) | admin@metaspace.bio
+MIT + Commons Clause (Non-Commercial) © 2025–2026 Szőke László-Ferenc — [MetaSpace.Bio Logic Engine](https://metaspace.bio) | hello@lemonscript.info
 
-A BioWallet nyílt forráskódú. Szabadon auditálható, forkizálható és önállóan üzemeltethető. Ha biztonsági problémát találsz, kérjük, először olvasd el a [SECURITY.md](SECURITY.md) fájlt, mielőtt nyilvánosságra hoznád.
+A BioWallet nyílt forráskódú. Személyes és kutatási célra szabadon auditálható, forkizálható és önállóan üzemeltethető. Kereskedelmi felhasználáshoz írásos engedély szükséges. Ha biztonsági problémát találsz, kérjük, először olvasd el a [SECURITY.md](SECURITY.md) fájlt, mielőtt nyilvánosságra hoznád.

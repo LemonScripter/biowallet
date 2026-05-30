@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://biowallet.metaspace.bio"><img src="https://img.shields.io/badge/live-biowallet.metaspace.bio-6c63ff" alt="Live" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License: MIT" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Non--Commercial-orange" alt="License: Non-Commercial" /></a>
   <a href="tests/verify_biowallet.py"><img src="https://img.shields.io/badge/Z3%20invariants-51%2F51%20PASS-brightgreen" alt="Z3 51/51" /></a>
   <a href="tests/verify_sss_gf256.py"><img src="https://img.shields.io/badge/SSS%20GF(2%E2%81%B8)-13%2F13%20PASS-brightgreen" alt="SSS GF(2^8)" /></a>
   <img src="https://img.shields.io/badge/CDN%20dependencies-zero-blue" alt="No CDN" />
@@ -33,14 +33,15 @@ Most wallets tell you they are secure. BioWallet shows you the proof.
 | Claim | Mechanism | Evidence |
 |---|---|---|
 | Private key never touches the main thread | Web Worker isolation — all signing in `vault_worker.js` | [src/app/vault_worker.js](src/app/vault_worker.js) |
-| Face data cannot be reversed to the key | BCH(63,51,t=6) fuzzy extractor + HKDF — one-way derivation | [src/core/fuzzy_extractor.js](src/core/fuzzy_extractor.js) |
+| Face data cannot be reversed to the key | BCH(255,55,t=25) fuzzy extractor + HKDF — one-way derivation | [src/core/fuzzy_extractor.js](src/core/fuzzy_extractor.js) |
 | Vault key erased after every operation | DCC auto-lock: `SIGN → LOCK` in the same causal chain | [DCC-4 formal proof](tests/verify_biowallet.py) |
 | Vault cannot open without a fresh biometric token | Token TTL = 30 s, single-use, Z3-verified | [DCC-1, DCC-2](tests/verify_biowallet.py) |
 | Cross-device open requires face + PIN | v3 vault: `PBKDF2(face_R ‖ PIN, salt, 300k)` — wrong PIN = wrong key, indistinguishable from wrong face | [src/core/vault.js](src/core/vault.js) |
 | Enrolled device opens without PIN | WebAuthn PRF: `HKDF(face_R ‖ device_prf, salt)` — device factor is additional, not instead of biometric | [src/core/vault.js](src/core/vault.js) |
 | Shamir GF(2⁸) arithmetic is provably correct | Z3 BitVec, 196 608 exhaustive cases verified | [tests/verify_sss_gf256.py](tests/verify_sss_gf256.py) |
-| No third-party code fetched at runtime | All vendors bundled locally, SHA-256 build fingerprint | [src/vendor/](src/vendor/) |
+| No third-party code fetched at runtime | All vendors bundled locally, SHA-256 build fingerprint, SRI integrity attributes | [src/vendor/](src/vendor/) |
 | Offline recovery without exposing the seed | Two-step paper formula — P value never enters the app | [recovery\_tool.html](recovery_tool.html) |
+| DCC constitution tamper-evident | SHA-256 of `spec/biowallet.bio` anchored on Arbitrum One blockchain | [CONSTITUTION.md](CONSTITUTION.md) |
 
 ### Formal verification results
 
@@ -131,6 +132,9 @@ Result: 13 / 13  PASS ✓
 | v23 | P6 TX Commitment Invariant — 8-char fingerprint bound to transaction hash; user types first 4 chars before the second scan |
 | v25 | WebAuthn PRF device factor — platform authenticator (fingerprint / Face ID) enrolled per device; opens vault without PIN on enrolled device |
 | v26 | PIN mandatory 2FA — v3 vault: `PBKDF2(face_R ‖ PIN, salt, 300k)`; PIN required on new/unenrolled devices; device path is always PIN-free |
+| v27 | Mobile camera compatibility (Samsung ideal constraints, Firefox file picker fix, WebAuthn 60 s timeout) |
+| v28 | Named wallet save modal (`showSaveFilePicker`), scientific background docs (EN + HU), SW cache v12 |
+| v29 | DCC constitution on-chain anchor (Arbitrum One), SRI integrity on vendor JS, CSP headers, Non-Commercial license, PWA auto-update banner |
 
 ---
 
@@ -143,7 +147,7 @@ See [docs/architecture.md](docs/architecture.md) for a complete technical descri
 ## Cryptography
 
 See [docs/cryptography.md](docs/cryptography.md) for the full cryptographic specification:
-- BCH(63,51,t=6) fuzzy extractor with HKDF-SHA-256
+- BCH(255,55,t=25) fuzzy extractor with HKDF-SHA-256
 - AES-256-GCM vault encryption (vault format p3)
 - BIP39 mnemonic → BIP44 HD key derivation
 - Shamir Secret Sharing over GF(2⁸) (Phase 10)
@@ -218,6 +222,6 @@ biowallet/
 
 ## License
 
-MIT © 2025–2026 Szőke László-Ferenc — [MetaSpace.Bio Logic Engine](https://metaspace.bio) | admin@metaspace.bio
+MIT + Commons Clause (Non-Commercial) © 2025–2026 Szőke László-Ferenc — [MetaSpace.Bio Logic Engine](https://metaspace.bio) | hello@lemonscript.info
 
-BioWallet is open source. You are free to audit, fork, and self-host. If you find a security issue, please read [SECURITY.md](SECURITY.md) before disclosing publicly.
+BioWallet is open source. You are free to audit, fork, and self-host for personal or research use. Commercial use requires written permission. If you find a security issue, please read [SECURITY.md](SECURITY.md) before disclosing publicly.
