@@ -23,7 +23,7 @@ import {
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
-const worker  = new Worker('./vault_worker.js?v=23', { type: 'module' });
+const worker  = new Worker('./vault_worker.js?v=24', { type: 'module' });
 let _nextId   = 0;
 const _pending = new Map();
 
@@ -185,6 +185,10 @@ function _refreshDynamicLabels() {
           if (vMatch && parseInt(vMatch[1]) >= 4) {
             const pr = document.getElementById('sss-paper-row');
             if (pr) pr.style.display = '';
+          }
+          if (vMatch && parseInt(vMatch[1]) >= 5 && meta.P?.genesisS) {
+            const grr = document.getElementById('genesis-recover-row');
+            if (grr) grr.style.display = '';
           }
         }
         showPanel('lock');
@@ -1364,6 +1368,76 @@ function showPaperShareModal(paperShareHex) {
   });
 }
 
+// ── Genesis recover modal (shows 24-word mnemonic after face recovery) ───
+function showGenesisRecoverModal(mnemonic) {
+  return new Promise(resolve => {
+    const words    = mnemonic.split(' ');
+    const wordsHtml = words.map((w, i) =>
+      `<span style="font-family:monospace;padding:0.15rem 0.4rem;background:#1e1e2a;border-radius:4px;margin:0.1rem;display:inline-block;color:#e8e8f0;font-size:0.85rem;">` +
+      `<span style="color:#666;font-size:0.7rem;margin-right:0.25rem">${i + 1}.</span>${w}</span>`
+    ).join('');
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;';
+    ov.innerHTML = `
+      <div style="background:#1a1a2e;border:2px solid #ff4757;border-radius:16px;padding:1.5rem;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;">
+        <div style="font-size:0.88rem;font-weight:600;color:#ff4757;margin-bottom:0.9rem;">${t('genesis.recover.warning')}</div>
+        <div style="margin-bottom:1.1rem;line-height:2;">${wordsHtml}</div>
+        <div style="display:flex;gap:0.75rem;">
+          <button id="_gr_copy" style="flex:1;padding:0.6rem;border:1px solid #6c63ff;background:transparent;color:#6c63ff;border-radius:8px;cursor:pointer;font-size:0.9rem;">${t('genesis.recover.copy')}</button>
+          <button id="_gr_close" style="flex:1;padding:0.6rem;border:1px solid #ff4757;background:#2b0a0a;color:#ff4757;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;">${t('genesis.recover.close')}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    ov.querySelector('#_gr_copy').onclick  = () => navigator.clipboard.writeText(mnemonic).catch(() => {});
+    ov.querySelector('#_gr_close').onclick = () => { ov.remove(); resolve(); };
+  });
+}
+
+// ── btn-genesis-recover: face → 24 words (emergency recovery) ────────────
+document.getElementById('btn-genesis-recover')?.addEventListener('click', async () => {
+  const meta = JSON.parse(localStorage.getItem('biowallet_meta') ?? 'null');
+  if (!meta) return;
+
+  if (!meta.P?.genesisS) {
+    setMsg(t('err.genesis.backup.unavailable'), 'error');
+    return;
+  }
+
+  if (!meta.vaultJson) {
+    setMsgK('msg.vault.file.required', 'error');
+    const lvr = document.getElementById('load-vault-row');
+    if (lvr) lvr.style.display = '';
+    return;
+  }
+
+  setScanning(true);
+  setMsg(t('msg.genesis.recover.scanning'), '');
+
+  let embedding;
+  try {
+    embedding = await captureEmbedding(video);
+  } catch (e) {
+    setScanning(false);
+    setMsg(friendlyError(e.message), 'error');
+    return;
+  }
+
+  setScanning(false);
+
+  try {
+    const encBuf = new TextEncoder().encode(meta.vaultJson).buffer;
+    const { mnemonic } = await callWorker(
+      'GENESIS_RECOVER',
+      { encryptedVault: encBuf, embedding, P: meta.P },
+      [encBuf, embedding.buffer]
+    );
+    await showGenesisRecoverModal(mnemonic);
+    setMsg(t('msg.genesis.recover.done'), 'ok');
+  } catch (e) {
+    setMsg(friendlyError(e.message), 'error');
+  }
+});
+
 // ── btn-sss info button ───────────────────────────────────────────────────
 document.getElementById('btn-sss-info')?.addEventListener('click', () => showSSSInfoModal());
 
@@ -1465,6 +1539,10 @@ function _applyVaultJson(meta, vaultText) {
   if (vMatch && parseInt(vMatch[1]) >= 4) {
     const pr = document.getElementById('sss-paper-row');
     if (pr) pr.style.display = '';
+  }
+  if (vMatch && parseInt(vMatch[1]) >= 5 && meta.P?.genesisS) {
+    const grr = document.getElementById('genesis-recover-row');
+    if (grr) grr.style.display = '';
   }
   localStorage.setItem('biowallet_meta', JSON.stringify(meta));
   document.getElementById('load-vault-row').style.display = 'none';
@@ -2296,9 +2374,11 @@ async function pickFile(accept) {
 // ── Friendly error messages ───────────────────────────────────────────────
 function friendlyError(m) {
   if (!m) return t('err.unknown');
-  if (m.includes('TX_MISMATCH'))       return t('err.tx.mismatch');
-  if (m.includes('GENESIS_MISMATCH'))  return t('err.genesis.mismatch');
-  if (m.includes('BIO_MISMATCH'))      return t('err.bio.mismatch');
+  if (m.includes('TX_MISMATCH'))              return t('err.tx.mismatch');
+  if (m.includes('GENESIS_BACKUP_UNAVAILABLE')) return t('err.genesis.backup.unavailable');
+  if (m.includes('GENESIS_DECODE_FAIL'))      return t('err.genesis.mismatch');
+  if (m.includes('GENESIS_MISMATCH'))         return t('err.genesis.mismatch');
+  if (m.includes('BIO_MISMATCH'))             return t('err.bio.mismatch');
   if (m.includes('EXPIRED'))         return t('err.expired');
   if (m.includes('NO_TOKEN'))        return t('err.no.token');
   if (m.includes('VAULT_ID_MISMATCH')) return t('err.vault.mismatch');
