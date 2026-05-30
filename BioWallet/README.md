@@ -13,7 +13,7 @@
 <p align="center">
   <a href="https://biowallet.metaspace.bio"><img src="https://img.shields.io/badge/live-biowallet.metaspace.bio-6c63ff" alt="Live" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Non--Commercial-orange" alt="License: Non-Commercial" /></a>
-  <a href="tests/verify_biowallet.py"><img src="https://img.shields.io/badge/Z3%20invariants-51%2F51%20PASS-brightgreen" alt="Z3 51/51" /></a>
+  <a href="tests/verify_biowallet.py"><img src="https://img.shields.io/badge/Z3%20invariants-56%2F56%20PASS-brightgreen" alt="Z3 56/56" /></a>
   <a href="tests/verify_sss_gf256.py"><img src="https://img.shields.io/badge/SSS%20GF(2%E2%81%B8)-13%2F13%20PASS-brightgreen" alt="SSS GF(2^8)" /></a>
   <img src="https://img.shields.io/badge/CDN%20dependencies-zero-blue" alt="No CDN" />
 </p>
@@ -58,8 +58,13 @@ DCC-7   PASS  bio_mismatch → remain_locked
 ...
 ALKOT-1  PASS  enrolled_factors ≥ 2 → enrollment_complete
 ALKOT-6  PASS  face_only ∧ ¬fingerprint ∧ ¬hw_key → ¬vault_open_p10
+GENESIS-1  PASS  re-enrollment cannot change genesis.dna
+GENESIS-2  PASS  v5 + chain_len=1 + dna_mismatch → sign_blocked
+GENESIS-3  PASS  re-enrollment strictly grows chain_len
+GENESIS-4  PASS  v5 + chain_len>1 → sign_blocked_genesis=False
+GENESIS-OK PASS  v5 + face_open + genesis_match → SAT (consistent)
 
-Result: 51 / 51  PASS ✓
+Result: 56 / 56  PASS ✓
 
 $ python tests/verify_sss_gf256.py
 
@@ -146,7 +151,9 @@ Full analysis with data tables and bar charts: <a href="https://biowallet.metasp
 | v26 | PIN mandatory 2FA — v3 vault: `PBKDF2(face_R ‖ PIN, salt, 300k)`; PIN required on new/unenrolled devices; device path is always PIN-free |
 | v27 | Mobile camera compatibility (Samsung ideal constraints, Firefox file picker fix, WebAuthn 60 s timeout) |
 | v28 | Named wallet save modal (`showSaveFilePicker`), scientific background docs (EN + HU), SW cache v12 |
-| v29 | DCC constitution on-chain anchor (Arbitrum One), SRI integrity on vendor JS, CSP headers, Non-Commercial license, PWA auto-update banner |
+| v29 | DCC constitution on-chain anchor (Arbitrum One), SRI integrity on vendor JS, CSP headers, Non-Commercial license, PWA auto-update banner; **Phase 10 SSS(2,3)** — Shamir 2-of-3: face share (x=1), WebAuthn device share (x=2), paper share (x=3); any 2-of-3 sufficient to open vault |
+| v30 | Mobile compatibility: vault file picker fix (user gesture preserved), `visibilitychange` camera restart, vault pre-validation (`salt` + `vaultId` check) |
+| v31 | Security comparison pages (radar chart + EN/HU bar-chart analyses), header comparison link |
 
 ---
 
@@ -204,7 +211,7 @@ Both scripts are self-contained and produce human-readable PASS/FAIL output for 
 
 - [ ] **Argon2id KDF** — replace PBKDF2 with memory-hard KDF (vault format v4)
 - [ ] **Multi-account** — BIP44 `m/44'/60'/0'/0/n`, multiple addresses
-- [ ] **Phase 10 SSS(2,3)** — face + WebAuthn hardware key + paper, any 2-of-3 sufficient
+- [x] **Phase 10 SSS(2,3)** — face + WebAuthn hardware key + paper, any 2-of-3 sufficient *(LIVE since v29)*
 - [ ] **Single-file build** — air-gapped `biowallet.html` (~11 MB, all assets inlined)
 - [ ] **Protocol fee** — optional 0.1 % developer fee on direct sends
 
@@ -219,7 +226,7 @@ biowallet/
 │   ├── core/           # Business logic (vault, rpc, wc2, bio_capture, …)
 │   └── vendor/         # Bundled third-party libraries (no CDN)
 ├── tests/
-│   ├── verify_biowallet.py   # 51 Z3 formal properties
+│   ├── verify_biowallet.py   # 56 Z3 formal properties
 │   └── verify_sss_gf256.py   # 13 GF(2^8) SSS proofs
 ├── tools/
 │   └── build_wc2_entry.js    # WalletConnect v2 bundle entry point

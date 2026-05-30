@@ -4,8 +4,8 @@
 
 | Version | Status |
 |---|---|
-| v29 (current, `main` branch) | ✅ Actively maintained |
-| v28 and below | ❌ No security fixes |
+| v31 (current, `main` branch) | ✅ Actively maintained |
+| v30 and below | ❌ No security fixes |
 
 ---
 
@@ -44,7 +44,7 @@ All vendor libraries (FaceNet, ethers.js, WalletConnect, QRCode) are bundled at 
 If the browser process itself is controlled by an attacker, Worker isolation provides no protection. Use a dedicated browser profile for high-value wallets. See *Hardened Deployment* below for a kernel-level mitigation.
 
 **The enrolled face itself being replicated**
-BioWallet uses FaceNet embeddings, which are based on 2D video frames from a webcam. A high-quality photograph or a 3D face mask could potentially bypass liveness detection. For high-value holdings, combine BioWallet with a hardware recovery key (Phase 10 roadmap).
+BioWallet uses FaceNet embeddings, which are based on 2D video frames from a webcam. A high-quality photograph or a 3D face mask could potentially bypass liveness detection. For high-value holdings, combine BioWallet with a hardware wallet (Ledger, Trezor) or enroll the WebAuthn device factor (adds a physical authenticator as a second SSS share).
 
 **Loss of the `.biowallet` file AND the paper recovery formula**
 Without both the encrypted vault file and a valid recovery formula, the funds are unrecoverable. BioWallet cannot help you. Store both independently.
@@ -53,7 +53,7 @@ Without both the encrypted vault file and a valid recovery formula, the funds ar
 FaceNet embedding values vary between browser engines (Chrome vs. Firefox) and between GPU/CPU inference. An enrolled face on Chrome may not open a vault on Firefox. Always use the same browser for enrollment and access.
 
 **Large holdings without additional security**
-BioWallet is appropriate for daily spending amounts. For significant holdings, consider a hardware wallet (Ledger, Trezor) or wait for Phase 10 SSS(2,3) which adds a hardware key factor.
+BioWallet is appropriate for daily spending amounts. For significant holdings, consider a hardware wallet (Ledger, Trezor) or enroll the WebAuthn device factor — BioWallet's built-in SSS(2,3) protection (live since v29) makes any single stolen factor insufficient to open the vault.
 
 ---
 
@@ -126,7 +126,7 @@ Known open issues:
 - BioWallet ↔ DCC Ring 0 joint integration not yet end-to-end tested
 - No external security audit of the kernel-level components
 
-This is a Phase 10 roadmap item: a fully validated BioWallet + BioOS joint deployment.
+A fully validated BioWallet + BioOS joint deployment remains experimental — see known open issues above.
 
 ---
 
@@ -134,7 +134,7 @@ This is a Phase 10 roadmap item: a fully validated BioWallet + BioOS joint deplo
 
 | Component | Formal verification | Manual audit | Penetration test |
 |---|---|---|---|
-| DCC protocol | ✅ 7 Z3 properties, 51/51 PASS | ✅ Internal | — |
+| DCC protocol | ✅ 7 Z3 properties, 56/56 PASS total | ✅ Internal | — |
 | BCH fuzzy extractor | ✅ 4 Z3 properties | ✅ Internal | — |
 | GF(2⁸) SSS arithmetic | ✅ 13/13 PASS, 196 608 cases | ✅ Internal | — |
 | Vault encryption (AES-256-GCM) | Standard algorithm | ✅ Internal | — |

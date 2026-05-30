@@ -13,7 +13,7 @@
 <p align="center">
   <a href="https://biowallet.metaspace.bio"><img src="https://img.shields.io/badge/live-biowallet.metaspace.bio-6c63ff" alt="Live" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/licenc-Non--Commercial-orange" alt="Licenc: Non-Commercial" /></a>
-  <a href="tests/verify_biowallet.py"><img src="https://img.shields.io/badge/Z3%20invariáns-51%2F51%20PASS-brightgreen" alt="Z3 51/51" /></a>
+  <a href="tests/verify_biowallet.py"><img src="https://img.shields.io/badge/Z3%20invariáns-56%2F56%20PASS-brightgreen" alt="Z3 56/56" /></a>
   <a href="tests/verify_sss_gf256.py"><img src="https://img.shields.io/badge/SSS%20GF(2%E2%81%B8)-13%2F13%20PASS-brightgreen" alt="SSS GF(2^8)" /></a>
   <img src="https://img.shields.io/badge/CDN%20függőség-nulla-blue" alt="Nincs CDN" />
 </p>
@@ -58,8 +58,13 @@ DCC-7   PASS  bio_mismatch → marad zárolt
 ...
 ALKOT-1  PASS  enrolled_factors ≥ 2 → enrollment_complete
 ALKOT-6  PASS  csak arc ∧ ¬ujjlenyomat ∧ ¬hw_key → ¬vault_open_p10
+GENESIS-1  PASS  re-enrollment nem változtathatja meg a genesis.dna-t
+GENESIS-2  PASS  v5 + chain_len=1 + dna_mismatch → sign_blocked
+GENESIS-3  PASS  re-enrollment szigorúan növeli a chain_len-t
+GENESIS-4  PASS  v5 + chain_len>1 → sign_blocked_genesis=False
+GENESIS-OK PASS  v5 + arc-nyitás + genesis_match → SAT (konzisztens)
 
-Eredmény: 51 / 51  PASS ✓
+Eredmény: 56 / 56  PASS ✓
 
 $ python tests/verify_sss_gf256.py
 
@@ -146,7 +151,9 @@ Teljes elemzés adattáblával és oszlopdiagramokkal: <a href="https://biowalle
 | v26 | PIN kötelező 2FA — v3 vault: `PBKDF2(face_R ‖ PIN, salt, 300k)`; új/nem regisztrált eszközön a PIN kötelező; eszközös útvonal mindig PIN nélküli |
 | v27 | Mobil kamera kompatibilitás (Samsung ideal constraints, Firefox file picker fix, WebAuthn 60 s timeout) |
 | v28 | Névadásos mentési modal (`showSaveFilePicker`), tudományos háttér docs (EN + HU), SW cache v12 |
-| v29 | DCC alkotmány on-chain anchor (Arbitrum One), SRI integrity a vendor JS-eken, CSP fejlécek, Non-Commercial licenc, PWA auto-update banner |
+| v29 | DCC alkotmány on-chain anchor (Arbitrum One), SRI integrity a vendor JS-eken, CSP fejlécek, Non-Commercial licenc, PWA auto-update banner; **10. fázis: SSS(2,3)** — Shamir 2-of-3: arc (x=1), WebAuthn eszköz (x=2), papír (x=3); bármely kettő elegendő a vault megnyitásához |
+| v30 | Mobil kompatibilitás: vault fájlpicker javítás (user gesture megőrzése), `visibilitychange` kamera-újraindítás, vault elővalidáció (`salt` + `vaultId` ellenőrzés) |
+| v31 | Biztonsági összehasonlító oldalak (radar SVG + EN/HU sávdiagram-elemzések), összehasonlítás-link a fejlécben |
 
 ---
 
@@ -203,7 +210,7 @@ Mindkét szkript önálló, és minden egyes tulajdonsághoz emberi olvasásra a
 
 - [ ] **Argon2id KDF** — PBKDF2 lecserélése memóriaigényes KDF-re (vault formátum v4)
 - [ ] **Több fiók** — BIP44 `m/44'/60'/0'/0/n`, több cím
-- [ ] **10. fázis: SSS(2,3)** — arc + WebAuthn + papír, bármely kettő elegendő
+- [x] **10. fázis: SSS(2,3)** — arc + WebAuthn + papír, bármely kettő elegendő *(LIVE, v29 óta)*
 - [ ] **Egyetlen fájlos build** — air-gapped `biowallet.html` (~11 MB, minden eszköz beágyazva)
 - [ ] **Protokolldíj** — opcionális 0,1%-os fejlesztői díj a közvetlen utalásoknál
 
