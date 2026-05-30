@@ -958,6 +958,27 @@
   </div>
 </div>
 
+<!-- ── Mobile vault paste modal ── -->
+<div class="modal-overlay" id="vault-paste-modal" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title" data-i18n="vault.paste.title">Vault JSON beillesztése</span>
+      <button class="modal-close" id="btn-vault-paste-close" aria-label="Bezárás">✕</button>
+    </div>
+    <p style="margin:0 0 0.7rem;font-size:0.85rem;color:var(--text-dim)" data-i18n="vault.paste.desc">
+      Nyisd meg a .biowallet fájlt szövegszerkesztővel, másold ki az összes tartalmat, majd illeszd be ide:
+    </p>
+    <textarea id="vault-paste-area" rows="7"
+      style="width:100%;box-sizing:border-box;font-family:monospace;font-size:0.72rem;
+             background:var(--surface2);color:var(--text);border:1px solid var(--border);
+             border-radius:8px;padding:0.5rem;resize:vertical"
+      placeholder='{"v":3,"vaultId":"..."}' spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+    <div class="btn-row" style="margin-top:0.8rem">
+      <button class="btn btn-primary" id="btn-vault-paste-ok" data-i18n="vault.paste.btn">Betöltés</button>
+    </div>
+  </div>
+</div>
+
 <script src="../vendor/wc2.min.js" integrity="sha384-2n5l9mAqbPYXsWZLN+Aa7tZs+onIkCohtHzQr0DNiQUmFR5HRJysF3yi/yy3ER9B" crossorigin="anonymous"></script>
 <script src="../vendor/qrcode.min.js" integrity="sha384-B3w4ObQEXH2D3E8FlVZ+pBTHHTrPFwqbXjfU/95D5ekt8DVTeG+cB6s6nVpsvh3m" crossorigin="anonymous"></script>
 <script src="../vendor/face-api.min.js" integrity="sha384-gzn2n++arkvyhdNLmUf1s6F5NZ8iAbZ7FhIt+Zw7Jlf1n/vNTmZ3+cYr7S4ogyco" crossorigin="anonymous"></script>

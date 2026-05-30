@@ -206,6 +206,15 @@ function _refreshDynamicLabels() {
   showVersionHash(); // non-blocking
 })();
 
+// ── Restart camera if stream killed when app went to background ───────────────
+document.addEventListener('visibilitychange', async () => {
+  if (document.hidden) return;
+  if (!stream || stream.getTracks().every(t => t.readyState === 'ended')) {
+    try { stream = await openCamera(video, m => setMsg(m, '')); }
+    catch (e) { setMsg(t('msg.camera.error', { err: e.message }), 'error'); }
+  }
+});
+
 // ── Brute-force protection (C5) ───────────────────────────────────────────
 const BF_AFTER = 3;
 const BF_BASE  = 30;
@@ -1380,30 +1389,52 @@ document.getElementById('btn-sss')?.addEventListener('click', async () => {
   }
 });
 
-// ── Load vault file (mobile-safe: direct user gesture, no prior awaits) ──────
+// ── Load vault file ──────────────────────────────────────────────────────────
+function _applyVaultJson(meta, vaultText) {
+  meta.vaultJson = vaultText;
+  const vMatch = vaultText.match(/"v"\s*:\s*(\d+)/);
+  if (vMatch && parseInt(vMatch[1]) === 4) {
+    const pr = document.getElementById('sss-paper-row');
+    if (pr) pr.style.display = '';
+  }
+  localStorage.setItem('biowallet_meta', JSON.stringify(meta));
+  document.getElementById('load-vault-row').style.display = 'none';
+  setMsgK('msg.vault.file.loaded', 'ok');
+}
+
+function _validateAndApplyVault(meta, vaultText) {
+  if (!vaultText || vaultText[0] !== '{') { setMsg(t('msg.invalid.vault.file'), 'error'); return false; }
+  let vaultObj;
+  try { vaultObj = JSON.parse(vaultText); } catch { setMsg(t('msg.invalid.vault.file'), 'error'); return false; }
+  if (!vaultObj.salt || !vaultObj.vaultId) { setMsg(t('msg.invalid.vault.file'), 'error'); return false; }
+  _applyVaultJson(meta, vaultText);
+  return true;
+}
+
 document.getElementById('btn-load-vault')?.addEventListener('click', async () => {
   const meta = JSON.parse(localStorage.getItem('biowallet_meta') ?? 'null');
   if (!meta) return;
   try {
     const vaultFile = await pickFile('.biowallet');
     const encBuf    = await vaultFile.arrayBuffer();
-    if (new Uint8Array(encBuf)[0] !== 0x7b) {
-      setMsg(t('msg.invalid.vault.file'), 'error');
-      return;
-    }
-    meta.vaultJson = new TextDecoder().decode(encBuf);
-    // Detect v4 vault and show paper share input if needed
-    const vMatch = meta.vaultJson.match(/"v"\s*:\s*(\d+)/);
-    if (vMatch && parseInt(vMatch[1]) === 4) {
-      const pr = document.getElementById('sss-paper-row');
-      if (pr) pr.style.display = '';
-    }
-    localStorage.setItem('biowallet_meta', JSON.stringify(meta));
-    document.getElementById('load-vault-row').style.display = 'none';
-    setMsgK('msg.vault.file.loaded', 'ok');
+    if (new Uint8Array(encBuf)[0] !== 0x7b) { setMsg(t('msg.invalid.vault.file'), 'error'); return; }
+    _validateAndApplyVault(meta, new TextDecoder().decode(encBuf));
   } catch (e) {
     if (e.message && !e.message.includes('no.file')) setMsg(friendlyError(e.message), 'error');
   }
+});
+
+document.getElementById('btn-vault-paste-close')?.addEventListener('click', () => {
+  document.getElementById('vault-paste-modal').classList.remove('open');
+});
+
+document.getElementById('btn-vault-paste-ok')?.addEventListener('click', () => {
+  const text = (document.getElementById('vault-paste-area')?.value ?? '').trim();
+  document.getElementById('vault-paste-modal').classList.remove('open');
+  if (!text) return;
+  const meta = JSON.parse(localStorage.getItem('biowallet_meta') ?? 'null');
+  if (!meta) return;
+  _validateAndApplyVault(meta, text);
 });
 
 // ── Device second factor ──────────────────────────────────────────────────
