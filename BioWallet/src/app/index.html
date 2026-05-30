@@ -337,12 +337,18 @@
 
     #btn-security-compare {
       width: auto;
+      height: 28px;
       border-radius: 99px;
-      padding: 0 0.4rem;
-      font-size: 0.62rem;
+      padding: 0 0.55rem;
+      font-size: 0.65rem;
       letter-spacing: 0;
       white-space: nowrap;
       text-decoration: none;
+    }
+
+    .token-badge {
+      height: 28px;
+      padding: 0 0.7rem;
     }
 
     .btn-row { display: flex; align-items: stretch; gap: 0.5rem; }
@@ -932,6 +938,13 @@
         <small data-i18n="btn.sss.sub">Shamir titkosítás — bármely 2: arc / eszköz / papír elegendő</small>
       </button>
       <button class="help-btn" id="btn-sss-info" title="Mi ez?">ℹ</button>
+    </div>
+
+    <div class="btn-row" id="reenroll-row" style="display:none">
+      <button class="btn btn-ghost" id="btn-reenroll">
+        <span data-i18n="btn.reenroll">Arc profil frissítése</span>
+        <small data-i18n="btn.reenroll.sub">Új arc-beolvasás regisztrálása (pl. böngészőváltás után)</small>
+      </button>
     </div>
 
     <div class="btn-row">

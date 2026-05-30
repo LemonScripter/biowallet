@@ -8,25 +8,31 @@
  * Válasz ← Worker:         { id, ok, result } | { id, ok:false, error }
  *
  * Típusok:
- *   INIT_VAULT      { vaultId }
- *   ENROLL          { embedding: Float32Array }                        → { vaultId, P, encryptedVault }
- *   IMPORT          { mnemonic: string, embedding: Float32Array }      → { vaultId, P, encryptedVault }
- *   COMMIT_TX       { tx: object }                                     → { fingerprint: string }
- *   CANCEL_TX       {}
- *   BIO_CAPTURE     { embedding: Float32Array, P, userInput?: string }
- *   OPEN            { encryptedVault: ArrayBuffer, P, devicePrf?: number[] } → { address, hasDevice, usedDevice }
- *   ENROLL_DEVICE   { devicePrf: number[], credentialId: number[], prfSalt: number[] } → { encryptedVault }
- *   SIGN            { tx: object }
- *   PERSONAL_SIGN   { message: string }
- *   RECOVERY_FORMULA {}
- *   LOCK            {}
- *   STATUS          {}
+ *   INIT_VAULT        { vaultId }
+ *   ENROLL            { embedding: Float32Array }                          → { vaultId, P, encryptedVault }
+ *   IMPORT            { mnemonic: string, embedding: Float32Array }        → { vaultId, P, encryptedVault }
+ *   CREATE_V4         { embedding, devicePrf?, credentialId?, prfSalt? }   → { vaultId, P, encryptedVault, paperShareY }
+ *   CREATE_V5         { embedding, devicePrf?, credentialId?, prfSalt? }   → { vaultId, P, encryptedVault, paperShareY }
+ *   IMPORT_V5         { mnemonic, embedding, devicePrf?, credentialId?, prfSalt? } → { vaultId, P, encryptedVault, paperShareY }
+ *   COMMIT_TX         { tx: object }                                       → { fingerprint: string }
+ *   CANCEL_TX         {}
+ *   BIO_CAPTURE       { embedding: Float32Array, P, userInput?: string }
+ *   OPEN              { encryptedVault, P, devicePrf?, pin?, paperShareY? } → { address, hasDevice, usedDevice, isV4, isV5, genesis? }
+ *   ENROLL_DEVICE     { devicePrf, credentialId, prfSalt }                → { encryptedVault }
+ *   SIGN              { tx: object }
+ *   PERSONAL_SIGN     { message: string }
+ *   RECOVERY_FORMULA  {}
+ *   UPGRADE_V5        { devicePrf?, credentialId?, prfSalt? }              → { encryptedVault, paperShareY }
+ *   RE_ENROLL_FACE    { embedding, devicePrf?, credentialId?, prfSalt? }   → { P, encryptedVault, paperShareY }
+ *   ADD_CHAIN_ENTRY   { method: string }                                   → { encryptedVault }
+ *   LOCK              {}
+ *   STATUS            {}
  */
 
 import * as _ethersLib from '../vendor/ethers.bundle.js';
 self.ethers = _ethersLib;
 
-import { BioVault } from '../core/vault.js?v=14';
+import { BioVault } from '../core/vault.js?v=15';
 
 let vault = null;
 
@@ -83,10 +89,38 @@ async function handle(type, p) {
       const res = await BioVault.createV4(p.embedding, dPrf, cId, pSalt);
       vault = new BioVault(res.vaultId);
       return {
-        vaultId:       res.vaultId,
-        P:             res.P,
+        vaultId:        res.vaultId,
+        P:              res.P,
         encryptedVault: res.encryptedVault,
-        paperShareY:   Array.from(res.paperShareY),
+        paperShareY:    Array.from(res.paperShareY),
+      };
+    }
+
+    case 'CREATE_V5': {
+      const dPrf  = p.devicePrf    ? new Uint8Array(p.devicePrf)    : null;
+      const cId   = p.credentialId ? new Uint8Array(p.credentialId) : null;
+      const pSalt = p.prfSalt      ? new Uint8Array(p.prfSalt)      : null;
+      const res = await BioVault.createV5(p.embedding, dPrf, cId, pSalt);
+      vault = new BioVault(res.vaultId);
+      return {
+        vaultId:        res.vaultId,
+        P:              res.P,
+        encryptedVault: res.encryptedVault,
+        paperShareY:    Array.from(res.paperShareY),
+      };
+    }
+
+    case 'IMPORT_V5': {
+      const dPrf  = p.devicePrf    ? new Uint8Array(p.devicePrf)    : null;
+      const cId   = p.credentialId ? new Uint8Array(p.credentialId) : null;
+      const pSalt = p.prfSalt      ? new Uint8Array(p.prfSalt)      : null;
+      const res = await BioVault.importFromMnemonicV5(p.mnemonic, p.embedding, dPrf, cId, pSalt);
+      vault = new BioVault(res.vaultId);
+      return {
+        vaultId:        res.vaultId,
+        P:              res.P,
+        encryptedVault: res.encryptedVault,
+        paperShareY:    Array.from(res.paperShareY),
       };
     }
 
@@ -97,7 +131,14 @@ async function handle(type, p) {
         ? { x: 3, y: new Uint8Array(p.paperShareY) }
         : null;
       const result = await vault.open(p.encryptedVault, p.P, devicePrf, p.pin ?? null, paperShare);
-      return { address: result.address, hasDevice: result.hasDevice, usedDevice: result.usedDevice, isV4: result.isV4 ?? false };
+      return {
+        address:    result.address,
+        hasDevice:  result.hasDevice,
+        usedDevice: result.usedDevice,
+        isV4:       result.isV4 ?? false,
+        isV5:       result.isV5 ?? false,
+        genesis:    result.genesis ?? null,
+      };
     }
 
     case 'ENROLL_DEVICE': {
@@ -135,6 +176,30 @@ async function handle(type, p) {
       const pSalt = p.prfSalt      ? new Uint8Array(p.prfSalt)      : null;
       const { encryptedVault, paperShareY } = await vault.upgradeToV4(dPrf, cId, pSalt);
       return { encryptedVault, paperShareY: Array.from(paperShareY) };
+    }
+
+    case 'UPGRADE_V5': {
+      if (!vault) throw new Error('No vault initialised');
+      const dPrf  = p.devicePrf    ? new Uint8Array(p.devicePrf)    : null;
+      const cId   = p.credentialId ? new Uint8Array(p.credentialId) : null;
+      const pSalt = p.prfSalt      ? new Uint8Array(p.prfSalt)      : null;
+      const { encryptedVault, paperShareY } = await vault.upgradeToV5(dPrf, cId, pSalt);
+      return { encryptedVault, paperShareY: Array.from(paperShareY) };
+    }
+
+    case 'RE_ENROLL_FACE': {
+      if (!vault) throw new Error('No vault initialised');
+      const dPrf  = p.devicePrf    ? new Uint8Array(p.devicePrf)    : null;
+      const cId   = p.credentialId ? new Uint8Array(p.credentialId) : null;
+      const pSalt = p.prfSalt      ? new Uint8Array(p.prfSalt)      : null;
+      const { P, encryptedVault, paperShareY } = await vault.reEnrollFace(p.embedding, dPrf, cId, pSalt);
+      return { P, encryptedVault, paperShareY: Array.from(paperShareY) };
+    }
+
+    case 'ADD_CHAIN_ENTRY': {
+      if (!vault) throw new Error('No vault initialised');
+      const encryptedVault = await vault.addChainEntry(p.method ?? 're-enrollment');
+      return { encryptedVault };
     }
 
     case 'LOCK': {
