@@ -179,10 +179,10 @@ function _refreshDynamicLabels() {
       } else {
         await callWorker('INIT_VAULT', { vaultId: meta.vaultId });
         vaultReady = true;
-        // Show paper share input field if vault is v4
+        // Show paper share input field if vault is v4 or v5
         if (meta.vaultJson) {
           const vMatch = meta.vaultJson.match(/"v"\s*:\s*(\d+)/);
-          if (vMatch && parseInt(vMatch[1]) === 4) {
+          if (vMatch && parseInt(vMatch[1]) >= 4) {
             const pr = document.getElementById('sss-paper-row');
             if (pr) pr.style.display = '';
           }
@@ -206,10 +206,25 @@ function _refreshDynamicLabels() {
   showVersionHash(); // non-blocking
 })();
 
+// ── Camera helpers ─────────────────────────────────────────────────────────
+function _stopCamera() {
+  if (!stream) return;
+  stream.getTracks().forEach(t => t.stop());
+  stream = null;
+  video.srcObject = null;
+}
+
+async function _ensureCamera() {
+  if (stream && stream.getTracks().every(t => t.readyState === 'live')) return;
+  try { stream = await openCamera(video, m => setMsg(m, '')); }
+  catch (e) { setMsg(t('msg.camera.error', { err: e.message }), 'error'); }
+}
+
 // ── Restart camera if stream killed when app went to background ───────────────
 document.addEventListener('visibilitychange', async () => {
   if (document.hidden) return;
-  if (!stream || stream.getTracks().every(t => t.readyState === 'ended')) {
+  // Also catches muted tracks (not just ended) for better mobile compat
+  if (!stream || stream.getTracks().some(t => t.readyState !== 'live')) {
     try { stream = await openCamera(video, m => setMsg(m, '')); }
     catch (e) { setMsg(t('msg.camera.error', { err: e.message }), 'error'); }
   }
@@ -1476,6 +1491,8 @@ document.getElementById('btn-load-vault')?.addEventListener('click', async () =>
   } catch (e) {
     if (e.message && !e.message.includes('no.file')) setMsg(friendlyError(e.message), 'error');
   }
+  // File picker may interrupt camera stream on mobile — restart if needed
+  _ensureCamera().catch(() => {});
 });
 
 document.getElementById('btn-vault-paste-close')?.addEventListener('click', () => {
@@ -2206,6 +2223,12 @@ function showPanel(name) {
   panelLock.classList.toggle('visible',   name === 'lock');
   panelVault.classList.toggle('visible',  name === 'vault');
   ttlBars.classList.toggle('visible',     name === 'vault');
+  // Camera only needed for face panels; stop it during vault (authenticated) and text-input (import)
+  if (name === 'vault' || name === 'import') {
+    _stopCamera();
+  } else {
+    _ensureCamera().catch(() => {});
+  }
   if (name !== 'vault') {
     deviceRow.style.display = 'none';
     btnScan.disabled        = false;
