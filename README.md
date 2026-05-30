@@ -82,6 +82,18 @@ Result: 13 / 13  PASS ✓
 
 ---
 
+## Competitive comparison
+
+BioWallet, Ledger, Trezor and MetaMask rated across 8 threat categories (scale 1–4):
+
+<p align="center">
+  <img src="docs/radar_chart.svg" alt="Security radar chart — BioWallet vs Ledger vs Trezor vs MetaMask" width="560"/>
+</p>
+
+Full analysis with data tables and bar charts: [English](docs/security_comparison_en.html) · [Magyar](docs/security_comparison_hu.html)
+
+---
+
 ## How it works
 
 ```

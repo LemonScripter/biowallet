@@ -22,6 +22,8 @@ const STRINGS = {
     'btn.help.title': 'Használati útmutató',
     'btn.info.title': 'Hogyan működik?',
     'lang.switch':    'EN',
+    'header.security':      '↗ Összehasonlítás',
+    'header.security.href': '/docs/security_comparison_hu.html',
 
     /* ── Setup panel ───────────────────────────────────────────────── */
     'setup.info':       'Az arc-adatokból egyedi titkosítókulcs keletkezik a vaulton belül. Az arc-adatok soha nem hagyják el az eszközt.',
@@ -296,6 +298,8 @@ const STRINGS = {
     'btn.help.title': 'User guide',
     'btn.info.title': 'How does it work?',
     'lang.switch':    'HU',
+    'header.security':      '↗ Security',
+    'header.security.href': '/docs/security_comparison_en.html',
 
     /* ── Setup panel ───────────────────────────────────────────────── */
     'setup.info':       'A unique encryption key is derived from your face inside the vault. Face data never leaves the device.',
@@ -927,6 +931,9 @@ export function applyI18n() {
   });
   document.querySelectorAll('[data-i18n-ph]').forEach(el => {
     el.placeholder = t(el.dataset.i18nPh);
+  });
+  document.querySelectorAll('[data-i18n-href]').forEach(el => {
+    el.href = t(el.dataset.i18nHref);
   });
   document.documentElement.lang = _lang;
 }

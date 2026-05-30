@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wallet Security Comparison — BioWallet vs Ledger vs Trezor vs MetaMask</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:#0d0d1a;--surface:#13132b;--surface2:#1a1a35;--border:#2a2a4a;
+    --text:#e0e0f0;--muted:#8888aa;--bio:#6c63ff;--ledger:#00b4d8;
+    --trezor:#00c896;--meta:#f6851b;--bad:#ff4444;--warn:#ffa502;--ok:#2ed573;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;
+    font-size:15px;line-height:1.6;padding:2rem 1rem;max-width:1100px;margin:0 auto}
+  h1{font-size:1.6rem;font-weight:800;margin-bottom:0.3rem;
+    background:linear-gradient(90deg,var(--bio),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  h2{font-size:1.15rem;font-weight:700;margin:2rem 0 0.6rem;color:var(--bio);
+    border-bottom:1px solid var(--border);padding-bottom:0.3rem}
+  h3{font-size:0.95rem;font-weight:700;margin:1.2rem 0 0.4rem;color:#a0a0cc}
+  p{margin-bottom:0.8rem;color:#c0c0e0;font-size:0.9rem}
+  a{color:var(--bio);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .subtitle{color:var(--muted);font-size:0.82rem;margin-bottom:0.4rem}
+  .lang-bar{display:flex;gap:0.8rem;margin-bottom:1.4rem;font-size:0.82rem}
+  .lang-bar a{padding:0.2rem 0.7rem;border:1px solid var(--border);border-radius:6px;color:var(--muted)}
+  .lang-bar a.active{border-color:var(--bio);color:var(--bio);font-weight:700}
+  .legend{display:flex;gap:1.2rem;flex-wrap:wrap;margin:1rem 0}
+  .chip{display:flex;align-items:center;gap:0.4rem;font-size:0.82rem;font-weight:600}
+  .dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+  .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin:1.5rem 0}
+  @media(max-width:720px){.chart-grid{grid-template-columns:1fr}}
+  .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.2rem}
+  .chart-card.wide{grid-column:1/-1}
+  .chart-card h3{margin-top:0;color:var(--text);font-size:0.85rem}
+  .score-table{width:100%;border-collapse:collapse;font-size:0.82rem;margin:1rem 0}
+  .score-table th{background:var(--surface2);color:var(--muted);font-weight:600;
+    padding:0.5rem 0.7rem;text-align:left;border-bottom:2px solid var(--border)}
+  .score-table td{padding:0.45rem 0.7rem;border-bottom:1px solid var(--border);vertical-align:top}
+  .score-table tr:hover td{background:var(--surface2)}
+  .score{display:inline-flex;align-items:center;justify-content:center;
+    width:28px;height:28px;border-radius:6px;font-weight:800;font-size:0.95rem}
+  .s4{background:rgba(46,213,115,0.18);color:var(--ok)}
+  .s3{background:rgba(255,165,2,0.18);color:var(--warn)}
+  .s2{background:rgba(255,165,2,0.10);color:#e0a040}
+  .s1{background:rgba(255,68,68,0.18);color:var(--bad)}
+  .note{color:var(--muted);font-size:0.75rem}
+  .box{border-radius:10px;padding:0.9rem 1rem;margin:0.8rem 0;font-size:0.88rem}
+  .box-ok{background:rgba(46,213,115,0.08);border-left:3px solid var(--ok)}
+  .box-warn{background:rgba(255,165,2,0.08);border-left:3px solid var(--warn)}
+  .box-info{background:rgba(108,99,255,0.08);border-left:3px solid var(--bio)}
+  .scale{display:flex;gap:0.8rem;flex-wrap:wrap;margin:0.6rem 0 1.2rem;font-size:0.8rem}
+  footer{margin-top:3rem;padding-top:1rem;border-top:1px solid var(--border);
+    font-size:0.78rem;color:var(--muted);text-align:center}
+  footer a{color:var(--muted)}
+  footer a:hover{color:var(--bio)}
+</style>
+</head>
+<body>
+
+<div class="lang-bar">
+  <a href="security_comparison_hu.html">Magyar</a>
+  <a href="security_comparison_en.html" class="active">English</a>
+</div>
+
+<h1>Wallet Security Comparison</h1>
+<p class="subtitle">BioWallet · Ledger · Trezor · MetaMask — 8 threat categories &nbsp;|&nbsp; 2025 Q2</p>
+
+<div class="legend">
+  <span class="chip"><span class="dot" style="background:var(--bio)"></span>BioWallet (Server + BioOS Ring0)</span>
+  <span class="chip"><span class="dot" style="background:var(--ledger)"></span>Ledger (hardware)</span>
+  <span class="chip"><span class="dot" style="background:var(--trezor)"></span>Trezor (hardware, dashed line)</span>
+  <span class="chip"><span class="dot" style="background:var(--meta)"></span>MetaMask (browser ext.)</span>
+</div>
+
+<div class="scale">
+  <span class="score s4">4</span> Strong / enforced &nbsp;
+  <span class="score s3">3</span> Moderate / conditional &nbsp;
+  <span class="score s2">2</span> Weak / advisory &nbsp;
+  <span class="score s1">1</span> None / host-dependent
+</div>
+
+<h2>Visual Comparison</h2>
+<div class="chart-grid">
+  <div class="chart-card wide"><h3>Radar — all 8 threat categories</h3><canvas id="radarChart" height="90"></canvas></div>
+  <div class="chart-card"><h3>BioWallet vs MetaMask</h3><canvas id="barBioMeta" height="200"></canvas></div>
+  <div class="chart-card"><h3>BioWallet vs Ledger / Trezor</h3><canvas id="barBioHW" height="200"></canvas></div>
+  <div class="chart-card wide"><h3>Overall average score (mean of 8 categories)</h3><canvas id="barAvg" height="60"></canvas></div>
+</div>
+
+<h2>Security Matrix</h2>
+<table class="score-table">
+<thead><tr>
+  <th style="width:20%">Threat category</th>
+  <th>BioWallet<br><span class="note">Server + BioOS Ring0</span></th>
+  <th>Ledger<br><span class="note">hardware</span></th>
+  <th>Trezor<br><span class="note">hardware</span></th>
+  <th>MetaMask<br><span class="note">browser ext.</span></th>
+</tr></thead>
+<tbody>
+<tr>
+  <td><strong>Key storage</strong></td>
+  <td><span class="score s4">4</span><br><span class="note">Seed lives exclusively in a Web Worker sandbox; plaintext never reaches the main thread.</span></td>
+  <td><span class="score s4">4</span><br><span class="note">Secure Element (SE); key never leaves the device.</span></td>
+  <td><span class="score s4">4</span><br><span class="note">Microcontroller + PIN; key stays on device.</span></td>
+  <td><span class="score s2">2</span><br><span class="note">Seed phrase in browser memory; a malicious extension can in principle extract it.</span></td>
+</tr>
+<tr>
+  <td><strong>Host compromise</strong></td>
+  <td><span class="score s4">4</span><br><span class="note">Worker isolation + BioOS Ring0 eBPF exec whitelist; seed unreachable from the main process.</span></td>
+  <td><span class="score s4">4</span><br><span class="note">Hardware isolation; compromising the host does not expose the key.</span></td>
+  <td><span class="score s4">4</span><br><span class="note">Same as Ledger.</span></td>
+  <td><span class="score s1">1</span><br><span class="note">Host-oriented model; compromised OS makes key extraction trivial.</span></td>
+</tr>
+<tr>
+  <td><strong>TX substitution</strong></td>
+  <td><span class="score s4">4</span><br><span class="note">DCC causal chain + tx-hash binding + 4-character fingerprint entry. Altered TX → invalid token → SIGN blocked.</span></td>
+  <td><span class="score s4">4</span><br><span class="note">Trusted display on device; physical confirmation of TX details required.</span></td>
+  <td><span class="score s4">4</span><br><span class="note">Device display + physical button press.</span></td>
+  <td><span class="score s1">1</span><br><span class="note">Advisory only (Blockaid simulation); UI is manipulable, no enforced causal chain.</span></td>
+</tr>
+<tr>
+  <td><strong>Replay attack</strong></td>
+  <td><span class="score s4">4</span><br><span class="note">Single-use, short-TTL biometric tokens (DCC GATE); an expired token cannot authorize a second signing.</span></td>
+  <td><span class="score s3">3</span><br><span class="note">Ethereum nonce protects against on-chain replay; cross-chain protection is limited.</span></td>
+  <td><span class="score s3">3</span><br><span class="note">Same as Ledger.</span></td>
+  <td><span class="score s1">1</span><br><span class="note">No causal control; replay prevention is the application's responsibility.</span></td>
+</tr>
+<tr>
+  <td><strong>User error</strong></td>
+  <td><span class="score s4">4</span><br><span class="note">Multi-step enforced flow: arc-scan → BIO_CAPTURE → COMMIT_TX → fingerprint entry → SIGN. Skipping any step halts the chain.</span></td>
+  <td><span class="score s2">2</span><br><span class="note">Trusted display helps, but a wrong address can still be approved inattentively.</span></td>
+  <td><span class="score s2">2</span><br><span class="note">Similar to Ledger.</span></td>
+  <td><span class="score s1">1</span><br><span class="note">User can easily approve a phishing TX; no enforced verification step.</span></td>
+</tr>
+<tr>
+  <td><strong>Phishing / social engineering</strong></td>
+  <td><span class="score s4">4</span><br><span class="note">No stealable credential; offline recovery; split recovery elements; DCC enforcement logic blocks TX signing issued from a fake interface.</span></td>
+  <td><span class="score s4">4</span><br><span class="note">Trusted display + final device-side confirmation.</span></td>
+  <td><span class="score s4">4</span><br><span class="note">Same as Ledger.</span></td>
+  <td><span class="score s2">2</span><br><span class="note">Blockaid warns, but it is not enforcing; the user can override.</span></td>
+</tr>
+<tr>
+  <td><strong>Silent theft</strong></td>
+  <td><span class="score s4">4</span><br><span class="note">DCC causal chain + tx-hash binding: every signing requires active biometric participation; no "silent sign" possible.</span></td>
+  <td><span class="score s4">4</span><br><span class="note">Physical device approval required for every signing.</span></td>
+  <td><span class="score s4">4</span><br><span class="note">Same as Ledger.</span></td>
+  <td><span class="score s1">1</span><br><span class="note">Background signing possible in an open unlock window.</span></td>
+</tr>
+<tr>
+  <td><strong>Coercion</strong></td>
+  <td><span class="score s1">1</span><br><span class="note">No technical differentiation under physical coercion. Future option: duress-arc enrollment.</span></td>
+  <td><span class="score s1">1</span><br><span class="note">PIN can be disclosed under duress; no built-in duress mechanism.</span></td>
+  <td><span class="score s1">1</span><br><span class="note">Same as Ledger.</span></td>
+  <td><span class="score s1">1</span><br><span class="note">No protection against coercion.</span></td>
+</tr>
+</tbody>
+</table>
+
+<h2>Analysis</h2>
+
+<h3>What makes BioWallet unique?</h3>
+<p>Classic software wallets (MetaMask) keep the key secret, but access authorization is a UI-based approval event. Hardware wallets (Ledger, Trezor) solve this with a physically isolated <em>trusted display</em> and a button press.</p>
+<p>BioWallet takes a different approach: transaction authorization is not merely a UI event but a <strong>deterministically enforced causal chain</strong> (DCC — Digital Causal Closure) in which every step is cryptographically bound to the previous one.</p>
+<div class="box box-info">
+  <strong>DCC tx-binding:</strong> COMMIT_TX opens a ~10-second window. The user types the first 4 characters of the tx-hash — cryptographically binding the arc-scan to that specific transaction. Altered TX → different fingerprint → typed value doesn't match → SIGN blocked. Host-level TX substitution is detectable without a trusted display.
+</div>
+
+<h3>Where does a hardware wallet have the edge?</h3>
+<div class="box box-warn">
+  The key advantage of Ledger and Trezor: the key lives in a <strong>physically isolated Secure Element</strong> that remains unreachable even if the entire software environment is compromised. BioWallet's Worker-level isolation is strong, but it is software-based.
+</div>
+
+<h3>Conclusion</h3>
+<div class="box box-ok">
+  In a BioOS Ring0 + DCC environment, BioWallet <strong>professionally matches hardware wallets</strong> in resistance to TX substitution, replay, silent theft, and phishing — and surpasses them on user error and replay protection. The remaining primary limitations are coercion resistance and the absence of absolute Secure-Element-grade key isolation.
+</div>
+
+<h2>References</h2>
+<p style="font-size:0.8rem">
+  <a href="https://www.ledger.com/academy/topics/ledgersolutions/ledger-wallets-secure-screen-security-model" target="_blank" rel="noopener">Ledger — Secure Screen</a> ·
+  <a href="https://trezor.io/security" target="_blank" rel="noopener">Trezor — Security</a> ·
+  <a href="https://metamask.io/news/metamask-security-alerts-by-blockaid-the-new-normal-for-a-safer-transaction" target="_blank" rel="noopener">MetaMask — Blockaid</a> ·
+  <a href="https://donjon.ledger.com/threat-model/device-secure-display-and-inputs/" target="_blank" rel="noopener">Ledger Donjon — Threat model</a> ·
+  <a href="https://github.com/LemonScripter/biowallet" target="_blank" rel="noopener">BioWallet GitHub</a>
+</p>
+
+<footer>
+  <a href="https://metaspace.bio" target="_blank" rel="noopener">metaspace.bio</a> &nbsp;|&nbsp;
+  <a href="https://biowallet.metaspace.bio" target="_blank" rel="noopener">biowallet.metaspace.bio</a> &nbsp;|&nbsp;
+  <a href="https://github.com/LemonScripter/biowallet" target="_blank" rel="noopener">GitHub</a>
+</footer>
+
+<script>
+const LABELS = ['Key storage','Host compromise','TX substitution','Replay','User error','Phishing / SE','Silent theft','Coercion'];
+const DATA = { bio:[4,4,4,4,4,4,4,1], ledger:[4,4,4,3,2,4,4,1], trezor:[4,4,4,3,2,4,4,1], meta:[2,1,1,1,1,2,1,1] };
+const C = { bio:{b:'#6c63ff',bg:'rgba(108,99,255,0.15)'}, ledger:{b:'#00b4d8',bg:'rgba(0,180,216,0.10)'},
+            trezor:{b:'#00c896',bg:'rgba(0,200,150,0.07)'}, meta:{b:'#f6851b',bg:'rgba(246,133,27,0.10)'} };
+const font = { family:"'Segoe UI',system-ui,sans-serif", size:11 };
+Chart.defaults.color='#9090b0'; Chart.defaults.font=font;
+
+new Chart(document.getElementById('radarChart'),{type:'radar',data:{labels:LABELS,datasets:[
+  {label:'BioWallet',data:DATA.bio,   borderColor:C.bio.b,   backgroundColor:C.bio.bg,   borderWidth:2.5,pointRadius:4},
+  {label:'Ledger',   data:DATA.ledger,borderColor:C.ledger.b,backgroundColor:C.ledger.bg,borderWidth:2,  pointRadius:3},
+  {label:'Trezor',   data:DATA.trezor,borderColor:C.trezor.b,backgroundColor:C.trezor.bg,borderWidth:2.2,pointRadius:3,borderDash:[7,4]},
+  {label:'MetaMask', data:DATA.meta,  borderColor:C.meta.b,  backgroundColor:C.meta.bg,  borderWidth:2,  pointRadius:3},
+]},options:{scales:{r:{min:0,max:4,ticks:{stepSize:1,backdropColor:'transparent',font:{size:10}},
+  grid:{color:'rgba(255,255,255,0.07)'},angleLines:{color:'rgba(255,255,255,0.07)'},
+  pointLabels:{font:{size:11},color:'#c0c0e0'}}},plugins:{legend:{labels:{font,boxWidth:12,padding:16}}}}});
+
+new Chart(document.getElementById('barBioMeta'),{type:'bar',data:{
+  labels:LABELS.map(l=>l.length>14?l.slice(0,13)+'…':l),
+  datasets:[{label:'BioWallet',data:DATA.bio,backgroundColor:C.bio.b,borderRadius:4},
+            {label:'MetaMask', data:DATA.meta,backgroundColor:C.meta.b,borderRadius:4}]},
+  options:{scales:{y:{min:0,max:4,ticks:{stepSize:1},grid:{color:'rgba(255,255,255,0.05)'}},
+    x:{grid:{display:false},ticks:{font:{size:10}}}},plugins:{legend:{labels:{font,boxWidth:12}}}}});
+
+new Chart(document.getElementById('barBioHW'),{type:'bar',data:{
+  labels:LABELS.map(l=>l.length>14?l.slice(0,13)+'…':l),
+  datasets:[{label:'BioWallet',data:DATA.bio,   backgroundColor:C.bio.b,   borderRadius:4},
+            {label:'Ledger',   data:DATA.ledger,backgroundColor:C.ledger.b,borderRadius:4},
+            {label:'Trezor',   data:DATA.trezor,backgroundColor:C.trezor.b,borderRadius:4}]},
+  options:{scales:{y:{min:0,max:4,ticks:{stepSize:1},grid:{color:'rgba(255,255,255,0.05)'}},
+    x:{grid:{display:false},ticks:{font:{size:10}}}},plugins:{legend:{labels:{font,boxWidth:12}}}}});
+
+const avg=d=>(d.reduce((a,b)=>a+b,0)/d.length).toFixed(2);
+new Chart(document.getElementById('barAvg'),{type:'bar',data:{
+  labels:['BioWallet','Ledger','Trezor','MetaMask'],
+  datasets:[{label:'Average score (max 4)',
+    data:[avg(DATA.bio),avg(DATA.ledger),avg(DATA.trezor),avg(DATA.meta)],
+    backgroundColor:[C.bio.b,C.ledger.b,C.trezor.b,C.meta.b],borderRadius:6}]},
+  options:{indexAxis:'y',scales:{x:{min:0,max:4,ticks:{stepSize:0.5},grid:{color:'rgba(255,255,255,0.05)'}},
+    y:{grid:{display:false}}},plugins:{legend:{display:false}}}});
+</script>
+</body>
+</html>

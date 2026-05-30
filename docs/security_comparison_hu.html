@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wallet biztonsági összehasonlítás — BioWallet vs Ledger vs Trezor vs MetaMask</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:#0d0d1a;--surface:#13132b;--surface2:#1a1a35;--border:#2a2a4a;
+    --text:#e0e0f0;--muted:#8888aa;--bio:#6c63ff;--ledger:#00b4d8;
+    --trezor:#00c896;--meta:#f6851b;--bad:#ff4444;--warn:#ffa502;--ok:#2ed573;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;
+    font-size:15px;line-height:1.6;padding:2rem 1rem;max-width:1100px;margin:0 auto}
+  h1{font-size:1.6rem;font-weight:800;margin-bottom:0.3rem;
+    background:linear-gradient(90deg,var(--bio),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  h2{font-size:1.15rem;font-weight:700;margin:2rem 0 0.6rem;color:var(--bio);
+    border-bottom:1px solid var(--border);padding-bottom:0.3rem}
+  h3{font-size:0.95rem;font-weight:700;margin:1.2rem 0 0.4rem;color:#a0a0cc}
+  p{margin-bottom:0.8rem;color:#c0c0e0;font-size:0.9rem}
+  a{color:var(--bio);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .subtitle{color:var(--muted);font-size:0.82rem;margin-bottom:0.4rem}
+  .lang-bar{display:flex;gap:0.8rem;margin-bottom:1.4rem;font-size:0.82rem}
+  .lang-bar a{padding:0.2rem 0.7rem;border:1px solid var(--border);border-radius:6px;color:var(--muted)}
+  .lang-bar a.active{border-color:var(--bio);color:var(--bio);font-weight:700}
+  .legend{display:flex;gap:1.2rem;flex-wrap:wrap;margin:1rem 0}
+  .chip{display:flex;align-items:center;gap:0.4rem;font-size:0.82rem;font-weight:600}
+  .dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+  .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin:1.5rem 0}
+  @media(max-width:720px){.chart-grid{grid-template-columns:1fr}}
+  .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.2rem}
+  .chart-card.wide{grid-column:1/-1}
+  .chart-card h3{margin-top:0;color:var(--text);font-size:0.85rem}
+  .score-table{width:100%;border-collapse:collapse;font-size:0.82rem;margin:1rem 0}
+  .score-table th{background:var(--surface2);color:var(--muted);font-weight:600;
+    padding:0.5rem 0.7rem;text-align:left;border-bottom:2px solid var(--border)}
+  .score-table td{padding:0.45rem 0.7rem;border-bottom:1px solid var(--border);vertical-align:top}
+  .score-table tr:hover td{background:var(--surface2)}
+  .score{display:inline-flex;align-items:center;justify-content:center;
+    width:28px;height:28px;border-radius:6px;font-weight:800;font-size:0.95rem}
+  .s4{background:rgba(46,213,115,0.18);color:var(--ok)}
+  .s3{background:rgba(255,165,2,0.18);color:var(--warn)}
+  .s2{background:rgba(255,165,2,0.10);color:#e0a040}
+  .s1{background:rgba(255,68,68,0.18);color:var(--bad)}
+  .note{color:var(--muted);font-size:0.75rem}
+  .box{border-radius:10px;padding:0.9rem 1rem;margin:0.8rem 0;font-size:0.88rem}
+  .box-ok{background:rgba(46,213,115,0.08);border-left:3px solid var(--ok)}
+  .box-warn{background:rgba(255,165,2,0.08);border-left:3px solid var(--warn)}
+  .box-info{background:rgba(108,99,255,0.08);border-left:3px solid var(--bio)}
+  .scale{display:flex;gap:0.8rem;flex-wrap:wrap;margin:0.6rem 0 1.2rem;font-size:0.8rem}
+  footer{margin-top:3rem;padding-top:1rem;border-top:1px solid var(--border);
+    font-size:0.78rem;color:var(--muted);text-align:center}
+  footer a{color:var(--muted)}
+  footer a:hover{color:var(--bio)}
+</style>
+</head>
+<body>
+
+<div class="lang-bar">
+  <a href="security_comparison_hu.html" class="active">Magyar</a>
+  <a href="security_comparison_en.html">English</a>
+</div>
+
+<h1>Wallet biztonsági összehasonlítás</h1>
+<p class="subtitle">BioWallet · Ledger · Trezor · MetaMask — 8 fenyegetési osztály &nbsp;|&nbsp; 2025 Q2</p>
+
+<div class="legend">
+  <span class="chip"><span class="dot" style="background:var(--bio)"></span>BioWallet (Server + BioOS Ring0)</span>
+  <span class="chip"><span class="dot" style="background:var(--ledger)"></span>Ledger (hardware)</span>
+  <span class="chip"><span class="dot" style="background:var(--trezor)"></span>Trezor (hardware, szaggatott vonal)</span>
+  <span class="chip"><span class="dot" style="background:var(--meta)"></span>MetaMask (böngésző ext.)</span>
+</div>
+
+<div class="scale">
+  <span class="score s4">4</span> Erős / kényszerítő &nbsp;
+  <span class="score s3">3</span> Közepes / feltételes &nbsp;
+  <span class="score s2">2</span> Gyenge / figyelmeztetés &nbsp;
+  <span class="score s1">1</span> Nincs / host-orientált
+</div>
+
+<h2>Vizuális összehasonlítás</h2>
+<div class="chart-grid">
+  <div class="chart-card wide"><h3>Radar — mind a 8 támadási osztály</h3><canvas id="radarChart" height="90"></canvas></div>
+  <div class="chart-card"><h3>BioWallet vs MetaMask</h3><canvas id="barBioMeta" height="200"></canvas></div>
+  <div class="chart-card"><h3>BioWallet vs Ledger / Trezor</h3><canvas id="barBioHW" height="200"></canvas></div>
+  <div class="chart-card wide"><h3>Összesített átlagpontszám (8 kategória átlaga)</h3><canvas id="barAvg" height="60"></canvas></div>
+</div>
+
+<h2>Biztonsági mátrix</h2>
+<table class="score-table">
+<thead><tr>
+  <th style="width:20%">Támadási osztály</th>
+  <th>BioWallet<br><span class="note">Server + BioOS Ring0</span></th>
+  <th>Ledger<br><span class="note">hardware</span></th>
+  <th>Trezor<br><span class="note">hardware</span></th>
+  <th>MetaMask<br><span class="note">böngésző ext.</span></th>
+</tr></thead>
+<tbody>
+<tr>
+  <td><strong>Kulcstárolás</strong></td>
+  <td><span class="score s4">4</span><br><span class="note">Seed kizárólag Web Worker-sandbox-ban; plaintext soha nem kerül a main thread-re.</span></td>
+  <td><span class="score s4">4</span><br><span class="note">Secure Element (SE); kulcs soha nem hagyja el az eszközt.</span></td>
+  <td><span class="score s4">4</span><br><span class="note">Mikrocontroller + PIN; kulcs az eszközön marad.</span></td>
+  <td><span class="score s2">2</span><br><span class="note">Seed phrase böngésző-memóriában; kártékony extension elvben kiolvashatja.</span></td>
+</tr>
+<tr>
+  <td><strong>Host kompromittálás</strong></td>
+  <td><span class="score s4">4</span><br><span class="note">Worker-izoláció + BioOS Ring0 eBPF whitelist; a seed nem érhető el a main process-ből sem.</span></td>
+  <td><span class="score s4">4</span><br><span class="note">Hardveres izoláció; a host kompromittálása nem érinti a kulcsot.</span></td>
+  <td><span class="score s4">4</span><br><span class="note">Ugyanaz, mint Ledger.</span></td>
+  <td><span class="score s1">1</span><br><span class="note">Host-orientált modell; kompromittált OS esetén a kulcs könnyen kinyerhető.</span></td>
+</tr>
+<tr>
+  <td><strong>TX-csere (substitution)</strong></td>
+  <td><span class="score s4">4</span><br><span class="note">DCC oksági lánc + tx-hash binding + 4 karakteres fingerprint kézi beírása. Módosított TX → érvénytelen token.</span></td>
+  <td><span class="score s4">4</span><br><span class="note">Trusted display az eszközön; fizikai jóváhagyás a TX részleteihez.</span></td>
+  <td><span class="score s4">4</span><br><span class="note">Device display + fizikai gombnyomás.</span></td>
+  <td><span class="score s1">1</span><br><span class="note">Advisory jellegű (Blockaid szimuláció); a UI manipulálható, nincs kényszerítő lánc.</span></td>
+</tr>
+<tr>
+  <td><strong>Replay-támadás</strong></td>
+  <td><span class="score s4">4</span><br><span class="note">Single-use, rövid TTL-es biometriai tokenek (DCC GATE); lejárt token nem enged újabb aláírást.</span></td>
+  <td><span class="score s3">3</span><br><span class="note">Ethereum nonce véd láncon belüli replay ellen; cross-chain védelem korlátozott.</span></td>
+  <td><span class="score s3">3</span><br><span class="note">Ugyanaz, mint Ledger.</span></td>
+  <td><span class="score s1">1</span><br><span class="note">Nincs oksági kontroll; az alkalmazáslogika felelős.</span></td>
+</tr>
+<tr>
+  <td><strong>Felhasználói hiba</strong></td>
+  <td><span class="score s4">4</span><br><span class="note">Többfeltételes flow: arc-scan → BIO_CAPTURE → COMMIT_TX → fingerprint beírása → SIGN. Egy lépés kimaradása megakasztja a láncot.</span></td>
+  <td><span class="score s2">2</span><br><span class="note">Trusted display segít, de rossz cím jóváhagyható figyelmetlenségből.</span></td>
+  <td><span class="score s2">2</span><br><span class="note">Hasonló a Ledger-hez.</span></td>
+  <td><span class="score s1">1</span><br><span class="note">A felhasználó könnyen approve-ol phishing TX-et; nincs kényszerítő ellenőrzési lépés.</span></td>
+</tr>
+<tr>
+  <td><strong>Phishing / social engineering</strong></td>
+  <td><span class="score s4">4</span><br><span class="note">Nincs ellopható credential; offline recovery; szétválasztott recovery-elemek; DCC-kényszerlogika blokkolja a hamis felületen kiadott TX aláírását.</span></td>
+  <td><span class="score s4">4</span><br><span class="note">Trusted display + eszközön végső jóváhagyás.</span></td>
+  <td><span class="score s4">4</span><br><span class="note">Ugyanaz, mint Ledger.</span></td>
+  <td><span class="score s2">2</span><br><span class="note">Blockaid figyelmeztet, de nem kényszerítő; a felhasználó felülírhatja.</span></td>
+</tr>
+<tr>
+  <td><strong>Csendes lopás</strong></td>
+  <td><span class="score s4">4</span><br><span class="note">DCC oksági lánc + tx-hash binding: minden aláíráshoz aktív biometriai részvétel kell; nincs „silent sign".</span></td>
+  <td><span class="score s4">4</span><br><span class="note">Fizikai eszközjóváhagyás kell minden aláíráshoz.</span></td>
+  <td><span class="score s4">4</span><br><span class="note">Ugyanaz, mint Ledger.</span></td>
+  <td><span class="score s1">1</span><br><span class="note">Background sign lehetséges nyitott unlock-ablakban.</span></td>
+</tr>
+<tr>
+  <td><strong>Kényszerítés (coercion)</strong></td>
+  <td><span class="score s1">1</span><br><span class="note">Fizikai kényszerítésnél technikai különbségtétel nincs. Jövőbeli lehetőség: duress-arc enrollment.</span></td>
+  <td><span class="score s1">1</span><br><span class="note">PIN kiadható kényszer alatt; nincs beépített duress-mechanizmus.</span></td>
+  <td><span class="score s1">1</span><br><span class="note">Ugyanaz, mint Ledger.</span></td>
+  <td><span class="score s1">1</span><br><span class="note">Nincs védelem kényszerítés ellen.</span></td>
+</tr>
+</tbody>
+</table>
+
+<h2>Elemzés</h2>
+
+<h3>Mi teszi a BioWallet-et egyedivé?</h3>
+<p>A klasszikus szoftveres wallet-ek (MetaMask) a kulcsot titokban tartják, de a hozzáférés engedélyezése UI-alapú jóváhagyás. A hardveres wallet-ek (Ledger, Trezor) ezt egy fizikailag elkülönített <em>trusted display</em>-el és gombnyomással oldják meg.</p>
+<p>A BioWallet más úton jár: a tranzakciós engedélyezés nem pusztán UI-esemény, hanem egy <strong>determinisztikusan kényszerített oksági lánc</strong> (DCC — Digital Causal Closure), amelyen belül minden lépés kriptográfiailag az előzőhöz van kötve.</p>
+<div class="box box-info">
+  <strong>DCC tx-binding:</strong> COMMIT_TX elindít egy ~10 mp-es ablakot. A felhasználó beírja a tx-hash első 4 karakterét — ezzel kriptográfiailag a konkrét tranzakcióhoz köti az arc-scant. Módosított TX → más fingerprint → beírt érték nem egyezik → SIGN blokkolva. Host-szintű TX-csere detektálható trusted display nélkül.
+</div>
+
+<h3>Hol erősebb a hardveres wallet?</h3>
+<div class="box box-warn">
+  A Ledger és Trezor kulcselőnye: a kulcs egy <strong>fizikailag elkülönített Secure Element-ben</strong> él, amelyet még a teljes szoftverkörnyezet kompromittálása sem ér el. A BioWallet Worker-szintű izolációja erős, de szoftver-alapú.
+</div>
+
+<h3>Végső következtetés</h3>
+<div class="box box-ok">
+  A BioWallet BioOS Ring0 + DCC környezetben <strong>szakmailag védhetően eléri a hardveres wallet-ek szintjét</strong> TX-csere, replay, csendes lopás és phishing ellen — és felülmúlja őket felhasználói hiba és replay ellen. A megmaradó fő korlát a kényszerítés (coercion) és az abszolút Secure Element-szintű kulcsizoláció hiánya.
+</div>
+
+<h2>Hivatkozások</h2>
+<p style="font-size:0.8rem">
+  <a href="https://www.ledger.com/academy/topics/ledgersolutions/ledger-wallets-secure-screen-security-model" target="_blank" rel="noopener">Ledger — Secure Screen</a> ·
+  <a href="https://trezor.io/security" target="_blank" rel="noopener">Trezor — Security</a> ·
+  <a href="https://metamask.io/news/metamask-security-alerts-by-blockaid-the-new-normal-for-a-safer-transaction" target="_blank" rel="noopener">MetaMask — Blockaid</a> ·
+  <a href="https://donjon.ledger.com/threat-model/device-secure-display-and-inputs/" target="_blank" rel="noopener">Ledger Donjon — Threat model</a> ·
+  <a href="https://github.com/LemonScripter/biowallet" target="_blank" rel="noopener">BioWallet GitHub</a>
+</p>
+
+<footer>
+  <a href="https://metaspace.bio" target="_blank" rel="noopener">metaspace.bio</a> &nbsp;|&nbsp;
+  <a href="https://biowallet.metaspace.bio" target="_blank" rel="noopener">biowallet.metaspace.bio</a> &nbsp;|&nbsp;
+  <a href="https://github.com/LemonScripter/biowallet" target="_blank" rel="noopener">GitHub</a>
+</footer>
+
+<script>
+const LABELS = ['Kulcstárolás','Host komp.','TX-csere','Replay','Felhasználói hiba','Phishing / SE','Csendes lopás','Kényszerítés'];
+const DATA = { bio:[4,4,4,4,4,4,4,1], ledger:[4,4,4,3,2,4,4,1], trezor:[4,4,4,3,2,4,4,1], meta:[2,1,1,1,1,2,1,1] };
+const C = { bio:{b:'#6c63ff',bg:'rgba(108,99,255,0.15)'}, ledger:{b:'#00b4d8',bg:'rgba(0,180,216,0.10)'},
+            trezor:{b:'#00c896',bg:'rgba(0,200,150,0.07)'}, meta:{b:'#f6851b',bg:'rgba(246,133,27,0.10)'} };
+const font = { family:"'Segoe UI',system-ui,sans-serif", size:11 };
+Chart.defaults.color='#9090b0'; Chart.defaults.font=font;
+
+new Chart(document.getElementById('radarChart'),{type:'radar',data:{labels:LABELS,datasets:[
+  {label:'BioWallet',data:DATA.bio,   borderColor:C.bio.b,   backgroundColor:C.bio.bg,   borderWidth:2.5,pointRadius:4},
+  {label:'Ledger',   data:DATA.ledger,borderColor:C.ledger.b,backgroundColor:C.ledger.bg,borderWidth:2,  pointRadius:3},
+  {label:'Trezor',   data:DATA.trezor,borderColor:C.trezor.b,backgroundColor:C.trezor.bg,borderWidth:2.2,pointRadius:3,borderDash:[7,4]},
+  {label:'MetaMask', data:DATA.meta,  borderColor:C.meta.b,  backgroundColor:C.meta.bg,  borderWidth:2,  pointRadius:3},
+]},options:{scales:{r:{min:0,max:4,ticks:{stepSize:1,backdropColor:'transparent',font:{size:10}},
+  grid:{color:'rgba(255,255,255,0.07)'},angleLines:{color:'rgba(255,255,255,0.07)'},
+  pointLabels:{font:{size:11},color:'#c0c0e0'}}},plugins:{legend:{labels:{font,boxWidth:12,padding:16}}}}});
+
+new Chart(document.getElementById('barBioMeta'),{type:'bar',data:{
+  labels:LABELS.map(l=>l.length>14?l.slice(0,13)+'…':l),
+  datasets:[{label:'BioWallet',data:DATA.bio,backgroundColor:C.bio.b,borderRadius:4},
+            {label:'MetaMask', data:DATA.meta,backgroundColor:C.meta.b,borderRadius:4}]},
+  options:{scales:{y:{min:0,max:4,ticks:{stepSize:1},grid:{color:'rgba(255,255,255,0.05)'}},
+    x:{grid:{display:false},ticks:{font:{size:10}}}},plugins:{legend:{labels:{font,boxWidth:12}}}}});
+
+new Chart(document.getElementById('barBioHW'),{type:'bar',data:{
+  labels:LABELS.map(l=>l.length>14?l.slice(0,13)+'…':l),
+  datasets:[{label:'BioWallet',data:DATA.bio,   backgroundColor:C.bio.b,   borderRadius:4},
+            {label:'Ledger',   data:DATA.ledger,backgroundColor:C.ledger.b,borderRadius:4},
+            {label:'Trezor',   data:DATA.trezor,backgroundColor:C.trezor.b,borderRadius:4}]},
+  options:{scales:{y:{min:0,max:4,ticks:{stepSize:1},grid:{color:'rgba(255,255,255,0.05)'}},
+    x:{grid:{display:false},ticks:{font:{size:10}}}},plugins:{legend:{labels:{font,boxWidth:12}}}}});
+
+const avg=d=>(d.reduce((a,b)=>a+b,0)/d.length).toFixed(2);
+new Chart(document.getElementById('barAvg'),{type:'bar',data:{
+  labels:['BioWallet','Ledger','Trezor','MetaMask'],
+  datasets:[{label:'Átlagpontszám (max 4)',
+    data:[avg(DATA.bio),avg(DATA.ledger),avg(DATA.trezor),avg(DATA.meta)],
+    backgroundColor:[C.bio.b,C.ledger.b,C.trezor.b,C.meta.b],borderRadius:6}]},
+  options:{indexAxis:'y',scales:{x:{min:0,max:4,ticks:{stepSize:0.5},grid:{color:'rgba(255,255,255,0.05)'}},
+    y:{grid:{display:false}}},plugins:{legend:{display:false}}}});
+</script>
+</body>
+</html>
