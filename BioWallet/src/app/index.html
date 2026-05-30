@@ -42,6 +42,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 0.5rem;
     }
 
     .logo {
@@ -51,21 +52,33 @@
       background: linear-gradient(135deg, #6c63ff, #a78bfa);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-shrink: 0;
     }
 
     .token-badge {
       display: flex;
       align-items: center;
       gap: 0.4rem;
+      height: 28px;
       font-size: 0.72rem;
       font-weight: 600;
-      padding: 0.3rem 0.7rem;
+      padding: 0 0.7rem;
       border-radius: 99px;
       background: var(--surface2);
       border: 1px solid var(--border);
       color: var(--muted);
       transition: all 0.4s ease;
       letter-spacing: 0.04em;
+      white-space: nowrap;
+      box-sizing: border-box;
     }
     .token-badge .dot {
       width: 6px; height: 6px;
@@ -324,15 +337,18 @@
       display: flex; align-items: center; justify-content: center;
       transition: border-color 0.2s, color 0.2s;
       flex-shrink: 0;
+      box-sizing: border-box;
     }
     .help-btn:hover { border-color: var(--accent); color: var(--accent); }
 
     #btn-lang {
       width: auto;
+      height: 28px;
       border-radius: 99px;
       padding: 0 0.55rem;
       font-size: 0.7rem;
       letter-spacing: 0.04em;
+      box-sizing: border-box;
     }
 
     #btn-security-compare {
@@ -344,11 +360,7 @@
       letter-spacing: 0;
       white-space: nowrap;
       text-decoration: none;
-    }
-
-    .token-badge {
-      height: 28px;
-      padding: 0 0.7rem;
+      box-sizing: border-box;
     }
 
     .btn-row { display: flex; align-items: stretch; gap: 0.5rem; }
@@ -682,6 +694,11 @@
       font-size: 0.8rem;
       white-space: nowrap;
     }
+
+    /* ── Narrow screen: hide security link to prevent header overflow ── */
+    @media (max-width: 380px) {
+      #btn-security-compare { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -692,7 +709,7 @@
 
 <header>
   <span class="logo">BioWallet</span>
-  <div style="display:flex;align-items:center;gap:0.5rem">
+  <div class="header-actions">
     <a id="btn-security-compare" href="/docs/security_comparison_en.html" class="help-btn" target="_blank" rel="noopener" data-i18n="header.security" data-i18n-href="header.security.href">↗ Security</a>
     <button id="btn-lang" class="help-btn" data-i18n="lang.switch">EN</button>
     <div class="token-badge" id="token-badge">
