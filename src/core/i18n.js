@@ -708,7 +708,8 @@ const GUIDE_HTML = {
         <tr><td>Chrome (Android)</td><td>Menü (⋮) → Hozzáadás a kezdőképernyőhöz</td></tr>
         <tr><td>iOS Safari</td><td>Megosztás (□↑) → Hozzáadás a főképernyőhöz</td></tr>
       </tbody></table>
-      <div class="guide-ok" style="margin-top:0.5rem">✓ PWA módban offline is működik — arc-scan + vault megnyitás internet nélkül is. (ETH küldés, egyenleglekérdezés internetkapcsolatot igényel.)</div>
+      <div class="guide-ok" style="margin-top:0.5rem">✓ PWA módban offline is működik — arc-scan + vault megnyitás internet nélkül is.</div>
+      <div class="guide-note" style="margin-top:0.4rem">⚠ ETH küldés és egyenleglekérdezés internetkapcsolatot igényel. Offline módban a tranzakció nem tárolódik — net nélkül a küldés meghiúsul.</div>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
@@ -803,7 +804,8 @@ const GUIDE_HTML = {
         <tr><td>Chrome (Android)</td><td>Menu (⋮) → Add to home screen</td></tr>
         <tr><td>iOS Safari</td><td>Share (□↑) → Add to Home Screen</td></tr>
       </tbody></table>
-      <div class="guide-ok" style="margin-top:0.5rem">✓ Works offline in PWA mode — face scan + vault open without internet. (ETH send and balance queries require a connection.)</div>
+      <div class="guide-ok" style="margin-top:0.5rem">✓ Works offline in PWA mode — face scan + vault open without internet.</div>
+      <div class="guide-note" style="margin-top:0.4rem">⚠ ETH send and balance queries require an internet connection. Transactions are not queued offline — sending will fail without a network.</div>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
