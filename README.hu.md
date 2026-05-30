@@ -90,7 +90,7 @@ BioWallet, Ledger, Trezor és MetaMask értékelése 8 fenyegetési kategóriáb
   <img src="docs/radar_chart.svg" alt="Biztonsági radar — BioWallet vs Ledger vs Trezor vs MetaMask" width="560"/>
 </p>
 
-Teljes elemzés adattáblával és oszlopdiagramokkal: [Magyar](docs/security_comparison_hu.html) · [English](docs/security_comparison_en.html)
+Teljes elemzés adattáblával és oszlopdiagramokkal: <a href="https://biowallet.metaspace.bio/docs/security_comparison_hu.html" target="_blank" rel="noopener">Magyar</a> · <a href="https://biowallet.metaspace.bio/docs/security_comparison_en.html" target="_blank" rel="noopener">English</a>
 
 ---
 
