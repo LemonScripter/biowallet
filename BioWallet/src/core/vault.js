@@ -20,6 +20,7 @@ import { seedToAddress, signEthTx, signPersonal, mnemonicToSeed } from './wallet
 import {
   entropyToIndices, fetchRandomOffsets, computeRawPaper,
 } from './recovery_formula.js?v=11';
+import { split as sssSplit, combine as sssCombine } from './sss.js?v=1';
 
 const AES_MODE        = 'AES-GCM';
 const DEVICE_PRF_INFO = new TextEncoder().encode('biowallet-device-v2');
@@ -75,6 +76,69 @@ class BioVault {
     } finally { seed.fill(0); }
   }
 
+  // ── Vault v4 creation (SSS 2-of-3) ───────────────────────────────────────
+  //
+  // Returns { vaultId, P, encryptedVault, paperShareY: Uint8Array }
+  // paperShareY (32 bytes) must be shown to the user — it is NOT stored in the vault.
+  // No PIN in v4: the second factor requirement replaces PIN security.
+  static async createV4(embedding, devicePrf = null, credentialId = null, prfSalt = null) {
+    const seed = crypto.getRandomValues(new Uint8Array(32));
+    try {
+      return await BioVault._encryptSeedV4(seed, embedding, devicePrf, credentialId, prfSalt);
+    } finally { seed.fill(0); }
+  }
+
+  static async _encryptSeedV4(seedBytes, embedding, devicePrf, credentialId, prfSalt) {
+    const vaultId = crypto.randomUUID();
+    const { R, P } = await fuzzyCommit(embedding);
+    const salt     = crypto.getRandomValues(new Uint8Array(32));
+
+    const vaultKeyRaw = crypto.getRandomValues(new Uint8Array(32));
+    try {
+      const vaultKey  = await importRawKey(vaultKeyRaw);
+      const plaintext = encode({ seed: toHex(seedBytes), accounts: [], vaultId, created: Date.now() });
+      const { iv, ciphertext } = await aesEncrypt(vaultKey, plaintext);
+
+      const shares = sssSplit(vaultKeyRaw, 3, 2); // [{x:1,y}, {x:2,y}, {x:3,y}]
+      try {
+        const faceKey   = await deriveKey(R, salt, null);
+        const faceShare = { x: shares[0].x, ...await wrapBytes(faceKey, shares[0].y) };
+
+        let deviceShare = null;
+        if (devicePrf && credentialId && prfSalt) {
+          const devKey = await deriveKeyDevice(R, devicePrf, salt);
+          deviceShare  = {
+            x: shares[1].x,
+            ...await wrapBytes(devKey, shares[1].y),
+            credentialId: toHex(new Uint8Array(credentialId)),
+            prfSalt:      toHex(new Uint8Array(prfSalt)),
+          };
+        }
+
+        const paperShareY = shares[2].y.slice(); // caller must show this to the user
+
+        const vault = {
+          v: 4, vaultId,
+          salt: toHex(salt),
+          iv:   toHex(iv),
+          ct:   toHex(new Uint8Array(ciphertext)),
+          sss: { faceShare, deviceShare, paperX: 3 },
+        };
+
+        return {
+          vaultId,
+          P,
+          encryptedVault: new TextEncoder().encode(JSON.stringify(vault)).buffer,
+          paperShareY,
+        };
+      } finally {
+        shares[0].y.fill(0);
+        shares[1].y.fill(0);
+        shares[2].y.fill(0);
+      }
+    } finally { vaultKeyRaw.fill(0); }
+  }
+
   static async importFromMnemonic(mnemonic, embedding, pin = null) {
     const seedBytes = mnemonicToSeed(mnemonic);
     try {
@@ -121,13 +185,76 @@ class BioVault {
 
   // ── OPEN ──────────────────────────────────────────────────────────────────
 
-  async open(encryptedVault, P, devicePrf = null, pin = null) {
+  // paperShare: { x: 3, y: Uint8Array } — only needed for v4 vaults when device not available
+  async open(encryptedVault, P, devicePrf = null, pin = null, paperShare = null) {
     const R = this.#chain.gate('OPEN', this.#vaultId);
     this.#faceR = R.slice();
 
     if (isV2(encryptedVault)) {
       const v2   = JSON.parse(new TextDecoder().decode(encryptedVault));
       const salt = fromHex(v2.salt);
+
+      // ── v4: SSS 2-of-3 reconstruction ─────────────────────────────────────
+      if (v2.v === 4) {
+        let shareA = null; // face share
+        let shareB = null; // device or paper share
+
+        try {
+          const faceKey = await deriveKey(R, salt, null);
+          const y1      = await unwrapBytes(faceKey, v2.sss.faceShare);
+          shareA = { x: v2.sss.faceShare.x, y: y1 };
+        } catch { /* biometric mismatch — try device+paper fallback */ }
+
+        if (devicePrf && v2.sss.deviceShare) {
+          try {
+            const devKey = await deriveKeyDevice(R, new Uint8Array(devicePrf), salt);
+            const y2     = await unwrapBytes(devKey, v2.sss.deviceShare);
+            shareB = { x: v2.sss.deviceShare.x, y: y2 };
+          } catch { /* device PRF mismatch */ }
+        }
+
+        // Pick the best 2-of-3 combination:
+        //   face + device (priority 1), face + paper (priority 2), device + paper (priority 3)
+        let finalA = shareA; // face  (x=1) or null
+        let finalB = shareB; // device (x=2) or null
+        if (!finalA && paperShare) finalA = paperShare; // paper replaces missing face
+        else if (!finalB && paperShare) finalB = paperShare; // paper replaces missing device
+
+        if (!finalA || !finalB) {
+          this.lock();
+          throw new DCCError('BIO_MISMATCH', 'OPEN');
+        }
+
+        const vaultKeyRaw = sssCombine([finalA, finalB]);
+        if (shareA?.y) shareA.y.fill(0);
+        if (shareB?.y) shareB.y.fill(0);
+
+        this.#vaultKeyRaw = vaultKeyRaw;
+        this.#cryptoKey   = await importRawKey(vaultKeyRaw);
+        this.#vaultFormat = v2;
+
+        try {
+          const plaintext = await crypto.subtle.decrypt(
+            { name: AES_MODE, iv: fromHex(v2.iv) }, this.#cryptoKey, fromHex(v2.ct)
+          );
+          this.#vaultData = decode(plaintext);
+        } catch {
+          this.lock();
+          throw new DCCError('BIO_MISMATCH', 'OPEN');
+        }
+
+        const seedBytes = fromHex(this.#vaultData.seed);
+        const address   = await seedToAddress(seedBytes);
+        seedBytes.fill(0);
+
+        return {
+          address,
+          hasDevice:  !!v2.sss.deviceShare,
+          usedDevice: shareB?.x === 2,
+          isV4:       true,
+        };
+      }
+      // ── end v4 ─────────────────────────────────────────────────────────────
 
       let vaultKeyRaw  = null;
       let usedDevice   = false;
@@ -259,6 +386,62 @@ class BioVault {
     seed.fill(0);
     this.lock();
     return sig;
+  }
+
+  // ── Upgrade v2/v3 → v4 (SSS 2-of-3) ─────────────────────────────────────
+  // Vault must be open (#faceR and #vaultData in memory).
+  // No fresh scan needed — uses the face_R from the current session.
+  async upgradeToV4(devicePrf = null, credentialId = null, prfSalt = null) {
+    if (!this.#vaultData || !this.#faceR) throw new DCCError('VAULT_LOCKED', 'UPGRADE_V4');
+
+    const R    = this.#faceR;
+    const salt = crypto.getRandomValues(new Uint8Array(32));
+
+    const vaultKeyRaw = crypto.getRandomValues(new Uint8Array(32));
+    try {
+      const vaultKey  = await importRawKey(vaultKeyRaw);
+      const { iv, ciphertext } = await aesEncrypt(vaultKey, encode(this.#vaultData));
+
+      const shares = sssSplit(vaultKeyRaw, 3, 2);
+      try {
+        const faceKey   = await deriveKey(R, salt, null);
+        const faceShare = { x: shares[0].x, ...await wrapBytes(faceKey, shares[0].y) };
+
+        let deviceShare = null;
+        if (devicePrf && credentialId && prfSalt) {
+          const devKey = await deriveKeyDevice(R, new Uint8Array(devicePrf), salt);
+          deviceShare  = {
+            x: shares[1].x,
+            ...await wrapBytes(devKey, shares[1].y),
+            credentialId: toHex(new Uint8Array(credentialId)),
+            prfSalt:      toHex(new Uint8Array(prfSalt)),
+          };
+        }
+
+        const paperShareY = shares[2].y.slice();
+
+        const vault = {
+          v: 4, vaultId: this.#vaultId,
+          salt: toHex(salt),
+          iv:   toHex(iv),
+          ct:   toHex(new Uint8Array(ciphertext)),
+          sss:  { faceShare, deviceShare, paperX: 3 },
+        };
+
+        this.#vaultKeyRaw = vaultKeyRaw.slice();
+        this.#cryptoKey   = await importRawKey(this.#vaultKeyRaw);
+        this.#vaultFormat = vault;
+
+        return {
+          encryptedVault: new TextEncoder().encode(JSON.stringify(vault)).buffer,
+          paperShareY,
+        };
+      } finally {
+        shares[0].y.fill(0);
+        shares[1].y.fill(0);
+        shares[2].y.fill(0);
+      }
+    } finally { vaultKeyRaw.fill(0); }
   }
 
   // ── Paper recovery ────────────────────────────────────────────────────────

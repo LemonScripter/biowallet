@@ -26,7 +26,7 @@
 import * as _ethersLib from '../vendor/ethers.bundle.js';
 self.ethers = _ethersLib;
 
-import { BioVault } from '../core/vault.js?v=13';
+import { BioVault } from '../core/vault.js?v=14';
 
 let vault = null;
 
@@ -76,11 +76,28 @@ async function handle(type, p) {
       return {};
     }
 
+    case 'CREATE_V4': {
+      const dPrf  = p.devicePrf    ? new Uint8Array(p.devicePrf)    : null;
+      const cId   = p.credentialId ? new Uint8Array(p.credentialId) : null;
+      const pSalt = p.prfSalt      ? new Uint8Array(p.prfSalt)      : null;
+      const res = await BioVault.createV4(p.embedding, dPrf, cId, pSalt);
+      vault = new BioVault(res.vaultId);
+      return {
+        vaultId:       res.vaultId,
+        P:             res.P,
+        encryptedVault: res.encryptedVault,
+        paperShareY:   Array.from(res.paperShareY),
+      };
+    }
+
     case 'OPEN': {
       if (!vault) throw new Error('No vault initialised');
-      const devicePrf = p.devicePrf ? new Uint8Array(p.devicePrf) : null;
-      const { address, hasDevice, usedDevice } = await vault.open(p.encryptedVault, p.P, devicePrf, p.pin ?? null);
-      return { address, hasDevice, usedDevice };
+      const devicePrf  = p.devicePrf   ? new Uint8Array(p.devicePrf)  : null;
+      const paperShare = p.paperShareY
+        ? { x: 3, y: new Uint8Array(p.paperShareY) }
+        : null;
+      const result = await vault.open(p.encryptedVault, p.P, devicePrf, p.pin ?? null, paperShare);
+      return { address: result.address, hasDevice: result.hasDevice, usedDevice: result.usedDevice, isV4: result.isV4 ?? false };
     }
 
     case 'ENROLL_DEVICE': {
@@ -109,6 +126,15 @@ async function handle(type, p) {
       if (!vault) throw new Error('No vault initialised');
       const { rawA, r } = await vault.makeRecoveryFormula();
       return { rawA, r };
+    }
+
+    case 'UPGRADE_V4': {
+      if (!vault) throw new Error('No vault initialised');
+      const dPrf  = p.devicePrf    ? new Uint8Array(p.devicePrf)    : null;
+      const cId   = p.credentialId ? new Uint8Array(p.credentialId) : null;
+      const pSalt = p.prfSalt      ? new Uint8Array(p.prfSalt)      : null;
+      const { encryptedVault, paperShareY } = await vault.upgradeToV4(dPrf, cId, pSalt);
+      return { encryptedVault, paperShareY: Array.from(paperShareY) };
     }
 
     case 'LOCK': {

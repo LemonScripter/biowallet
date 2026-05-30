@@ -179,6 +179,14 @@ function _refreshDynamicLabels() {
       } else {
         await callWorker('INIT_VAULT', { vaultId: meta.vaultId });
         vaultReady = true;
+        // Show paper share input field if vault is v4
+        if (meta.vaultJson) {
+          const vMatch = meta.vaultJson.match(/"v"\s*:\s*(\d+)/);
+          if (vMatch && parseInt(vMatch[1]) === 4) {
+            const pr = document.getElementById('sss-paper-row');
+            if (pr) pr.style.display = '';
+          }
+        }
         showPanel('lock');
         setMsgK('msg.vault.loaded');
       }
@@ -1001,8 +1009,18 @@ btnScan.addEventListener('click', async () => {
     }
 
     // v3 vault without device PRF → PIN required
+    // v4 vault → collect paper share from input if provided
+    const vaultVersion = _getVaultVersion(encBuf);
     let pin = null;
-    if (!devicePrf && _getVaultVersion(encBuf) === 3) {
+    let paperShareY = null;
+
+    if (vaultVersion === 4) {
+      const paperInput = document.getElementById('sss-paper-input');
+      const hexStr = (paperInput?.value ?? '').trim().toLowerCase().replace(/\s/g, '');
+      if (hexStr.length === 64 && /^[0-9a-f]+$/.test(hexStr)) {
+        paperShareY = Array.from(hexStr.match(/../g).map(h => parseInt(h, 16)));
+      }
+    } else if (vaultVersion === 3 && !devicePrf) {
       setMsg(t('msg.pin.required'), '');
       pin = await showPinModal('open');
       if (pin === null) {
@@ -1012,9 +1030,9 @@ btnScan.addEventListener('click', async () => {
       }
     }
 
-    const { address, hasDevice, usedDevice } = await callWorker(
+    const { address, hasDevice, usedDevice, isV4 } = await callWorker(
       'OPEN',
-      { encryptedVault: encBuf, P: meta.P, devicePrf, pin },
+      { encryptedVault: encBuf, P: meta.P, devicePrf, pin, paperShareY },
       [encBuf]
     );
 
@@ -1026,6 +1044,9 @@ btnScan.addEventListener('click', async () => {
 
     _updateDeviceRow(hasDevice, usedDevice);
     deviceRow.style.display = '';
+    // Show 2-of-3 upgrade button only for non-v4 vaults
+    const sssRow = document.getElementById('sss-row');
+    if (sssRow) sssRow.style.display = isV4 ? 'none' : '';
 
     showPanel('vault');
     ensureWCInit().catch(() => {});
@@ -1251,6 +1272,111 @@ btnLock.addEventListener('click', async () => {
   setScanning(false);
   setMsgK('msg.vault.locked');
   showPanel('lock');
+});
+
+// ── 2-of-3 SSS info modal ────────────────────────────────────────────────
+function showSSSInfoModal() {
+  return new Promise(resolve => {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;';
+    ov.innerHTML = `
+      <div style="background:#16161a;border:1px solid #2a2a35;border-radius:16px;width:100%;max-width:380px;padding:1.5rem;max-height:90vh;overflow-y:auto;">
+        <div style="font-size:1rem;font-weight:700;color:#6c63ff;margin-bottom:0.75rem">${t('sss.info.title')}</div>
+        <div style="font-size:0.78rem;color:#b0b0c0;line-height:1.6;margin-bottom:1rem">${t('sss.info.body')}</div>
+        <div style="display:flex;gap:0.75rem;margin-top:0.5rem">
+          <button id="_sss_cancel" style="flex:1;padding:0.75rem;border-radius:10px;border:1px solid #2a2a35;background:#1e1e24;color:#e8e8f0;font-size:0.9rem;font-weight:600;cursor:pointer">${t('pin.btn.cancel')}</button>
+          <button id="_sss_ok" style="flex:1;padding:0.75rem;border-radius:10px;border:none;background:#6c63ff;color:#fff;font-size:0.9rem;font-weight:600;cursor:pointer">${t('sss.info.btn.ok')}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    ov.querySelector('#_sss_cancel').addEventListener('click', () => { ov.remove(); resolve(false); });
+    ov.querySelector('#_sss_ok').addEventListener('click',     () => { ov.remove(); resolve(true);  });
+  });
+}
+
+// ── Paper share modal (shown after v4 creation/upgrade) ──────────────────
+function showPaperShareModal(paperShareHex) {
+  return new Promise(resolve => {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;';
+    ov.innerHTML = `
+      <div style="background:#16161a;border:1px solid #ffa502;border-radius:16px;width:100%;max-width:400px;padding:1.5rem;">
+        <div style="font-size:1rem;font-weight:700;color:#ffa502;margin-bottom:0.6rem">${t('sss.paper.modal.title')}</div>
+        <div style="font-size:0.78rem;color:#b0b0c0;line-height:1.6;margin-bottom:1rem">${t('sss.paper.modal.body')}</div>
+        <div style="background:#0d0d10;border:1px solid #2a2a35;border-radius:10px;padding:0.85rem;margin-bottom:0.85rem;font-family:monospace;font-size:0.78rem;color:#e8e8f0;word-break:break-all;letter-spacing:0.05em;line-height:1.7">${paperShareHex}</div>
+        <div style="display:flex;gap:0.6rem;margin-bottom:1rem">
+          <button id="_psc" style="flex:1;padding:0.6rem;border-radius:8px;border:1px solid #2a2a35;background:#1e1e24;color:#e8e8f0;font-size:0.82rem;font-weight:600;cursor:pointer">${t('sss.paper.copy')}</button>
+        </div>
+        <label style="display:flex;align-items:center;gap:0.6rem;cursor:pointer;font-size:0.8rem;color:#b0b0c0;margin-bottom:0.75rem">
+          <input type="checkbox" id="_psc_check" style="width:1.1rem;height:1.1rem;accent-color:#6c63ff">
+          ${t('sss.paper.confirm')}
+        </label>
+        <button id="_psc_done" disabled style="width:100%;padding:0.75rem;border-radius:10px;border:none;background:#333;color:#666;font-size:0.9rem;font-weight:600;cursor:not-allowed">${t('sss.paper.done')}</button>
+      </div>`;
+    document.body.appendChild(ov);
+
+    const copyBtn  = ov.querySelector('#_psc');
+    const checkbox = ov.querySelector('#_psc_check');
+    const doneBtn  = ov.querySelector('#_psc_done');
+
+    copyBtn.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(paperShareHex).catch(() => {});
+      copyBtn.textContent = t('sss.paper.copied');
+    });
+
+    checkbox.addEventListener('change', () => {
+      const ok = checkbox.checked;
+      doneBtn.disabled = !ok;
+      doneBtn.style.background = ok ? '#6c63ff' : '#333';
+      doneBtn.style.color      = ok ? '#fff'    : '#666';
+      doneBtn.style.cursor     = ok ? 'pointer' : 'not-allowed';
+    });
+
+    doneBtn.addEventListener('click', () => { ov.remove(); resolve(); });
+  });
+}
+
+// ── btn-sss info button ───────────────────────────────────────────────────
+document.getElementById('btn-sss-info')?.addEventListener('click', () => showSSSInfoModal());
+
+// ── btn-sss: upgrade vault to 2-of-3 ─────────────────────────────────────
+document.getElementById('btn-sss')?.addEventListener('click', async () => {
+  const meta = JSON.parse(localStorage.getItem('biowallet_meta') ?? 'null');
+  if (!meta) return;
+
+  const confirmed = await showSSSInfoModal();
+  if (!confirmed) return;
+
+  // Try to enroll device factor
+  let wa = null;
+  if (navigator.credentials) {
+    setMsg(t('msg.device.auth'), '');
+    wa = await enrollWebAuthn();
+  }
+
+  try {
+    const { encryptedVault, paperShareY } = await callWorker('UPGRADE_V4', {
+      devicePrf:    wa?.devicePrf    ?? null,
+      credentialId: wa?.credentialId ?? null,
+      prfSalt:      wa?.prfSalt      ?? null,
+    });
+
+    const paperHex = Array.from(paperShareY).map(b => b.toString(16).padStart(2, '0')).join('');
+    await showPaperShareModal(paperHex);
+
+    meta.vaultJson = new TextDecoder().decode(encryptedVault);
+    if (wa) meta.device = { credentialId: wa.credentialId, prfSalt: wa.prfSalt };
+    localStorage.setItem('biowallet_meta', JSON.stringify(meta));
+
+    const walletName = await showSaveModal(encryptedVault, null, 'device', meta.walletName || 'biowallet');
+    meta.walletName = walletName;
+    localStorage.setItem('biowallet_meta', JSON.stringify(meta));
+
+    document.getElementById('sss-row').style.display = 'none';
+    setMsg(t('sss.paper.done'), 'ok');
+  } catch (e) {
+    setMsg(e.message, 'error');
+  }
 });
 
 // ── Device second factor ──────────────────────────────────────────────────
