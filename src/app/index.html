@@ -796,6 +796,13 @@
     <div class="info-text" data-i18n="lock.info">
       A privát kulcs titkosítva tárolódik. Kizárólag az Ön arca tudja megnyitni.
     </div>
+    <!-- v4 paper share input — hidden for v2/v3 vaults -->
+    <div id="sss-paper-row" style="display:none;margin-bottom:0.75rem">
+      <label style="font-size:0.72rem;color:#a0a0b0;display:block;margin-bottom:0.3rem" data-i18n="sss.lock.paper.label">Papír share (ha nincs regisztrált eszköz)</label>
+      <input id="sss-paper-input" type="text" autocomplete="off" spellcheck="false"
+        style="width:100%;background:#1e1e24;border:1px solid #2a2a35;border-radius:10px;padding:0.6rem 0.75rem;color:#e8e8f0;font-size:0.82rem;font-family:monospace;outline:none;box-sizing:border-box;letter-spacing:0.03em"
+        data-i18n-ph="sss.lock.paper.ph" placeholder="64 hex karakter — pl. 3a9f…">
+    </div>
     <div class="btn-row">
       <button class="btn btn-primary" id="btn-scan">
         <span data-i18n="btn.scan">Megnyitás arc-scannel</span>
@@ -899,6 +906,14 @@
         <small data-i18n="btn.device.sub">Ez az eszköz legyen második faktor a megnyitáshoz</small>
       </button>
       <button class="help-btn" data-info="device" data-i18n-title="btn.info.title" title="Hogyan működik?">ℹ</button>
+    </div>
+
+    <div class="btn-row" id="sss-row" style="display:none">
+      <button class="btn btn-ghost" id="btn-sss">
+        <span data-i18n="btn.sss">2-of-3 védelem</span>
+        <small data-i18n="btn.sss.sub">Shamir titkosítás — bármely 2: arc / eszköz / papír elegendő</small>
+      </button>
+      <button class="help-btn" id="btn-sss-info" title="Mi ez?">ℹ</button>
     </div>
 
     <div class="btn-row">
