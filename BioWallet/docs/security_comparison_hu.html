@@ -202,9 +202,9 @@ Chart.defaults.color='#9090b0'; Chart.defaults.font=font;
 
 new Chart(document.getElementById('radarChart'),{type:'radar',data:{labels:LABELS,datasets:[
   {label:'BioWallet',data:DATA.bio,   borderColor:C.bio.b,   backgroundColor:C.bio.bg,   borderWidth:2.5,pointRadius:4},
-  {label:'Ledger',   data:DATA.ledger,borderColor:C.ledger.b,backgroundColor:C.ledger.bg,borderWidth:2,  pointRadius:3},
-  {label:'Trezor',   data:DATA.trezor,borderColor:C.trezor.b,backgroundColor:C.trezor.bg,borderWidth:2.2,pointRadius:3,borderDash:[7,4]},
   {label:'MetaMask', data:DATA.meta,  borderColor:C.meta.b,  backgroundColor:C.meta.bg,  borderWidth:2,  pointRadius:3},
+  {label:'Ledger',   data:DATA.ledger,borderColor:C.ledger.b,backgroundColor:C.ledger.bg,borderWidth:2,  pointRadius:3},
+  {label:'Trezor',   data:DATA.trezor,borderColor:C.trezor.b,backgroundColor:'transparent',fill:false,   borderWidth:2.5,pointRadius:3,borderDash:[7,4]},
 ]},options:{scales:{r:{min:0,max:4,ticks:{stepSize:1,backdropColor:'transparent',font:{size:10}},
   grid:{color:'rgba(255,255,255,0.07)'},angleLines:{color:'rgba(255,255,255,0.07)'},
   pointLabels:{font:{size:11},color:'#c0c0e0'}}},plugins:{legend:{labels:{font,boxWidth:12,padding:16}}}}});

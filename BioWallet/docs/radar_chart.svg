@@ -26,13 +26,13 @@
   <polygon points="255,165 279.7,210.3 290,235 279.7,259.7 255,270 205.5,284.5 220,235 230.3,210.3"
            fill="rgba(246,133,27,0.12)" stroke="#f6851b" stroke-width="2" stroke-linejoin="round"/>
 
-  <!-- Trezor (dashed, drawn before Ledger so Ledger solid line is on top in overlap areas) -->
-  <polygon points="255,95 354,136 395,235 329.2,309.2 255,305 156,334 115,235 230.3,210.3"
-           fill="none" stroke="#00c896" stroke-width="2.2" stroke-dasharray="7,4" stroke-linejoin="round"/>
-
-  <!-- Ledger -->
+  <!-- Ledger (drawn first so Trezor dashed line is visible on top) -->
   <polygon points="255,95 354,136 395,235 329.2,309.2 255,305 156,334 115,235 230.3,210.3"
            fill="rgba(0,180,216,0.10)" stroke="#00b4d8" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- Trezor (dashed, drawn AFTER Ledger so it shows on top) -->
+  <polygon points="255,95 354,136 395,235 329.2,309.2 255,305 156,334 115,235 230.3,210.3"
+           fill="none" stroke="#00c896" stroke-width="2.5" stroke-dasharray="7,4" stroke-linejoin="round"/>
 
   <!-- BioWallet (on top) -->
   <polygon points="255,95 354,136 395,235 354,334 255,375 156,334 115,235 230.3,210.3"
