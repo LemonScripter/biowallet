@@ -78,7 +78,7 @@ Authentication:
 
 If you discover a security vulnerability in BioWallet, please **do not open a public GitHub issue**.
 
-**Email:** hello@lemonscript.info  
+**Email:** admin@metaspace.bio  
 **Subject:** `[BioWallet Security]`
 
 Please include:
