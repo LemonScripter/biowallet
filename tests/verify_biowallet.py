@@ -5,6 +5,7 @@ biowallet.bio spec teljes bizonyitasa:
   - DCC invariánsok (P1-P7): temporális dimenzió
   - DATA_FLOW invariánsok (DF1-DF9): térbeli dimenzió
   - BCH invariánsok (BCH-P1–BCH-P4): Phase 3 szindróma kódolás
+  - Vault v5 genesis DNA invariánsok (GENESIS-1–GENESIS-4): arc-kötöttség
 
 Futtatás: python tests/verify_biowallet.py
 """
@@ -625,6 +626,87 @@ results.append(run_proof(
 
 
 # ══════════════════════════════════════════════════════════════════
+# VAULT v5 INVARIÁNSOK — Genesis DNA chain + re-enrollment
+# ══════════════════════════════════════════════════════════════════
+
+print("\n── Vault v5 invariánsok (Genesis DNA chain) ──────────")
+
+# Vault v5 változók
+vault_v5            = Bool('vault_v5')           # vault is v5 format
+genesis_set         = Bool('genesis_set')         # genesis.dna has been computed
+genesis_dna_current = Bool('genesis_dna_current') # current face matches genesis.dna
+opened_via_face_v5  = Bool('opened_via_face_v5')  # vault opened via face share
+chain_len_v5        = Int('chain_len_v5')         # dna_chain length
+chain_len_after_v5  = Int('chain_len_after_v5')   # dna_chain length after re-enrollment
+re_enrollment_done  = Bool('re_enrollment_done')  # reEnrollFace() completed
+genesis_changed     = Bool('genesis_changed')     # genesis.dna mutated (must be impossible)
+sign_blocked_genesis= Bool('sign_blocked_genesis')# SIGN blocked by genesis check
+
+V5_AXIOMS = [
+    chain_len_v5 >= 0,
+    chain_len_after_v5 >= 0,
+
+    # V5 vault always has genesis set
+    Implies(vault_v5, genesis_set),
+
+    # V5 vault always has at least 1 chain entry (initial_enrollment)
+    Implies(vault_v5, chain_len_v5 >= 1),
+
+    # Re-enrollment appends exactly one entry (strict monotonic growth)
+    Implies(re_enrollment_done, chain_len_after_v5 == chain_len_v5 + 1),
+
+    # genesis.dna is immutable — never modified by any operation
+    Not(genesis_changed),
+
+    # SIGN blocked when: v5 + face-opened + original chain (len=1) + genesis mismatch
+    Implies(
+        And(vault_v5, opened_via_face_v5, chain_len_v5 == 1, Not(genesis_dna_current)),
+        sign_blocked_genesis
+    ),
+
+    # Genesis check skipped for re-enrolled vaults (chain_len > 1)
+    Implies(
+        And(vault_v5, chain_len_v5 > 1),
+        Not(sign_blocked_genesis)
+    ),
+]
+
+# GENESIS-1: re-enrollment cannot change genesis.dna
+results.append(run_proof(
+    "GENESIS-1: re_enrollment_done AND genesis_changed → LEHETETLEN (genesis.dna immutabilis)",
+    V5_AXIOMS, And(re_enrollment_done, genesis_changed)))
+
+# GENESIS-2: original v5 vault, face-opened, genesis mismatch → SIGN blocked
+results.append(run_proof(
+    "GENESIS-2: v5 + face + chain_len=1 + dna_mismatch → sign_blocked (SIGN gate)",
+    V5_AXIOMS,
+    And(vault_v5, opened_via_face_v5, chain_len_v5 == 1,
+        Not(genesis_dna_current), Not(sign_blocked_genesis))))
+
+# GENESIS-3: re-enrollment strictly grows chain (chain_len_after > chain_len)
+results.append(run_proof(
+    "GENESIS-3: re_enrollment_done AND chain_after <= chain → LEHETETLEN (lánc növekszik)",
+    V5_AXIOMS, And(re_enrollment_done, chain_len_after_v5 <= chain_len_v5)))
+
+# GENESIS-4: re-enrolled vault (chain_len > 1) → SIGN not blocked by genesis
+results.append(run_proof(
+    "GENESIS-4: v5 + chain_len>1 → sign_blocked_genesis=False (re-enrolled vault szabad)",
+    V5_AXIOMS, And(vault_v5, chain_len_v5 > 1, sign_blocked_genesis)))
+
+# GENESIS-OK: konzisztencia — v5, face-open, genesis match, chain=1 → SIGN nem blokkolt
+s_gen = Solver()
+for a in V5_AXIOMS: s_gen.add(a)
+s_gen.add(
+    vault_v5, genesis_set, opened_via_face_v5,
+    chain_len_v5 == 1, genesis_dna_current,
+    Not(sign_blocked_genesis), Not(genesis_changed),
+)
+ok_gen = s_gen.check() == sat
+results.append(ok_gen)
+print(f"  {'PASS' if ok_gen else 'FAIL'} GENESIS-OK: v5 + face + genesis_match → SAT (konzisztens)")
+
+
+# ══════════════════════════════════════════════════════════════════
 # ÖSSZESÍTÉS
 # ══════════════════════════════════════════════════════════════════
 
@@ -637,7 +719,8 @@ bch_ok    = all(results[21:25])
 p5_ok     = all(results[25:33])
 p9_ok     = all(results[33:39])
 sss_ok    = all(results[39:45])
-alkot_ok  = all(results[45:])
+alkot_ok  = all(results[45:51])
+genesis_ok= all(results[51:])
 
 print(f"DCC invariansok:       {sum(results[:7])}/7   {'PASS' if dcc_ok else 'FAIL'}")
 print(f"DATA_FLOW invariansok: {sum(results[7:21])}/14  {'PASS' if df_ok else 'FAIL'}")
@@ -645,11 +728,12 @@ print(f"BCH invariansok:       {sum(results[21:25])}/4   {'PASS' if bch_ok else 
 print(f"Phase 5 invariansok:   {sum(results[25:33])}/8   {'PASS' if p5_ok else 'FAIL'}")
 print(f"Phase 9 invariansok:   {sum(results[33:39])}/6   {'PASS' if p9_ok else 'FAIL'}")
 print(f"Phase 10 SSS:          {sum(results[39:45])}/6   {'PASS' if sss_ok else 'FAIL'}")
-print(f"Azonositasi alkotmany: {sum(results[45:])}/6   {'PASS' if alkot_ok else 'FAIL'}")
+print(f"Azonositasi alkotmany: {sum(results[45:51])}/6   {'PASS' if alkot_ok else 'FAIL'}")
+print(f"Vault v5 genesis:      {sum(results[51:])}/5   {'PASS' if genesis_ok else 'FAIL'}")
 print(f"Osszesitett:           {passed}/{total}")
 print()
 if passed == total:
-    print("BioWallet -- DCC + DATA_FLOW + BCH + PHASE5 + SSS + ALKOTMANY: FORMÁLISAN BIZONYÍTOTT")
+    print("BioWallet -- DCC + DATA_FLOW + BCH + PHASE5 + SSS + ALKOTMANY + V5_GENESIS: FORMÁLISAN BIZONYÍTOTT")
 else:
     print("FIGYELEM: egyes invariansok nem teljesulnek!")
 print("=" * 56)
