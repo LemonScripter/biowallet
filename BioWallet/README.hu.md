@@ -82,6 +82,18 @@ Eredmény: 13 / 13  PASS ✓
 
 ---
 
+## Versenytárs-összehasonlítás
+
+BioWallet, Ledger, Trezor és MetaMask értékelése 8 fenyegetési kategóriában (skála 1–4):
+
+<p align="center">
+  <img src="docs/radar_chart.svg" alt="Biztonsági radar — BioWallet vs Ledger vs Trezor vs MetaMask" width="560"/>
+</p>
+
+Teljes elemzés adattáblával és oszlopdiagramokkal: [Magyar](docs/security_comparison_hu.html) · [English](docs/security_comparison_en.html)
+
+---
+
 ## Hogyan működik
 
 ```

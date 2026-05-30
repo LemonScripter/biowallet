@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 610 460" width="610" height="460" role="img" aria-label="BioWallet security comparison radar chart">
+  <title>BioWallet vs Ledger vs Trezor vs MetaMask — Security Radar</title>
+  <rect width="610" height="460" fill="#0d0d1a" rx="12"/>
+
+  <!-- Grid polygons -->
+  <polygon points="255,95 354,136 395,235 354,334 255,375 156,334 115,235 156,136"
+           fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  <polygon points="255,130 329.2,160.8 360,235 329.2,309.2 255,340 180.8,309.2 150,235 180.8,160.8"
+           fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  <polygon points="255,165 304.5,185.5 325,235 304.5,284.5 255,305 205.5,284.5 185,235 205.5,185.5"
+           fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  <polygon points="255,200 279.7,210.3 290,235 279.7,259.7 255,270 230.3,259.7 220,235 230.3,210.3"
+           fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+
+  <!-- Axis lines -->
+  <line x1="255" y1="235" x2="255" y2="80"     stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+  <line x1="255" y1="235" x2="364.6" y2="125.4" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+  <line x1="255" y1="235" x2="410"   y2="235"   stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+  <line x1="255" y1="235" x2="364.6" y2="344.6" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+  <line x1="255" y1="235" x2="255"   y2="390"   stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+  <line x1="255" y1="235" x2="145.4" y2="344.6" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+  <line x1="255" y1="235" x2="100"   y2="235"   stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+  <line x1="255" y1="235" x2="145.4" y2="125.4" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+
+  <!-- MetaMask -->
+  <polygon points="255,165 279.7,210.3 290,235 279.7,259.7 255,270 205.5,284.5 220,235 230.3,210.3"
+           fill="rgba(246,133,27,0.12)" stroke="#f6851b" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- Trezor (dashed, drawn before Ledger so Ledger solid line is on top in overlap areas) -->
+  <polygon points="255,95 354,136 395,235 329.2,309.2 255,305 156,334 115,235 230.3,210.3"
+           fill="none" stroke="#00c896" stroke-width="2.2" stroke-dasharray="7,4" stroke-linejoin="round"/>
+
+  <!-- Ledger -->
+  <polygon points="255,95 354,136 395,235 329.2,309.2 255,305 156,334 115,235 230.3,210.3"
+           fill="rgba(0,180,216,0.10)" stroke="#00b4d8" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- BioWallet (on top) -->
+  <polygon points="255,95 354,136 395,235 354,334 255,375 156,334 115,235 230.3,210.3"
+           fill="rgba(108,99,255,0.18)" stroke="#6c63ff" stroke-width="2.5" stroke-linejoin="round"/>
+
+  <!-- Axis data point dots — BioWallet -->
+  <circle cx="255" cy="95"   r="3.5" fill="#6c63ff"/>
+  <circle cx="354" cy="136"  r="3.5" fill="#6c63ff"/>
+  <circle cx="395" cy="235"  r="3.5" fill="#6c63ff"/>
+  <circle cx="354" cy="334"  r="3.5" fill="#6c63ff"/>
+  <circle cx="255" cy="375"  r="3.5" fill="#6c63ff"/>
+  <circle cx="156" cy="334"  r="3.5" fill="#6c63ff"/>
+  <circle cx="115" cy="235"  r="3.5" fill="#6c63ff"/>
+  <circle cx="230.3" cy="210.3" r="3.5" fill="#6c63ff"/>
+
+  <!-- Level labels -->
+  <text x="264" y="198" fill="rgba(180,180,210,0.5)" font-family="system-ui,sans-serif" font-size="9" text-anchor="start">1</text>
+  <text x="264" y="163" fill="rgba(180,180,210,0.5)" font-family="system-ui,sans-serif" font-size="9" text-anchor="start">2</text>
+  <text x="264" y="128" fill="rgba(180,180,210,0.5)" font-family="system-ui,sans-serif" font-size="9" text-anchor="start">3</text>
+  <text x="264" y="93"  fill="rgba(180,180,210,0.5)" font-family="system-ui,sans-serif" font-size="9" text-anchor="start">4</text>
+
+  <!-- Axis labels -->
+  <text x="255" y="58"   fill="#c0c0e0" font-family="system-ui,sans-serif" font-size="11.5" font-weight="600" text-anchor="middle">Key storage</text>
+  <text x="380" y="112"  fill="#c0c0e0" font-family="system-ui,sans-serif" font-size="11.5" font-weight="600" text-anchor="start">Host security</text>
+  <text x="416" y="239"  fill="#c0c0e0" font-family="system-ui,sans-serif" font-size="11.5" font-weight="600" text-anchor="start">TX integrity</text>
+  <text x="376" y="364"  fill="#c0c0e0" font-family="system-ui,sans-serif" font-size="11.5" font-weight="600" text-anchor="start">Replay</text>
+  <text x="255" y="412"  fill="#c0c0e0" font-family="system-ui,sans-serif" font-size="11.5" font-weight="600" text-anchor="middle">User error</text>
+  <text x="132" y="364"  fill="#c0c0e0" font-family="system-ui,sans-serif" font-size="11.5" font-weight="600" text-anchor="end">Phishing / SE</text>
+  <text x="93"  y="239"  fill="#c0c0e0" font-family="system-ui,sans-serif" font-size="11.5" font-weight="600" text-anchor="end">Silent theft</text>
+  <text x="140" y="112"  fill="#c0c0e0" font-family="system-ui,sans-serif" font-size="11.5" font-weight="600" text-anchor="end">Coercion</text>
+
+  <!-- Legend box -->
+  <rect x="440" y="148" width="152" height="106" rx="8" fill="rgba(20,20,40,0.85)" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>
+
+  <line x1="450" y1="168" x2="475" y2="168" stroke="#6c63ff" stroke-width="2.5"/>
+  <circle cx="462" cy="168" r="3" fill="#6c63ff"/>
+  <text x="480" y="172" fill="#c0c0e0" font-family="system-ui,sans-serif" font-size="11.5" font-weight="600">BioWallet</text>
+
+  <line x1="450" y1="188" x2="475" y2="188" stroke="#00b4d8" stroke-width="2"/>
+  <circle cx="462" cy="188" r="2.5" fill="#00b4d8"/>
+  <text x="480" y="192" fill="#c0c0e0" font-family="system-ui,sans-serif" font-size="11.5">Ledger</text>
+
+  <line x1="450" y1="208" x2="475" y2="208" stroke="#00c896" stroke-width="2.2" stroke-dasharray="6,4"/>
+  <text x="480" y="212" fill="#c0c0e0" font-family="system-ui,sans-serif" font-size="11.5">Trezor</text>
+
+  <line x1="450" y1="228" x2="475" y2="228" stroke="#f6851b" stroke-width="2"/>
+  <circle cx="462" cy="228" r="2.5" fill="#f6851b"/>
+  <text x="480" y="232" fill="#c0c0e0" font-family="system-ui,sans-serif" font-size="11.5">MetaMask</text>
+
+  <!-- Scale note -->
+  <text x="462" y="246" fill="rgba(160,160,190,0.6)" font-family="system-ui,sans-serif" font-size="9" text-anchor="middle">scale 1–4</text>
+</svg>
