@@ -25,6 +25,7 @@
  *   UPGRADE_V5        { devicePrf?, credentialId?, prfSalt? }              → { encryptedVault, paperShareY }
  *   RE_ENROLL_FACE    { embedding, devicePrf?, credentialId?, prfSalt? }   → { P, encryptedVault, paperShareY }
  *   ADD_CHAIN_ENTRY   { method: string }                                   → { encryptedVault }
+ *   GENESIS_RECOVER   { encryptedVault, embedding, P }                    → { mnemonic }
  *   LOCK              {}
  *   STATUS            {}
  */
@@ -32,7 +33,7 @@
 import * as _ethersLib from '../vendor/ethers.bundle.js';
 self.ethers = _ethersLib;
 
-import { BioVault } from '../core/vault.js?v=15';
+import { BioVault } from '../core/vault.js?v=16';
 
 let vault = null;
 
@@ -200,6 +201,11 @@ async function handle(type, p) {
       if (!vault) throw new Error('No vault initialised');
       const encryptedVault = await vault.addChainEntry(p.method ?? 're-enrollment');
       return { encryptedVault };
+    }
+
+    case 'GENESIS_RECOVER': {
+      const { mnemonic } = await BioVault.genesisRecover(p.encryptedVault, p.embedding, p.P);
+      return { mnemonic };
     }
 
     case 'LOCK': {

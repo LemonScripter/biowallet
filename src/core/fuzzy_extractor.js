@@ -253,6 +253,41 @@ export async function fuzzyExtract(embedding, P) {
   return new Uint8Array(await crypto.subtle.digest('SHA-256', b_ref));
 }
 
+// ── Determinisztikus genesis extractor (fixed W_seed = 0x00…00) ─────────────
+// R_genesis = SHA-256(project(embedding, fixed_W)) — determinisztikus, ha az arc azonos.
+// genesisS + genesisExtraBit a P fájlban tárolódik (nem a vault JSON-ban).
+// Lehetővé teszi: arc + P fájl → 24 szó (vault fájl nélkül is, ha genesis_backup jelen van).
+
+const GENESIS_W_SEED = new Uint8Array(32); // all-zeros; nyilvános konstans, nem titok
+let _genesisW = null;
+
+async function _getGenesisW() {
+  if (!_genesisW) _genesisW = await buildProjection(GENESIS_W_SEED);
+  return _genesisW;
+}
+
+export async function fuzzyCommitDeterministic(embedding) {
+  const W         = await _getGenesisW();
+  const b         = project(embedding, W);
+  const R         = new Uint8Array(await crypto.subtle.digest('SHA-256', b));
+  const syndrome  = _bchSyndrome(b);
+  const extra_bit = (b[31] >> 7) & 1;
+  return { R, genesisS: toHex(syndrome), genesisExtraBit: extra_bit };
+}
+
+export async function fuzzyExtractDeterministic(embedding, genesisS, genesisExtraBit) {
+  const W     = await _getGenesisW();
+  const b_new = project(embedding, W);
+  let b_ref;
+  try {
+    b_ref = _bchDecode(b_new, fromHex(genesisS));
+  } catch (e) {
+    throw new Error(`GENESIS_DECODE_FAIL: ${e.message}`);
+  }
+  b_ref[31] = (b_ref[31] & 0x7F) | (genesisExtraBit << 7);
+  return new Uint8Array(await crypto.subtle.digest('SHA-256', b_ref));
+}
+
 // ── Phase 2 kompatibilitás ────────────────────────────────────────────────────
 
 async function _extractV2(embedding, P) {

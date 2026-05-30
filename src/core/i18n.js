@@ -279,6 +279,14 @@ const STRINGS = {
     'btn.reenroll.sub':  'Új arc-beolvasás regisztrálása (pl. böngészőváltás után)',
     'msg.reenroll.done': 'Arc profil sikeresen frissítve. Mentse el az új .biowallet fájlt.',
     'msg.reenroll.confirm': 'Arc profil újra-regisztrálása?\n\nA régi papír share érvénytelenné válik — új papír share-t kell felírni.\n\nFolytatja?',
+    'btn.genesis.recover':     'Visszaállítás arccal',
+    'btn.genesis.recover.sub': 'Arc + P fájl → 24 szó (vészhelyzeti visszaállítás)',
+    'msg.genesis.recover.scanning': 'Arc azonosítás...',
+    'msg.genesis.recover.done':     'Seed visszaállítva — jegyezze fel a 24 szót!',
+    'err.genesis.backup.unavailable': 'Genesis backup nem elérhető — csak frissen létrehozott v5 walleteken működik.',
+    'genesis.recover.warning': '⚠ Írd fel a 24 szót papírra! Ez az ablak bezárása után nem jelenik meg újra.',
+    'genesis.recover.copy':    'Másolás',
+    'genesis.recover.close':   'Bezárás',
     'bf.remaining':      ' · még {n} próba a zárolásig',
 
     /* ── Guide modal ───────────────────────────────────────────────── */
@@ -560,6 +568,14 @@ const STRINGS = {
     'btn.reenroll.sub':  'Register a new face scan (e.g. after browser migration)',
     'msg.reenroll.done': 'Face profile updated successfully. Save the new .biowallet file.',
     'msg.reenroll.confirm': 'Update face profile?\n\nThe old paper share becomes invalid — you must write down a new paper share.\n\nContinue?',
+    'btn.genesis.recover':     'Face Recovery',
+    'btn.genesis.recover.sub': 'Face + P file → 24 words (emergency recovery)',
+    'msg.genesis.recover.scanning': 'Identifying face...',
+    'msg.genesis.recover.done':     'Seed recovered — write down the 24 words!',
+    'err.genesis.backup.unavailable': 'Genesis backup not available — only works on freshly created v5 wallets.',
+    'genesis.recover.warning': '⚠ Write down the 24 words on paper! They will not be shown again after closing.',
+    'genesis.recover.copy':    'Copy',
+    'genesis.recover.close':   'Close',
     'bf.remaining':      ' · {n} attempts left before lockout',
 
     /* ── Guide modal ───────────────────────────────────────────────── */

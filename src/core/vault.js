@@ -7,16 +7,19 @@
  *     deviceWrap: AES-GCM( HKDF(face_R ‖ device_prf, salt), vault_key ) — optional
  * v3: same as v2 but PIN mandatory: PBKDF2(face_R ‖ PIN, salt)
  * v4: SSS 2-of-3  (arc x=1 · device x=2 · paper x=3)
- * v5: SSS 2-of-3 + genesis DNA chain
+ * v5: SSS 2-of-3 + genesis DNA chain + genesis_backup
  *     genesis.dna = SHA-256(face_R_0 ‖ ts_u64be)   ← arc-only, device-független
  *     dna_chain[0].hash = SHA-256("" + genesis.dna + ts)
  *     dna_chain[n].hash = SHA-256(prev_hash + genesis.dna + ts)
  *     genesis.dna never changes; chain grows on re-enrollment.
+ *     genesis_backup = AES-GCM(PBKDF2(R_genesis, gbSalt), seed)
+ *       R_genesis = SHA-256(project(embedding, FIXED_W))  ← determinisztikus
+ *       genesisS + genesisExtraBit tárolt a P fájlban → arc + P → 24 szó
  */
 
 import { CausalChain, DCCError } from './causal_chain.js?v=11';
-import { fuzzyExtract, fuzzyCommit } from './fuzzy_extractor.js?v=11';
-import { seedToAddress, signEthTx, signPersonal, mnemonicToSeed } from './wallet.js?v=11';
+import { fuzzyExtract, fuzzyCommit, fuzzyCommitDeterministic, fuzzyExtractDeterministic } from './fuzzy_extractor.js?v=12';
+import { seedToAddress, signEthTx, signPersonal, mnemonicToSeed, seedToMnemonic } from './wallet.js?v=12';
 import {
   entropyToIndices, fetchRandomOffsets, computeRawPaper,
 } from './recovery_formula.js?v=11';
@@ -155,6 +158,14 @@ class BioVault {
     return toHex(new Uint8Array(hash));
   }
 
+  static async _deriveGenesisBackupKey(R_genesis, gbSalt) {
+    const km = await crypto.subtle.importKey('raw', R_genesis, 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt: gbSalt, iterations: 300_000, hash: 'SHA-256' },
+      km, { name: AES_MODE, length: 256 }, false, ['encrypt', 'decrypt']
+    );
+  }
+
   // SHA-256(prevHash + genesisDna + ts.toString())
   static async _buildChainEntry(prevHash, genesisDna, ts, gen, method) {
     const input = new TextEncoder().encode(prevHash + genesisDna + ts.toString());
@@ -170,6 +181,14 @@ class BioVault {
 
     const genesisDna  = await BioVault._computeGenesisDna(R, ts);
     const chainEntry  = await BioVault._buildChainEntry('', genesisDna, ts, 0, 'initial_enrollment');
+
+    // genesis_backup: determinisztikus projekció → seed titkosítva, P fájlban tárolt szindróma
+    const { R: R_genesis, genesisS, genesisExtraBit } = await fuzzyCommitDeterministic(embedding);
+    const gbSalt  = crypto.getRandomValues(new Uint8Array(32));
+    const gbKey   = await BioVault._deriveGenesisBackupKey(R_genesis, gbSalt);
+    const { iv: gbIv, ciphertext: gbCtBuf } = await aesEncrypt(gbKey, seedBytes);
+    P.genesisS        = genesisS;
+    P.genesisExtraBit = genesisExtraBit;
 
     const vaultKeyRaw = crypto.getRandomValues(new Uint8Array(32));
     try {
@@ -203,6 +222,11 @@ class BioVault {
           genesis:   { dna: genesisDna, ts },
           dna_chain: [chainEntry],
           sss:       { faceShare, deviceShare, paperX: 3 },
+          genesis_backup: {
+            gbSalt: toHex(gbSalt),
+            gbIv:   toHex(gbIv),
+            gbCt:   toHex(new Uint8Array(gbCtBuf)),
+          },
         };
 
         return {
@@ -621,6 +645,20 @@ class BioVault {
     const newSalt = crypto.getRandomValues(new Uint8Array(32));
     const ts      = Date.now();
 
+    // genesis_backup frissítése az új arc-szindróma alapján
+    const { R: R_genesis, genesisS, genesisExtraBit } = await fuzzyCommitDeterministic(newEmbedding);
+    const gbSalt = crypto.getRandomValues(new Uint8Array(32));
+    const gbKey  = await BioVault._deriveGenesisBackupKey(R_genesis, gbSalt);
+    const seedBytes = fromHex(this.#vaultData.seed);
+    let gbIv, gbCtBuf;
+    try {
+      const gbEnc = await aesEncrypt(gbKey, seedBytes);
+      gbIv    = gbEnc.iv;
+      gbCtBuf = gbEnc.ciphertext;
+    } finally { seedBytes.fill(0); }
+    newP.genesisS        = genesisS;
+    newP.genesisExtraBit = genesisExtraBit;
+
     const shares = sssSplit(this.#vaultKeyRaw, 3, 2);
     try {
       const faceKey   = await deriveKey(newR, newSalt, null);
@@ -646,8 +684,9 @@ class BioVault {
         prevHash, vault.genesis.dna, ts, chain.length, 're-enrollment'
       );
       chain.push(entry);
-      vault.salt = toHex(newSalt);
-      vault.sss  = { faceShare, deviceShare, paperX: 3 };
+      vault.salt           = toHex(newSalt);
+      vault.sss            = { faceShare, deviceShare, paperX: 3 };
+      vault.genesis_backup = { gbSalt: toHex(gbSalt), gbIv: toHex(gbIv), gbCt: toHex(new Uint8Array(gbCtBuf)) };
 
       this.#faceR = newR.slice();
 
@@ -674,6 +713,34 @@ class BioVault {
       this.lock();
       throw new DCCError('GENESIS_MISMATCH', op);
     }
+  }
+
+  // ── Genesis backup recovery (v5 + genesis_backup) ────────────────────────
+  // arc + P fájl (genesisS) → R_genesis → seed visszafejtés; nincs open session szükséges.
+  static async genesisRecover(encryptedVault, embedding, P) {
+    if (!P?.genesisS) throw new Error('GENESIS_BACKUP_UNAVAILABLE');
+    const vault = JSON.parse(new TextDecoder().decode(encryptedVault));
+    if (!vault.genesis_backup) throw new Error('GENESIS_BACKUP_UNAVAILABLE');
+
+    const R_genesis = await fuzzyExtractDeterministic(embedding, P.genesisS, P.genesisExtraBit ?? 0);
+    const gbSalt    = fromHex(vault.genesis_backup.gbSalt);
+    const gbKey     = await BioVault._deriveGenesisBackupKey(R_genesis, gbSalt);
+
+    let seedBytes;
+    try {
+      const plain = await crypto.subtle.decrypt(
+        { name: AES_MODE, iv: fromHex(vault.genesis_backup.gbIv) },
+        gbKey,
+        fromHex(vault.genesis_backup.gbCt)
+      );
+      seedBytes = new Uint8Array(plain);
+    } catch {
+      throw new Error('GENESIS_DECODE_FAIL');
+    }
+
+    const mnemonic = seedToMnemonic(seedBytes);
+    seedBytes.fill(0);
+    return { mnemonic };
   }
 
   // ── DNA chain extension (v5 re-enrollment) ───────────────────────────────
