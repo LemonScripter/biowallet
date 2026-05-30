@@ -2,8 +2,7 @@
 
 > **Canonical deployed instance:** https://biowallet.metaspace.bio  
 > **Canonical source:** https://github.com/LemonScripter/biowallet (main branch)  
-> **Author:** Szőke László-Ferenc — MetaSpace.Bio Logic Engine project  
-> **Patent:** OSIM 20251221-2230
+> **Author:** Szőke László-Ferenc — MetaSpace.Bio Logic Engine project
 
 ---
 

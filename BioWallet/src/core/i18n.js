@@ -43,7 +43,7 @@ const STRINGS = {
     /* ── Lock panel ────────────────────────────────────────────────── */
     'lock.info':             'A privát kulcs titkosítva tárolódik. Kizárólag az Ön arca tudja megnyitni.',
     'btn.scan':              'Megnyitás arc-scannel',
-    'btn.scan.sub':          'Token érvényessége: 30 mp',
+    'btn.scan.sub':          'Sikeres scan után 30 mp-es nyitva tartás',
     'btn.switch.wallet':     'Másik wallet / importálás',
     'btn.switch.wallet.sub': 'Új wallet létrehozása vagy 24 szó importálása',
 
@@ -296,7 +296,7 @@ const STRINGS = {
     /* ── Lock panel ────────────────────────────────────────────────── */
     'lock.info':             'The private key is stored encrypted. Only your face can unlock it.',
     'btn.scan':              'Unlock with face scan',
-    'btn.scan.sub':          'Token validity: 30 s',
+    'btn.scan.sub':          'Vault stays open 30 s after successful scan',
     'btn.switch.wallet':     'Switch wallet / import',
     'btn.switch.wallet.sub': 'Create new wallet or import 24 words',
 
@@ -563,6 +563,13 @@ const INFO_CONTENT = {
 <ul><li>Az egyenleg és az Ethereum-cím eltűnik a képernyőről.</li><li>Újbóli hozzáféréshez arc-scan szükséges.</li><li>A titkosított vault a localStorage-ban marad — csak az arc nyitja meg.</li></ul>
 <p style="color:#6b6b80;font-size:0.8rem;">Ez automatikusan is megtörténik minden tranzakció és aláírás után (DCC auto-lock).</p>`,
     },
+    device: {
+      title: 'Eszköz hozzáadása',
+      body: `<p>Az eszközregisztráció <strong>WebAuthn PRF</strong> technológiát használ — az ujjlenyomatolvasó vagy Windows Hello az arc-scan mellé második faktorként rögzítődik.</p>
+<ol><li>Nyissa meg a vaultot, majd kattintson az <strong>Eszköz hozzáadása</strong> gombra.</li><li>Végezze el a platformbiometrikus azonosítást (Windows Hello / Touch ID / ujjlenyomat).</li><li>Töltse le az <strong>új .biowallet fájlt</strong> — tartalmazza az eszközadatot is.</li></ol>
+<p>Ezután ezen az eszközön <strong>PIN-kód nélkül</strong>, csak arc-scannel nyitható meg a vault.</p>
+<p style="color:#6b6b80;font-size:0.8rem;">Az eszközadat az adott eszközhöz kötött — más eszközre nem vihető át. Eltávolításhoz: Eszköz eltávolítása gomb.</p>`,
+    },
   },
 
   en: {
@@ -613,6 +620,13 @@ const INFO_CONTENT = {
       body: `<p>The private key is <strong>immediately erased</strong> from browser memory.</p>
 <ul><li>The balance and Ethereum address disappear from the screen.</li><li>Face scan is required for access again.</li><li>The encrypted vault remains in localStorage — only the face unlocks it.</li></ul>
 <p style="color:#6b6b80;font-size:0.8rem;">This also happens automatically after every transaction and signing (DCC auto-lock guarantee).</p>`,
+    },
+    device: {
+      title: 'Add this device',
+      body: `<p>Device enrollment uses <strong>WebAuthn PRF</strong> technology — your fingerprint sensor or Windows Hello is registered as a second factor alongside the face scan.</p>
+<ol><li>Open the vault, then click the <strong>Add this device</strong> button.</li><li>Complete the platform biometric authentication (Windows Hello / Touch ID / fingerprint).</li><li>Download the <strong>new .biowallet file</strong> — it now includes the device credential.</li></ol>
+<p>On this device the vault will open with <strong>face scan only — no PIN required</strong>.</p>
+<p style="color:#6b6b80;font-size:0.8rem;">The device credential is device-bound — it cannot be transferred to another device. To remove: use the Remove device button.</p>`,
     },
   },
 };
@@ -679,7 +693,7 @@ const GUIDE_HTML = {
         <tr><td><span class="guide-badge badge-err">EXPIRED</span></td><td>Az időablak lejárt — indítson új arc-scant</td></tr>
         <tr><td><span class="guide-badge badge-err">BIO_MISMATCH</span></td><td>Arc nem egyezik — ugyanabban a böngészőben próbálja (Firefox ↔ Chrome eltérő feldolgozás)</td></tr>
         <tr><td><span class="guide-badge badge-err">TX_MISMATCH</span></td><td>Ujjlenyomat nem egyezett — tranzakció módosult, aláírás blokkolva</td></tr>
-        <tr><td>Vault nem nyílik / "rossz PIN"</td><td>Ellenőrizze a PIN-kódot — ugyanazt kell megadni, amit létrehozáskor beállított</td></tr>
+        <tr><td><span class="guide-badge badge-sym">Vault nem nyílik / rossz PIN</span></td><td>Ellenőrizze a PIN-kódot — ugyanazt kell megadni, amit létrehozáskor beállított</td></tr>
         <tr><td><span class="guide-badge badge-err">Kamera hiba</span></td><td>HTTPS szükséges; helyi tesztnél: <code style="font-size:0.72rem">http://localhost:3333</code></td></tr>
       </tbody></table>
       <div class="guide-ok" style="margin-top:0.7rem">✓ Tipp: egyenes tartás, közvetlen fényforrás szemből, kerülje az erős háttérvilágítást.</div>
@@ -774,7 +788,7 @@ const GUIDE_HTML = {
         <tr><td><span class="guide-badge badge-err">EXPIRED</span></td><td>Window expired — start a new face scan</td></tr>
         <tr><td><span class="guide-badge badge-err">BIO_MISMATCH</span></td><td>Face does not match — use the same browser as enrollment (Firefox ↔ Chrome differ)</td></tr>
         <tr><td><span class="guide-badge badge-err">TX_MISMATCH</span></td><td>Fingerprint mismatch — transaction was altered, signing blocked</td></tr>
-        <tr><td>Vault won't open / wrong PIN</td><td>Check your PIN — it must match what you set at wallet creation</td></tr>
+        <tr><td><span class="guide-badge badge-sym">Vault won't open / wrong PIN</span></td><td>Check your PIN — it must match what you set at wallet creation</td></tr>
         <tr><td><span class="guide-badge badge-err">Camera error</span></td><td>HTTPS required; for local testing: <code style="font-size:0.72rem">http://localhost:3333</code></td></tr>
       </tbody></table>
       <div class="guide-ok" style="margin-top:0.7rem">✓ Tip: hold head straight, direct front lighting, avoid strong backlight.</div>
