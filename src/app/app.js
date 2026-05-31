@@ -196,6 +196,7 @@ function _refreshDynamicLabels() {
         const lvr = document.getElementById('load-vault-row');
         if (lvr) lvr.style.display = meta.vaultJson ? 'none' : '';
         _showReenrollReminder(_reenrollReminderDays(meta));
+        _showWalletBadge(meta);
       }
     } catch {
       localStorage.clear();
@@ -1086,6 +1087,7 @@ btnScan.addEventListener('click', async () => {
 
     setMsg(t('msg.vault.open'), 'ok');
     showPanel('vault');
+    _showWalletBadge(meta);
     ensureWCInit().catch(() => {});
     if (pendingWCReq) {
       const req = pendingWCReq;
@@ -1544,6 +1546,75 @@ function _showReenrollReminder(days) {
   });
 }
 
+// ── Visual wallet badge (genesis.dna → identicon) ────────────────────────────
+function _genesisFromMeta(meta) {
+  try {
+    const vault = JSON.parse(meta?.vaultJson ?? 'null');
+    return vault?.genesis?.dna ?? null;
+  } catch { return null; }
+}
+
+function _walletBadgeSvg(dna, size) {
+  const bytes = new Uint8Array(32);
+  for (let i = 0; i < 32; i++) bytes[i] = parseInt(dna.slice(i * 2, i * 2 + 2), 16);
+  const hue = (bytes[0] << 8 | bytes[1]) % 360;
+  const sat = 55 + (bytes[2] % 30);
+  const lit = 47 + (bytes[3] % 18);
+  const fg  = `hsl(${hue},${sat}%,${lit}%)`;
+  const bg  = `hsl(${hue},28%,10%)`;
+  // 15-bit pattern: cols 0,1,2 × rows 0-4; col 3 mirrors col 1, col 4 mirrors col 0
+  const bits = (bytes[4] << 7) | (bytes[5] >> 1);
+  let cells = '';
+  for (let row = 0; row < 5; row++) {
+    for (let col = 0; col < 3; col++) {
+      if (!((bits >> (row * 3 + col)) & 1)) continue;
+      const cols = col === 2 ? [2] : [col, 4 - col];
+      for (const c of cols) {
+        cells += `<rect x="${c + 0.1}" y="${row + 0.1}" width="0.8" height="0.8" rx="0.15" fill="${fg}"/>`;
+      }
+    }
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 5 5"><rect width="5" height="5" rx="0.6" fill="${bg}"/>${cells}</svg>`;
+}
+
+function _showWalletBadge(meta) {
+  document.getElementById('wallet-badge-lock')?.remove();
+  document.getElementById('wallet-badge-vault')?.remove();
+  const dna = _genesisFromMeta(meta);
+  if (!dna) return;
+  const fp   = dna.slice(0, 8) + '…' + dna.slice(-4);
+  const name = (meta.walletName || 'BioWallet').replace(/</g, '&lt;');
+
+  const lockPanel = document.getElementById('panel-lock');
+  if (lockPanel) {
+    const el = document.createElement('div');
+    el.id = 'wallet-badge-lock';
+    el.style.cssText = 'display:flex;align-items:center;gap:0.75rem;margin:0.5rem 0 0.6rem';
+    el.innerHTML =
+      `<div style="flex-shrink:0;border-radius:10px;overflow:hidden">${_walletBadgeSvg(dna, 56)}</div>` +
+      `<div style="min-width:0">` +
+        `<div style="font-weight:700;font-size:0.95rem;color:#e8e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${name}">${name}</div>` +
+        `<div style="font-size:0.72rem;color:#666;font-family:monospace;letter-spacing:0.02em" title="${dna}">${fp}</div>` +
+      `</div>`;
+    const ref = lockPanel.querySelector('.info-text');
+    if (ref) ref.after(el);
+    else lockPanel.insertBefore(el, lockPanel.firstChild);
+  }
+
+  const vaultPanel = document.getElementById('panel-vault');
+  if (vaultPanel) {
+    const el = document.createElement('div');
+    el.id = 'wallet-badge-vault';
+    el.style.cssText = 'display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;opacity:0.75';
+    el.innerHTML =
+      `<div style="flex-shrink:0">${_walletBadgeSvg(dna, 32)}</div>` +
+      `<span style="font-size:0.72rem;color:#666;font-family:monospace" title="${dna}">${fp}</span>`;
+    const firstCard = vaultPanel.querySelector('.card');
+    if (firstCard) vaultPanel.insertBefore(el, firstCard);
+    else vaultPanel.insertBefore(el, vaultPanel.firstChild);
+  }
+}
+
 // ── Kötelező arc re-enrollment SSS paper+device nyitás után ─────────────────
 async function _mandatoryReenroll(meta) {
   showPanel('lock');
@@ -1605,6 +1676,7 @@ async function _mandatoryReenroll(meta) {
 
     setMsg(t('msg.reenroll.done'), 'ok');
     showPanel('vault');
+    _showWalletBadge(meta);
     ensureWCInit().catch(() => {});
   } catch (e) {
     setMsg(friendlyError(e.message), 'error');
@@ -1679,6 +1751,7 @@ function _applyVaultJson(meta, vaultText) {
   document.getElementById('load-vault-row').style.display = 'none';
   setMsgK('msg.vault.file.loaded', 'ok');
   _showReenrollReminder(_reenrollReminderDays(meta));
+  _showWalletBadge(meta);
 }
 
 function _validateAndApplyVault(meta, vaultText) {
