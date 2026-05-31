@@ -90,7 +90,8 @@ face-only recovery path (`genesis_backup`).
   },
   "dna_chain": [
     { "gen": 0, "hash": "<64 hex>", "ts": 1748563200000, "method": "initial_enrollment" },
-    { "gen": 1, "hash": "<64 hex>", "ts": 1748600000000, "method": "re_enrollment" }
+    { "gen": 1, "hash": "<64 hex>", "ts": 1748600000000, "method": "re_enrollment" },
+    { "gen": 2, "hash": "<64 hex>", "ts": 1748700000000, "method": "re_enrollment_via_sss" }
   ],
   "genesis_backup": {
     "gbSalt": "<64 hex>",
@@ -108,6 +109,14 @@ a big-endian 8-byte integer. Stored in plaintext; not a secret.
 `SHA-256(prev_hash ‖ genesis.dna ‖ ts.toString())`. The chain can only grow;
 `genesis.dna` is checked against `chain[0]` at SIGN time (unless `chain_len > 1`
 which means re-enrollment has occurred).
+
+Valid `method` values:
+
+| method | Meaning |
+|---|---|
+| `initial_enrollment` | First enrollment at wallet creation |
+| `re_enrollment` | Vault opened via face; new face scan enrolled |
+| `re_enrollment_via_sss` | Vault opened via SSS paper+device (no face); new face enrolled — weaker biometric chain link, but authorised by two SSS factors |
 
 **`genesis_backup`** — emergency recovery path: the seed is re-encrypted
 with a key derived from the face alone (no PIN, no device):

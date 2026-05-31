@@ -1,5 +1,5 @@
-# BioWallet v29 — Canonical File Hashes (Phase 10 SSS + mobile fix)
-# Date: 2026-05-30
+# BioWallet v32 — Canonical File Hashes (vault v5 genesis DNA + mandatory SSS re-enrollment)
+# Date: 2026-05-31
 # Verify: sha256sum -c checksums.txt
 #
 # The constitution anchor is spec/biowallet.bio.
@@ -7,17 +7,17 @@
 
 793cac74939d658e3cebde0e8066b2ac754ab34e9c85657043c5f58a0a1866e2  spec/biowallet.bio
 23c5605f37a1c5fdc95c6b67695ac1116aa4c39cf6241c84bbc5baf4c4efebfb  src/core/causal_chain.js
-bd7fada210e12a3e6be5e32af26731bf5b1a7012b1ea7a544c20b52fe4acf058  src/core/vault.js
+b4b1e4da17644d4c5f5329b4616c6417f4726fe5cad5ef8855651a3ccdc4be5c  src/core/vault.js
 f0b77111a307f8582a4ae7402fd28ab96e0575904253a1067cf07a3674d26b96  src/core/sss.js
-9e10d1c28349e0b95b90cdfb3bb15cba7456c317d22ffaec222a30e3477fd05e  src/core/fuzzy_extractor.js
+9a6912650e4780e8de8d078ce626a0cd1019a03f27599e1e2af25a166aa97876  src/core/fuzzy_extractor.js
 be9ba29ec7f15ba7606aad6f646dd23153b16a8df2f006f45bd69b64ddee39cb  src/core/wallet.js
 c5fb3b5b0e0949308c07a4f0390729cff8eed494180a12153738f23f0d5bec52  src/core/recovery_formula.js
 4f909a0d72798ee7d9d07d76acdcebbc7cf9867c33f18990130c6f5aad34149c  src/core/bio_capture.js
 3b0114e13dd677dad7da042d30e8c43c1ae95d8b1d2eca05d143b0d64efb8518  src/core/rpc.js
 c61e3a591b8b2586c37492427ad750092bbf5e74df44bbf3cfd241e61d4aac1b  src/core/wc2.js
-ab9a6b5db2bf3d78ed2c266e205f4be7e29683911b9a361946998fe0e7780f3d  src/core/i18n.js
-9926c04772b4669355b435b78fc1467e55116284cd3ac590fa22b4a0015514f7  src/app/vault_worker.js
-43c0212fd5e48afc92ceab2dcf7066189d97893d00c5f33923a09f7460e5233b  src/app/app.js
-d15bb25b1f5a18a1408eaa2c713aa77f0a5e6bd5ad59826c6e1eb13c11cf0f83  src/app/sw.js
-e9912612be48b746b5f2a6dc5b53ff79638fdbc5bd7e7720ce38e9cc8e840060  src/app/index.html
+1ee1347f148d4c2a0ee8164533e2981c008b378ad7be8e7acfecda612e40a7c0  src/core/i18n.js
+1934dc12d60d301450cb3a285505c49634f75a7136eef49b4a3f23ba112c0a3a  src/app/vault_worker.js
+fbd9d7c90411b6ec47c4f1c393f880a25bb9a7ac3b0bb778e38f7da383d4fdb1  src/app/app.js
+aea5c78b13378d5a57a034b304d993d35bdb4b1609a5d987953585437846b3ae  src/app/sw.js
+005059ade909bcb834e1d155b72e286194f009407a539cbda18b6af115927bc9  src/app/index.html
 a9a2269d6ef5c573911f0e1150800026066d7fed9ba7096abd382b99524787bf  recovery_tool.html
