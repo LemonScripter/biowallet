@@ -315,6 +315,8 @@ class BioVault {
 
       // ── v4 / v5: SSS 2-of-3 reconstruction ───────────────────────────────
       if (v2.v === 4 || v2.v === 5) {
+        if (!v2.sss) { this.lock(); throw new DCCError('BIO_MISMATCH', 'OPEN'); }
+
         let shareA = null; // face share
         let shareB = null; // device or paper share
 
@@ -324,7 +326,7 @@ class BioVault {
           shareA = { x: v2.sss.faceShare.x, y: y1 };
         } catch { /* biometric mismatch — try device+paper fallback */ }
 
-        if (devicePrf && v2.sss.deviceShare) {
+        if (devicePrf && v2.sss?.deviceShare) {
           try {
             const devKey = await deriveKeyDevice(R, new Uint8Array(devicePrf), salt);
             const y2     = await unwrapBytes(devKey, v2.sss.deviceShare);
@@ -448,11 +450,39 @@ class BioVault {
   async enrollDevice(devicePrf, credentialId, prfSalt) {
     if (!this.#vaultData || !this.#faceR) throw new DCCError('VAULT_LOCKED', 'ENROLL_DEVICE');
 
-    const R   = this.#faceR;
-    let salt, faceWrap, iv, ct;
+    const R = this.#faceR;
 
+    // v4/v5 SSS vault: re-split vault key with new device factor, keep sss structure intact
+    if (this.#vaultFormat?.v >= 4) {
+      const salt   = fromHex(this.#vaultFormat.salt);
+      const shares = sssSplit(this.#vaultKeyRaw, 3, 2);
+      try {
+        const faceKey    = await deriveKey(R, salt, null);
+        const faceShare  = { x: shares[0].x, ...await wrapBytes(faceKey, shares[0].y) };
+        const devKey     = await deriveKeyDevice(R, new Uint8Array(devicePrf), salt);
+        const deviceShare = {
+          x: shares[1].x,
+          ...await wrapBytes(devKey, shares[1].y),
+          credentialId: toHex(new Uint8Array(credentialId)),
+          prfSalt:      toHex(new Uint8Array(prfSalt)),
+        };
+        const paperShareY = shares[2].y.slice();
+        const vault = { ...this.#vaultFormat, sss: { faceShare, deviceShare, paperX: 3 } };
+        this.#vaultFormat = vault;
+        return {
+          encryptedVault: new TextEncoder().encode(JSON.stringify(vault)).buffer,
+          paperShareY,
+        };
+      } finally {
+        shares[0].y.fill(0);
+        shares[1].y.fill(0);
+        shares[2].y.fill(0);
+      }
+    }
+
+    // Legacy v1/v2/v3: faceWrap + deviceWrap approach
+    let salt, faceWrap, iv, ct;
     if (!this.#vaultFormat) {
-      // v1 vault: generate new vault_key and re-encrypt data
       salt = crypto.getRandomValues(new Uint8Array(32));
       const vaultKeyRaw = crypto.getRandomValues(new Uint8Array(32));
       try {
@@ -472,7 +502,7 @@ class BioVault {
       ct       = this.#vaultFormat.ct;
     }
 
-    const devKey    = await deriveKeyDevice(R, new Uint8Array(devicePrf), salt);
+    const devKey     = await deriveKeyDevice(R, new Uint8Array(devicePrf), salt);
     const deviceWrap = {
       ...await wrapBytes(devKey, this.#vaultKeyRaw),
       credentialId: toHex(new Uint8Array(credentialId)),
@@ -483,8 +513,7 @@ class BioVault {
     const vVersion = this.#vaultFormat?.v ?? 2;
     const vaultJSON = { v: vVersion, vaultId, salt: toHex(salt), iv, ct, faceWrap, deviceWrap };
     this.#vaultFormat = vaultJSON;
-
-    return new TextEncoder().encode(JSON.stringify(vaultJSON)).buffer;
+    return { encryptedVault: new TextEncoder().encode(JSON.stringify(vaultJSON)).buffer };
   }
 
   // ── SIGN ──────────────────────────────────────────────────────────────────

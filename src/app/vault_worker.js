@@ -145,12 +145,15 @@ async function handle(type, p) {
 
     case 'ENROLL_DEVICE': {
       if (!vault) throw new Error('No vault initialised');
-      const encryptedVault = await vault.enrollDevice(
+      const res = await vault.enrollDevice(
         new Uint8Array(p.devicePrf),
         new Uint8Array(p.credentialId),
         new Uint8Array(p.prfSalt)
       );
-      return { encryptedVault };
+      return {
+        encryptedVault: res.encryptedVault,
+        paperShareY:    res.paperShareY ? Array.from(res.paperShareY) : null,
+      };
     }
 
     case 'SIGN': {

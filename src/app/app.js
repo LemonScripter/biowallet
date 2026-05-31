@@ -1879,7 +1879,7 @@ btnDevice.addEventListener('click', async () => {
   }
 
   try {
-    const { encryptedVault } = await callWorker('ENROLL_DEVICE', {
+    const { encryptedVault, paperShareY } = await callWorker('ENROLL_DEVICE', {
       devicePrf:    wa.devicePrf,
       credentialId: wa.credentialId,
       prfSalt:      wa.prfSalt,
@@ -1888,6 +1888,12 @@ btnDevice.addEventListener('click', async () => {
     meta.device   = { credentialId: wa.credentialId, prfSalt: wa.prfSalt };
     meta.vaultJson = new TextDecoder().decode(encryptedVault);
     localStorage.setItem('biowallet_meta', JSON.stringify(meta));
+
+    // v4/v5 SSS vault: SSS re-split → new paper share, must be shown to user
+    if (paperShareY) {
+      const paperHex = paperShareY.map(b => b.toString(16).padStart(2, '0')).join('');
+      await showPaperShareModal(paperHex);
+    }
 
     const walletName = await showSaveModal(encryptedVault, null, 'device', meta.walletName || 'biowallet');
     meta.walletName = walletName;
