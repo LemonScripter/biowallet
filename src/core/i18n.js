@@ -139,7 +139,7 @@ const STRINGS = {
     'msg.wc.tx.sent':         'dApp TX elküldve: {hash}',
     'msg.wc.msg.signed':      'Üzenet aláírva.',
     'msg.wc.no.project.id':   'WalletConnect Project ID nincs beállítva (src/core/wc2.js).',
-    'msg.cooldown':           'Brute-force védelem — {sec}s',
+    'msg.cooldown':           'Biztonsági zárolás ({mult}x) — {sec}s múlva próbálkozhat újra.',
     'msg.cooldown.over':      'Zárolás feloldva — próbálkozhat újra.',
     'msg.invalid.address':    'Érvénytelen Ethereum cím.',
     'msg.invalid.amount':     'Érvénytelen összeg (pl.: 0.001).',
@@ -266,7 +266,11 @@ const STRINGS = {
     'switch.wallet.confirm': 'A jelenlegi wallet törlődik ebből a böngészőből.\nA .biowallet fájl megmarad — bármikor újra betölthető.\n\nFolytatja?',
 
     /* ── Error messages ────────────────────────────────────────────── */
-    'err.unknown':       'Ismeretlen hiba.',
+    'err.unknown':            'Ismeretlen hiba.',
+    'err.camera.unavailable': 'Kamera nem elérhető. Ellenőrizze a böngésző engedélyeket, majd próbálja újra.',
+    'err.scan.timeout':       'A szkennelés időtúllépett. Próbálja újra.',
+    'err.self.heal.title':    'Váratlan hiba történt',
+    'btn.self.heal.restart':  'Újraindítás',
     'err.vault.corrupted': 'A tárca fájl sérült (hiányzó SSS mező). Töltse be újra a .biowallet fájlt, vagy hozzon létre új tárcát.',
     'err.bio.mismatch':  'Az arc nem egyezik. Tipp: a tárcát abban a böngészőben nyissa meg, amelyikben létrehozta (Firefox ↔ Chrome eltérő képfeldolgozás).',
     'err.expired':       'A biometriai token lejárt — próbálja újra.',
@@ -442,7 +446,7 @@ const STRINGS = {
     'msg.wc.tx.sent':         'dApp TX sent: {hash}',
     'msg.wc.msg.signed':      'Message signed.',
     'msg.wc.no.project.id':   'WalletConnect Project ID not set (src/core/wc2.js).',
-    'msg.cooldown':           'Brute-force protection — {sec}s',
+    'msg.cooldown':           'Security lockout ({mult}x) — retry in {sec}s.',
     'msg.cooldown.over':      'Lockout lifted — you may try again.',
     'msg.invalid.address':    'Invalid Ethereum address.',
     'msg.invalid.amount':     'Invalid amount (e.g. 0.001).',
@@ -569,7 +573,11 @@ const STRINGS = {
     'switch.wallet.confirm': 'The current wallet will be removed from this browser.\nThe .biowallet file remains — it can be reloaded at any time.\n\nContinue?',
 
     /* ── Error messages ────────────────────────────────────────────── */
-    'err.unknown':       'Unknown error.',
+    'err.unknown':            'Unknown error.',
+    'err.camera.unavailable': 'Camera not available. Check browser permissions and try again.',
+    'err.scan.timeout':       'Scan timed out. Please try again.',
+    'err.self.heal.title':    'Unexpected error occurred',
+    'btn.self.heal.restart':  'Restart',
     'err.vault.corrupted': 'Vault file is corrupted (missing SSS field). Please reload the .biowallet file or create a new wallet.',
     'err.bio.mismatch':  'Face does not match. Tip: open the wallet in the same browser used for enrollment (Firefox ↔ Chrome use different image processing).',
     'err.expired':       'Biometric token expired — please try again.',

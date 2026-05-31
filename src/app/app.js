@@ -228,6 +228,9 @@ async function _ensureCamera() {
 
 async function _ensureCameraForScan() {
   await _ensureCamera();
+  if (!stream || !stream.getTracks().some(tr => tr.readyState === 'live')) {
+    throw new Error('CAMERA_UNAVAILABLE');
+  }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -677,6 +680,8 @@ async function getDevicePrf(credentialId, prfSalt) {
 // ── Enrollment ────────────────────────────────────────────────────────────
 btnEnroll.addEventListener('click', async () => {
   btnEnroll.disabled = true;
+  setMsg(t('msg.camera.init'), '');
+  await _ensureCameraForScan();
   setScanning(true);
   enrollDots.style.display = 'flex';
   setMsg(t('msg.scanning.face'), '');
@@ -931,6 +936,8 @@ btnImportEnroll.addEventListener('click', async () => {
   importPhrase.blur();
 
   btnImportEnroll.disabled = true;
+  setMsg(t('msg.camera.init'), '');
+  await _ensureCameraForScan();
   setScanning(true);
   enrollDots.style.display = 'flex';
   setMsg(t('msg.import.scanning'), '');
@@ -1681,67 +1688,69 @@ async function _mandatoryReenroll(meta) {
   showPanel('lock');
   setMsg(t('msg.reenroll.mandatory'), 'error');
 
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:9000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;padding:1.5rem;text-align:center';
-  overlay.innerHTML = `
-    <div style="font-size:1.6rem">⚠️</div>
-    <div style="font-weight:700;font-size:1.1rem;color:#ff4757">${t('msg.reenroll.mandatory')}</div>
-    <div style="color:#ccc;max-width:340px;font-size:0.93rem">${t('msg.reenroll.mandatory.sub')}</div>
-    <button id="btn-mandatory-scan" class="btn btn-primary" style="min-width:200px">${t('btn.reenroll')}</button>
-  `;
-  document.body.appendChild(overlay);
+  while (true) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:9000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;padding:1.5rem;text-align:center';
+    overlay.innerHTML = `
+      <div style="font-size:1.6rem">⚠️</div>
+      <div style="font-weight:700;font-size:1.1rem;color:#ff4757">${t('msg.reenroll.mandatory')}</div>
+      <div style="color:#ccc;max-width:340px;font-size:0.93rem">${t('msg.reenroll.mandatory.sub')}</div>
+      <button id="btn-mandatory-scan" class="btn btn-primary" style="min-width:200px">${t('btn.reenroll')}</button>
+    `;
+    document.body.appendChild(overlay);
 
-  await new Promise(resolve => {
-    document.getElementById('btn-mandatory-scan').addEventListener('click', resolve, { once: true });
-  });
-
-  overlay.remove();
-
-  setScanning(true);
-  enrollDots.style.display = 'flex';
-  setMsg(t('msg.scanning.face'), '');
-
-  let embedding;
-  try {
-    embedding = await enrollEmbedding(video, (n) => {
-      dots.forEach((d, i) => d.classList.toggle('done', i < n));
-      setMsg(t('msg.scan.progress', { n }), '');
+    await new Promise(resolve => {
+      document.getElementById('btn-mandatory-scan').addEventListener('click', resolve, { once: true });
     });
-  } catch (e) {
+
+    overlay.remove();
+
+    await _ensureCameraForScan();
+    setScanning(true);
+    enrollDots.style.display = 'flex';
+    setMsg(t('msg.scanning.face'), '');
+
+    let embedding;
+    try {
+      embedding = await enrollEmbedding(video, (n) => {
+        dots.forEach((d, i) => d.classList.toggle('done', i < n));
+        setMsg(t('msg.scan.progress', { n }), '');
+      });
+    } catch (e) {
+      setScanning(false);
+      enrollDots.style.display = 'none';
+      setMsg(friendlyError(e.message), 'error');
+      continue;
+    }
+
     setScanning(false);
     enrollDots.style.display = 'none';
-    setMsg(friendlyError(e.message), 'error');
-    // re-show overlay so user can retry — recursive call
-    await _mandatoryReenroll(meta);
-    return;
-  }
 
-  setScanning(false);
-  enrollDots.style.display = 'none';
+    try {
+      const { P, encryptedVault, paperShareY } = await callWorker(
+        'RE_ENROLL_FACE', { embedding }, [embedding.buffer]
+      );
 
-  try {
-    const { P, encryptedVault, paperShareY } = await callWorker(
-      'RE_ENROLL_FACE', { embedding }, [embedding.buffer]
-    );
+      const paperHex = Array.from(paperShareY).map(b => b.toString(16).padStart(2, '0')).join('');
+      await showPaperShareModal(paperHex);
 
-    const paperHex = Array.from(paperShareY).map(b => b.toString(16).padStart(2, '0')).join('');
-    await showPaperShareModal(paperHex);
+      meta.P         = P;
+      meta.vaultJson = new TextDecoder().decode(encryptedVault);
+      meta.device    = null;
+      localStorage.setItem('biowallet_meta', JSON.stringify(meta));
 
-    meta.P         = P;
-    meta.vaultJson = new TextDecoder().decode(encryptedVault);
-    meta.device    = null;
-    localStorage.setItem('biowallet_meta', JSON.stringify(meta));
+      await showSaveModal(encryptedVault, JSON.stringify(P), 'reenroll', meta.walletName || 'biowallet');
+      localStorage.setItem('biowallet_meta', JSON.stringify(meta));
 
-    await showSaveModal(encryptedVault, JSON.stringify(P), 'reenroll', meta.walletName || 'biowallet');
-    localStorage.setItem('biowallet_meta', JSON.stringify(meta));
-
-    setMsg(t('msg.reenroll.done'), 'ok');
-    showPanel('vault');
-    _showWalletBadge(meta);
-    ensureWCInit().catch(() => {});
-  } catch (e) {
-    setMsg(friendlyError(e.message), 'error');
-    await _mandatoryReenroll(meta);
+      setMsg(t('msg.reenroll.done'), 'ok');
+      showPanel('vault');
+      _showWalletBadge(meta);
+      ensureWCInit().catch(() => {});
+      return;
+    } catch (e) {
+      setMsg(friendlyError(e.message), 'error');
+      continue;
+    }
   }
 }
 
@@ -2290,6 +2299,7 @@ async function handleWCPersonalSign(topic, id, hexMsg) {
   if (!approved) { await wcRespondError(topic, id); return; }
 
   try {
+    await _ensureCameraForScan();
     setScanning(true);
     setMsg(t('msg.signing.msg'), '');
     const meta      = JSON.parse(localStorage.getItem('biowallet_meta'));
@@ -2436,13 +2446,15 @@ function startTimer() {
     if (cd > 0) {
       inCooldown = true;
       btnScan.disabled = true;
-      setMsg(t('msg.cooldown', { sec: Math.ceil(cd / 1000) }), 'error');
+      const bf   = _bfGet();
+      const mult = Math.min(2 ** (bf.n / BF_AFTER - 1), 8);
+      setMsg(t('msg.cooldown', { sec: Math.ceil(cd / 1000), mult: Math.round(mult) }), 'error');
       return;
     }
     if (inCooldown) {
       inCooldown = false;
       btnScan.disabled = false;
-      setMsg(t('msg.cooldown.over'), '');
+      setMsg(t('msg.cooldown.over') + bioFailHint(), '');
       return;
     }
 
@@ -2652,6 +2664,7 @@ function friendlyError(m) {
   if (m.includes('GENESIS_BACKUP_UNAVAILABLE')) return t('err.genesis.backup.unavailable');
   if (m.includes('GENESIS_DECODE_FAIL'))      return t('err.genesis.mismatch');
   if (m.includes('GENESIS_MISMATCH'))         return t('err.genesis.mismatch');
+  if (m.includes('CAMERA_UNAVAILABLE'))        return t('err.camera.unavailable');
   if (m.includes('VAULT_CORRUPTED'))           return t('err.vault.corrupted');
   if (m.includes('BIO_MISMATCH'))             return t('err.bio.mismatch');
   if (m.includes('EXPIRED'))         return t('err.expired');
@@ -2838,3 +2851,79 @@ function showAddNetworkModal() {
     ov.addEventListener('click', e => { if (e.target === ov) { ov.remove(); resolve(); } });
   });
 }
+
+// ── Self-healing watchdog ─────────────────────────────────────────────────
+// Catches any unhandled promise rejection or JS error that slipped past
+// feature-level try/catch blocks, resets stuck UI, and offers a one-click
+// restart so the app never stays frozen.
+
+const _MANAGED_ERRORS = [
+  'BIO_MISMATCH', 'VAULT_CORRUPTED', 'FE_DECODE_FAIL', 'CAMERA_UNAVAILABLE',
+  'GENESIS_MISMATCH', 'GENESIS_DECODE_FAIL', 'GENESIS_BACKUP_UNAVAILABLE',
+  'TX_MISMATCH', 'VAULT_ID_MISMATCH', 'ALREADY_CONSUMED', 'EXPIRED',
+  'NO_TOKEN', 'no.file', 'AbortError', 'NotAllowedError', 'NotFoundError',
+  'ResizeObserver', 'Script error'
+];
+
+function _isManagedError(msg) {
+  return _MANAGED_ERRORS.some(k => (msg || '').includes(k));
+}
+
+function _showSelfHealToast(detail) {
+  document.getElementById('_self_heal_toast')?.remove();
+  const toast = document.createElement('div');
+  toast.id = '_self_heal_toast';
+  toast.style.cssText = [
+    'position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%)',
+    'background:#1a1a2e;border:1px solid #ff4757;border-radius:12px',
+    'padding:0.9rem 1.2rem;z-index:9999',
+    'display:flex;align-items:center;gap:0.9rem;max-width:92vw',
+    'box-shadow:0 4px 24px rgba(0,0,0,0.45)'
+  ].join(';');
+  toast.innerHTML = `
+    <div style="color:#ff4757;font-size:1.1rem;flex-shrink:0">&#9888;</div>
+    <div style="flex:1;min-width:0">
+      <div style="color:#e8e8f0;font-size:0.88rem;font-weight:600">${t('err.self.heal.title')}</div>
+      <div style="color:#888;font-size:0.74rem;margin-top:0.15rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${detail}">${detail}</div>
+    </div>
+    <button id="_self_heal_btn" style="background:#ff4757;color:#fff;border:none;border-radius:8px;padding:0.45rem 0.9rem;cursor:pointer;font-size:0.82rem;font-weight:600;white-space:nowrap;flex-shrink:0">${t('btn.self.heal.restart')}</button>
+  `;
+  document.body.appendChild(toast);
+  document.getElementById('_self_heal_btn').addEventListener('click', () => location.reload(), { once: true });
+  setTimeout(() => toast.remove(), 30000);
+}
+
+function _selfHealReset() {
+  setScanning(false);
+  btnScan.disabled         = false;
+  btnEnroll.disabled       = false;
+  btnImportEnroll.disabled = false;
+}
+
+// Scan watchdog — resets stuck scanning state after 40 s
+{
+  let _wdStart = 0;
+  setInterval(() => {
+    const scanning = faceGuide.classList.contains('scanning');
+    if (scanning && !_wdStart)             _wdStart = Date.now();
+    else if (!scanning)                     _wdStart = 0;
+    else if (Date.now() - _wdStart > 40000) {
+      _wdStart = 0;
+      _selfHealReset();
+      setMsg(t('err.scan.timeout'), 'error');
+    }
+  }, 5000);
+}
+
+window.addEventListener('unhandledrejection', e => {
+  const msg = e.reason?.message || String(e.reason ?? 'Unknown');
+  if (_isManagedError(msg)) return;
+  e.preventDefault();
+  _selfHealReset();
+  _showSelfHealToast(msg.slice(0, 120));
+});
+
+window.addEventListener('error', e => {
+  if (_isManagedError(e.message)) return;
+  _showSelfHealToast((e.message || 'Script error').slice(0, 120));
+});
