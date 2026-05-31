@@ -92,6 +92,7 @@ const STRINGS = {
     'footer':             'BioWallet · DCC kauzális lánc · BCH-255 · AES-256-GCM · secp256k1',
 
     /* ── Dynamic messages ──────────────────────────────────────────── */
+    'msg.camera.init':        'Kamera inicializálása…',
     'msg.camera.error':       'Kamera hiba: {err}',
     'msg.vault.loaded':       'Vault betöltve — arc-scan a megnyitáshoz.',
     'msg.vault.file.loaded':   'Vault fájl betöltve — most scannelhetsz.',
@@ -266,6 +267,7 @@ const STRINGS = {
 
     /* ── Error messages ────────────────────────────────────────────── */
     'err.unknown':       'Ismeretlen hiba.',
+    'err.vault.corrupted': 'A tárca fájl sérült (hiányzó SSS mező). Töltse be újra a .biowallet fájlt, vagy hozzon létre új tárcát.',
     'err.bio.mismatch':  'Az arc nem egyezik. Tipp: a tárcát abban a böngészőben nyissa meg, amelyikben létrehozta (Firefox ↔ Chrome eltérő képfeldolgozás).',
     'err.expired':       'A biometriai token lejárt — próbálja újra.',
     'err.no.token':      'Nincs érvényes biometriai token — szkennelje be arcát.',
@@ -393,6 +395,7 @@ const STRINGS = {
     'footer':             'BioWallet · DCC causal chain · BCH-255 · AES-256-GCM · secp256k1',
 
     /* ── Dynamic messages ──────────────────────────────────────────── */
+    'msg.camera.init':        'Initialising camera…',
     'msg.camera.error':       'Camera error: {err}',
     'msg.vault.loaded':       'Vault loaded — face scan to unlock.',
     'msg.vault.file.loaded':   'Vault file loaded — you can now scan.',
@@ -567,6 +570,7 @@ const STRINGS = {
 
     /* ── Error messages ────────────────────────────────────────────── */
     'err.unknown':       'Unknown error.',
+    'err.vault.corrupted': 'Vault file is corrupted (missing SSS field). Please reload the .biowallet file or create a new wallet.',
     'err.bio.mismatch':  'Face does not match. Tip: open the wallet in the same browser used for enrollment (Firefox ↔ Chrome use different image processing).',
     'err.expired':       'Biometric token expired — please try again.',
     'err.no.token':      'No valid biometric token — scan your face.',

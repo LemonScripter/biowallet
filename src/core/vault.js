@@ -315,7 +315,7 @@ class BioVault {
 
       // ── v4 / v5: SSS 2-of-3 reconstruction ───────────────────────────────
       if (v2.v === 4 || v2.v === 5) {
-        if (!v2.sss) { this.lock(); throw new DCCError('BIO_MISMATCH', 'OPEN'); }
+        if (!v2.sss) { this.lock(); throw new DCCError('VAULT_CORRUPTED', 'OPEN'); }
 
         let shareA = null; // face share
         let shareB = null; // device or paper share

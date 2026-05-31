@@ -1070,6 +1070,9 @@ btnScan.addEventListener('click', async () => {
   }
 
   btnScan.disabled = true;
+  setMsg(t('msg.camera.init'), '');
+  await _ensureCameraForScan();
+
   setScanning(true);
   setMsg(t('msg.open.scanning'), '');
 
@@ -2649,6 +2652,7 @@ function friendlyError(m) {
   if (m.includes('GENESIS_BACKUP_UNAVAILABLE')) return t('err.genesis.backup.unavailable');
   if (m.includes('GENESIS_DECODE_FAIL'))      return t('err.genesis.mismatch');
   if (m.includes('GENESIS_MISMATCH'))         return t('err.genesis.mismatch');
+  if (m.includes('VAULT_CORRUPTED'))           return t('err.vault.corrupted');
   if (m.includes('BIO_MISMATCH'))             return t('err.bio.mismatch');
   if (m.includes('EXPIRED'))         return t('err.expired');
   if (m.includes('NO_TOKEN'))        return t('err.no.token');

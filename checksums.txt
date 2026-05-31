@@ -1,4 +1,4 @@
-# BioWallet v32.1 — Canonical File Hashes (enrollDevice SSS bugfix)
+# BioWallet v32.2 — Canonical File Hashes (camera-await + VAULT_CORRUPTED fix)
 # Date: 2026-05-31
 # Verify: sha256sum -c checksums.txt
 #
@@ -7,7 +7,7 @@
 
 793cac74939d658e3cebde0e8066b2ac754ab34e9c85657043c5f58a0a1866e2  spec/biowallet.bio
 23c5605f37a1c5fdc95c6b67695ac1116aa4c39cf6241c84bbc5baf4c4efebfb  src/core/causal_chain.js
-f9c6b64b1499996d890563e65526aa52f66bdcc2719c811450e58119d64d0e32  src/core/vault.js
+e7873456f9cbfac6b441ed574513745c329048f2eb1bfc511f2b17787c33b524  src/core/vault.js
 f0b77111a307f8582a4ae7402fd28ab96e0575904253a1067cf07a3674d26b96  src/core/sss.js
 9a6912650e4780e8de8d078ce626a0cd1019a03f27599e1e2af25a166aa97876  src/core/fuzzy_extractor.js
 be9ba29ec7f15ba7606aad6f646dd23153b16a8df2f006f45bd69b64ddee39cb  src/core/wallet.js
@@ -15,9 +15,9 @@ c5fb3b5b0e0949308c07a4f0390729cff8eed494180a12153738f23f0d5bec52  src/core/recov
 4f909a0d72798ee7d9d07d76acdcebbc7cf9867c33f18990130c6f5aad34149c  src/core/bio_capture.js
 3b0114e13dd677dad7da042d30e8c43c1ae95d8b1d2eca05d143b0d64efb8518  src/core/rpc.js
 c61e3a591b8b2586c37492427ad750092bbf5e74df44bbf3cfd241e61d4aac1b  src/core/wc2.js
-b8a34ef7c83fe819fe475848f3d2b769a44663ec7904275efb863896372cf264  src/core/i18n.js
+484f8f75f5672072a02c34a455e6c7bc6b9d76ca4aae6b31de981af4072f6866  src/core/i18n.js
 ef070710b416348df248f46aed4fafee844271cf6d189bd625696340a03145bb  src/app/vault_worker.js
-31f12f0c812f970590a778ce0151f5e544cd77acf737a5ead488ad687a6983bc  src/app/app.js
+48fda348d28ec217d2e0a94ce45fd2cead28f539152e0afdf01629278bf54156  src/app/app.js
 37758520f09b97f7ea5096018584fe9c903e76c4bb717f41f665eb7e84d4ff58  src/app/sw.js
 76ed1624c906d0d2c86652f19e53f1772ed774c391609cd3d352017855e51d8c  src/app/index.html
 a9a2269d6ef5c573911f0e1150800026066d7fed9ba7096abd382b99524787bf  recovery_tool.html
