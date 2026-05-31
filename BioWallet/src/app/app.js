@@ -226,6 +226,11 @@ async function _ensureCamera() {
   catch (e) { setMsg(t('msg.camera.error', { err: e.message }), 'error'); }
 }
 
+async function _ensureCameraForScan() {
+  await _ensureCamera();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 // ── Restart camera if stream killed when app went to background ───────────────
 document.addEventListener('visibilitychange', async () => {
   if (document.hidden) return;
@@ -562,6 +567,31 @@ function _getVaultVersion(buf) {
 
 // ── WebAuthn PRF helpers ──────────────────────────────────────────────────
 
+async function _offerDeviceEnroll() {
+  const ok = await PublicKeyCredential?.isUserVerifyingPlatformAuthenticatorAvailable?.().catch(() => false);
+  if (!ok) return null;
+  return new Promise(resolve => {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem';
+    ov.innerHTML =
+      `<div style="background:#16161a;border:1px solid #2a2a35;border-radius:16px;width:100%;max-width:380px;padding:1.5rem">` +
+        `<div style="font-size:1rem;font-weight:700;color:#6c63ff;margin-bottom:0.5rem">${t('device.offer.title')}</div>` +
+        `<div style="font-size:0.82rem;color:#b0b0c0;line-height:1.6;margin-bottom:1.2rem">${t('device.offer.body')}</div>` +
+        `<div style="display:flex;gap:0.75rem">` +
+          `<button id="_dev_skip" style="flex:1;padding:0.7rem;border-radius:10px;border:1px solid #2a2a35;background:#1e1e24;color:#e8e8f0;font-size:0.88rem;cursor:pointer">${t('device.offer.skip')}</button>` +
+          `<button id="_dev_now" style="flex:1;padding:0.7rem;border-radius:10px;border:none;background:#6c63ff;color:#fff;font-size:0.88rem;font-weight:600;cursor:pointer">${t('device.offer.now')}</button>` +
+        `</div>` +
+      `</div>`;
+    document.body.appendChild(ov);
+    ov.querySelector('#_dev_skip').addEventListener('click', () => { ov.remove(); resolve(null); });
+    ov.querySelector('#_dev_now').addEventListener('click', async () => {
+      ov.remove();
+      setMsg(t('msg.device.auth'), '');
+      resolve(await enrollWebAuthn());
+    });
+  });
+}
+
 async function enrollWebAuthn() {
   // Check platform authenticator availability upfront
   const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable?.().catch(() => false);
@@ -668,29 +698,40 @@ btnEnroll.addEventListener('click', async () => {
   setScanning(false);
   enrollDots.style.display = 'none';
 
-  const pin = await showPinModal('setup');
-  if (!pin) {
-    setMsg('', '');
-    btnEnroll.disabled = false;
-    return;
-  }
+  // Step 2: optional device factor (fingerprint / Face ID)
+  const wa = await _offerDeviceEnroll();
 
   try {
-    const { vaultId, P, encryptedVault } = await callWorker(
-      'ENROLL', { embedding, pin }, [embedding.buffer]
-    );
+    const { vaultId, P, encryptedVault, paperShareY } = await callWorker('CREATE_V5', {
+      embedding,
+      ...(wa ? { devicePrf: wa.devicePrf, credentialId: wa.credentialId, prfSalt: wa.prfSalt } : {}),
+    }, [embedding.buffer]);
 
     const vaultJson = new TextDecoder().decode(encryptedVault);
     const newMeta = { vaultId, P, vaultJson };
+    if (wa) newMeta.device = { credentialId: wa.credentialId, prfSalt: wa.prfSalt };
     localStorage.setItem('biowallet_meta', JSON.stringify(newMeta));
 
+    // Step 3: mandatory paper share display
+    const paperHex = Array.from(paperShareY).map(b => b.toString(16).padStart(2, '0')).join('');
+    await showPaperShareModal(paperHex);
+
+    // Step 4: save files
     const walletName = await showSaveModal(encryptedVault, JSON.stringify(P), 'create');
     newMeta.walletName = walletName;
     localStorage.setItem('biowallet_meta', JSON.stringify(newMeta));
 
+    // Show SSS and genesis-recover rows immediately
+    const pr = document.getElementById('sss-paper-row');
+    if (pr) pr.style.display = '';
+    const grr = document.getElementById('genesis-recover-row');
+    if (grr && P?.genesisS) grr.style.display = '';
+
     vaultReady = true;
     setMsg(t('msg.wallet.created'), 'ok');
     showPanel('lock');
+    _showReenrollReminder(_reenrollReminderDays(newMeta));
+    _showWalletBadge(newMeta);
   } catch (e) {
     setMsg(e.message, 'error');
     btnEnroll.disabled = false;
@@ -911,30 +952,41 @@ btnImportEnroll.addEventListener('click', async () => {
   setScanning(false);
   enrollDots.style.display = 'none';
 
-  const pin = await showPinModal('setup');
-  if (!pin) {
-    setMsg('', '');
-    btnImportEnroll.disabled = false;
-    return;
-  }
+  // Step 2: optional device factor
+  const wa = await _offerDeviceEnroll();
 
   try {
-    const { vaultId, P, encryptedVault } = await callWorker(
-      'IMPORT', { mnemonic: words.join(' '), embedding, pin }, [embedding.buffer]
-    );
+    const { vaultId, P, encryptedVault, paperShareY } = await callWorker('IMPORT_V5', {
+      mnemonic: words.join(' '),
+      embedding,
+      ...(wa ? { devicePrf: wa.devicePrf, credentialId: wa.credentialId, prfSalt: wa.prfSalt } : {}),
+    }, [embedding.buffer]);
 
     const vaultJson = new TextDecoder().decode(encryptedVault);
     const newMeta = { vaultId, P, vaultJson };
+    if (wa) newMeta.device = { credentialId: wa.credentialId, prfSalt: wa.prfSalt };
     localStorage.setItem('biowallet_meta', JSON.stringify(newMeta));
 
+    // Step 3: mandatory paper share display
+    const paperHex = Array.from(paperShareY).map(b => b.toString(16).padStart(2, '0')).join('');
+    await showPaperShareModal(paperHex);
+
+    // Step 4: save files
     const walletName = await showSaveModal(encryptedVault, JSON.stringify(P), 'import');
     newMeta.walletName = walletName;
     localStorage.setItem('biowallet_meta', JSON.stringify(newMeta));
+
+    const pr = document.getElementById('sss-paper-row');
+    if (pr) pr.style.display = '';
+    const grr = document.getElementById('genesis-recover-row');
+    if (grr && P?.genesisS) grr.style.display = '';
 
     vaultReady = true;
     setMsg(t('msg.wallet.imported'), 'ok');
     showPanel('lock');
     await showPostImportChecklist();
+    _showReenrollReminder(_reenrollReminderDays(newMeta));
+    _showWalletBadge(newMeta);
   } catch (e) {
     importPhrase.value = '';
     setMsg(friendlyError(e.message), 'error');
@@ -1098,6 +1150,9 @@ btnScan.addEventListener('click', async () => {
     // Offer device enrollment if vault has no device yet and WebAuthn is available
     if (!hasDevice && navigator.credentials) {
       setTimeout(() => setMsg(t('msg.device.offer'), ''), 1500);
+    } else if (hasDevice && !meta.device && navigator.credentials) {
+      // Device share exists in vault but not linked to this browser — prompt re-link
+      setTimeout(() => setMsg(t('msg.device.relink'), ''), 1500);
     }
   } catch (e) {
     setScanning(false);
@@ -1240,6 +1295,7 @@ btnSign.addEventListener('click', async () => {
 
   if (cooldownMs() > 0) return;
   btnSign.disabled = true;
+  await _ensureCameraForScan();
   setScanning(true);
   setMsg(t('msg.signing'), '');
 
@@ -1281,6 +1337,7 @@ btnSign.addEventListener('click', async () => {
 // ── Paper recovery (Phase 9.1b — P never enters the app) ─────────────────
 btnPaper.addEventListener('click', async () => {
   if (cooldownMs() > 0) return;
+  await _ensureCameraForScan();
   setScanning(true);
   setMsg(t('msg.paper.scanning'), '');
 
@@ -1417,6 +1474,7 @@ document.getElementById('btn-genesis-recover')?.addEventListener('click', async 
     return;
   }
 
+  await _ensureCameraForScan();
   setScanning(true);
   setMsg(t('msg.genesis.recover.scanning'), '');
 
@@ -1692,6 +1750,7 @@ document.getElementById('btn-reenroll')?.addEventListener('click', async () => {
   const confirmed = confirm(t('msg.reenroll.confirm'));
   if (!confirmed) return;
 
+  await _ensureCameraForScan();
   setScanning(true);
   enrollDots.style.display = 'flex';
   setMsg(t('msg.scanning.face'), '');
@@ -2194,6 +2253,7 @@ async function handleWCEthSend(topic, id, wcTx) {
       return;
     }
 
+    await _ensureCameraForScan();
     setScanning(true);
     setMsg(t('msg.signing.dapp'), '');
     const meta      = JSON.parse(localStorage.getItem('biowallet_meta'));

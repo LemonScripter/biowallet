@@ -695,8 +695,12 @@
       white-space: nowrap;
     }
 
-    /* ── Narrow screen: hide security link to prevent header overflow ── */
+    /* ── Narrow screen: compact token-badge first, then hide security link ── */
     @media (max-width: 380px) {
+      #token-text { display: none; }
+      .token-badge { min-width: 28px; padding: 0 0.4rem; justify-content: center; }
+    }
+    @media (max-width: 330px) {
       #btn-security-compare { display: none; }
     }
   </style>

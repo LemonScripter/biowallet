@@ -294,6 +294,13 @@ const STRINGS = {
     'genesis.recover.close':   'Bezárás',
     'bf.remaining':      ' · még {n} próba a zárolásig',
 
+    /* ── Device enrollment offer (during wallet creation) ─────────── */
+    'device.offer.title': 'Ujjlenyomat / Face ID regisztrálása',
+    'device.offer.body':  'Ez az eszköz biometrikus hitelesítőjét (ujjlenyomat / Face ID) second faktorként rögzíthetjük. Ha regisztrálod, az arc-scan mellé automatikusan érvényesül — PIN vagy papírképlet nélkül nyílik a tárca ezen az eszközön. Ha most kihagyod, a papírképlettel tudod megnyitni.',
+    'device.offer.now':   'Regisztrálás most',
+    'device.offer.skip':  'Kihagyás',
+    'msg.device.relink':  '⚡ A tárca tartalmaz eszközfaktort — kattints az Eszköz gombra a gyors belépés visszaállításához.',
+
     /* ── Guide modal ───────────────────────────────────────────────── */
     'guide.modal.title': 'BioWallet — Használati útmutató',
   },
@@ -587,6 +594,13 @@ const STRINGS = {
     'genesis.recover.copy':    'Copy',
     'genesis.recover.close':   'Close',
     'bf.remaining':      ' · {n} attempts left before lockout',
+
+    /* ── Device enrollment offer (during wallet creation) ─────────── */
+    'device.offer.title': 'Set up fingerprint / Face ID',
+    'device.offer.body':  'Register this device\'s biometric authenticator (fingerprint / Face ID) as a second factor. Once enrolled, vault opens automatically on this device after a face scan — no PIN or paper formula needed here. You can skip this now and always use your paper formula instead.',
+    'device.offer.now':   'Set up now',
+    'device.offer.skip':  'Skip',
+    'msg.device.relink':  '⚡ This vault has a device factor — click the Device button to restore quick access on this browser.',
 
     /* ── Guide modal ───────────────────────────────────────────────── */
     'guide.modal.title': 'BioWallet — User guide',
