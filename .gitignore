@@ -11,6 +11,13 @@ build/
 # Deploy scripts contain server IPs and personal data
 deploy/
 
+# Admin panel — NEVER push to public repo (password-protected stats)
+admin/
+
+# Internal audit/dev docs — not for public repo
+FLOW_AUDIT.md
+AUDIT_REPORT_V28.md
+
 # Internal working notes — not for public repo
 CLAUDE_HANDOVER_BACKUP.md
 *_HANDOVER*.md
