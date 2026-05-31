@@ -1,4 +1,4 @@
-# BioWallet v32 — Canonical File Hashes (vault v5 + mandatory re-enrollment + annual reminder)
+# BioWallet v32 — Canonical File Hashes (vault v5 + mandatory re-enrollment + annual reminder + visual wallet badge)
 # Date: 2026-05-31
 # Verify: sha256sum -c checksums.txt
 #
@@ -17,7 +17,7 @@ c5fb3b5b0e0949308c07a4f0390729cff8eed494180a12153738f23f0d5bec52  src/core/recov
 c61e3a591b8b2586c37492427ad750092bbf5e74df44bbf3cfd241e61d4aac1b  src/core/wc2.js
 cf5fc0e9515859f719065957738e6b771f50a306a77d4c9e5b79f7c651ad6dcb  src/core/i18n.js
 1934dc12d60d301450cb3a285505c49634f75a7136eef49b4a3f23ba112c0a3a  src/app/vault_worker.js
-e33f4f19ae991f92e6916636b7acc3e41422152c897137919faac31ab9b99bad  src/app/app.js
-6a868c1c0c7da34dd5ca93c9c025f2ae3f052669a6f45775fef114cb9969e377  src/app/sw.js
+b68fc2989374bcc83251bea222239e0cd7dfb246029581a028cbbf637238f100  src/app/app.js
+6e6da1008b72387e640d1d3bebfd02a36156c48ce3b8b0b6e1f0a65424eb9098  src/app/sw.js
 005059ade909bcb834e1d155b72e286194f009407a539cbda18b6af115927bc9  src/app/index.html
 a9a2269d6ef5c573911f0e1150800026066d7fed9ba7096abd382b99524787bf  recovery_tool.html
