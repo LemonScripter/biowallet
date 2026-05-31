@@ -1059,7 +1059,7 @@ btnScan.addEventListener('click', async () => {
       }
     }
 
-    const { address, hasDevice, usedDevice, isV4, isV5 } = await callWorker(
+    const { address, hasDevice, usedDevice, usedFace, isV4, isV5 } = await callWorker(
       'OPEN',
       { encryptedVault: encBuf, P: meta.P, devicePrf, pin, paperShareY },
       [encBuf]
@@ -1069,17 +1069,21 @@ btnScan.addEventListener('click', async () => {
     fetchBalance(address);
     updateTokenSelector();
     setScanning(false, true);
-    setMsg(t('msg.vault.open'), 'ok');
 
     _updateDeviceRow(hasDevice, usedDevice);
     deviceRow.style.display = '';
-    // Show 2-of-3 upgrade button only for non-v4/v5 vaults
     const sssRow = document.getElementById('sss-row');
     if (sssRow) sssRow.style.display = (isV4 || isV5) ? 'none' : '';
-    // Show re-enrollment button for v5 vaults
     const reenrollRow = document.getElementById('reenroll-row');
     if (reenrollRow) reenrollRow.style.display = isV5 ? '' : 'none';
 
+    // SSS paper+device nyitás v5-ön: kötelező arc re-enrollment
+    if (!usedFace && isV5) {
+      await _mandatoryReenroll(meta);
+      return;
+    }
+
+    setMsg(t('msg.vault.open'), 'ok');
     showPanel('vault');
     ensureWCInit().catch(() => {});
     if (pendingWCReq) {
@@ -1480,6 +1484,74 @@ document.getElementById('btn-sss')?.addEventListener('click', async () => {
     setMsg(e.message, 'error');
   }
 });
+
+// ── Kötelező arc re-enrollment SSS paper+device nyitás után ─────────────────
+async function _mandatoryReenroll(meta) {
+  showPanel('lock');
+  setMsg(t('msg.reenroll.mandatory'), 'error');
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:9000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;padding:1.5rem;text-align:center';
+  overlay.innerHTML = `
+    <div style="font-size:1.6rem">⚠️</div>
+    <div style="font-weight:700;font-size:1.1rem;color:#ff4757">${t('msg.reenroll.mandatory')}</div>
+    <div style="color:#ccc;max-width:340px;font-size:0.93rem">${t('msg.reenroll.mandatory.sub')}</div>
+    <button id="btn-mandatory-scan" class="btn btn-primary" style="min-width:200px">${t('btn.reenroll')}</button>
+  `;
+  document.body.appendChild(overlay);
+
+  await new Promise(resolve => {
+    document.getElementById('btn-mandatory-scan').addEventListener('click', resolve, { once: true });
+  });
+
+  overlay.remove();
+
+  setScanning(true);
+  enrollDots.style.display = 'flex';
+  setMsg(t('msg.scanning.face'), '');
+
+  let embedding;
+  try {
+    embedding = await enrollEmbedding(video, (n) => {
+      dots.forEach((d, i) => d.classList.toggle('done', i < n));
+      setMsg(t('msg.scan.progress', { n }), '');
+    });
+  } catch (e) {
+    setScanning(false);
+    enrollDots.style.display = 'none';
+    setMsg(friendlyError(e.message), 'error');
+    // re-show overlay so user can retry — recursive call
+    await _mandatoryReenroll(meta);
+    return;
+  }
+
+  setScanning(false);
+  enrollDots.style.display = 'none';
+
+  try {
+    const { P, encryptedVault, paperShareY } = await callWorker(
+      'RE_ENROLL_FACE', { embedding }, [embedding.buffer]
+    );
+
+    const paperHex = Array.from(paperShareY).map(b => b.toString(16).padStart(2, '0')).join('');
+    await showPaperShareModal(paperHex);
+
+    meta.P         = P;
+    meta.vaultJson = new TextDecoder().decode(encryptedVault);
+    meta.device    = null;
+    localStorage.setItem('biowallet_meta', JSON.stringify(meta));
+
+    await showSaveModal(encryptedVault, JSON.stringify(P), 'reenroll', meta.walletName || 'biowallet');
+    localStorage.setItem('biowallet_meta', JSON.stringify(meta));
+
+    setMsg(t('msg.reenroll.done'), 'ok');
+    showPanel('vault');
+    ensureWCInit().catch(() => {});
+  } catch (e) {
+    setMsg(friendlyError(e.message), 'error');
+    await _mandatoryReenroll(meta);
+  }
+}
 
 // ── btn-reenroll: re-enroll face for v5 vaults ────────────────────────────
 document.getElementById('btn-reenroll')?.addEventListener('click', async () => {

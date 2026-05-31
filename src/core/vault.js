@@ -373,6 +373,7 @@ class BioVault {
           address,
           hasDevice:  !!v2.sss.deviceShare,
           usedDevice: shareB?.x === 2,
+          usedFace:   shareA !== null,
           isV4:       v2.v === 4,
           isV5:       v2.v === 5,
           genesis:    v2.v === 5 ? (v2.genesis ?? null) : null,
@@ -680,8 +681,9 @@ class BioVault {
       const vault    = this.#vaultFormat;
       const chain    = vault.dna_chain;
       const prevHash = chain[chain.length - 1].hash;
+      const method   = this.#openedViaFace ? 're_enrollment' : 're_enrollment_via_sss';
       const entry    = await BioVault._buildChainEntry(
-        prevHash, vault.genesis.dna, ts, chain.length, 're-enrollment'
+        prevHash, vault.genesis.dna, ts, chain.length, method
       );
       chain.push(entry);
       vault.salt           = toHex(newSalt);

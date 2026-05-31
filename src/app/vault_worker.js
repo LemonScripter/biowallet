@@ -136,6 +136,7 @@ async function handle(type, p) {
         address:    result.address,
         hasDevice:  result.hasDevice,
         usedDevice: result.usedDevice,
+        usedFace:   result.usedFace ?? true,
         isV4:       result.isV4 ?? false,
         isV5:       result.isV5 ?? false,
         genesis:    result.genesis ?? null,
