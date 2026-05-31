@@ -154,6 +154,7 @@ Teljes elemzés adattáblával és oszlopdiagramokkal: <a href="https://biowalle
 | v29 | DCC alkotmány on-chain anchor (Arbitrum One), SRI integrity a vendor JS-eken, CSP fejlécek, Non-Commercial licenc, PWA auto-update banner; **10. fázis: SSS(2,3)** — Shamir 2-of-3: arc (x=1), WebAuthn eszköz (x=2), papír (x=3); bármely kettő elegendő a vault megnyitásához |
 | v30 | Mobil kompatibilitás: vault fájlpicker javítás (user gesture megőrzése), `visibilitychange` kamera-újraindítás, vault elővalidáció (`salt` + `vaultId` ellenőrzés) |
 | v31 | Biztonsági összehasonlító oldalak (radar SVG + EN/HU sávdiagram-elemzések), összehasonlítás-link a fejlécben |
+| v32 | Vault v5: genesis.dna identitáshorgony, dna_chain újra-beléptetési előzmény, genesis_backup (arc-egyedüli vészhelyzeti visszaállítás); kötelező arc újra-beléptetés SSS papír+eszköz nyitás után (`re_enrollment_via_sss` láncszembe kerül); éves újra-beléptetési emlékeztető banner (365 / 730 napos küszöb) |
 
 ---
 

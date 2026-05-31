@@ -195,6 +195,7 @@ function _refreshDynamicLabels() {
         setMsgK('msg.vault.loaded');
         const lvr = document.getElementById('load-vault-row');
         if (lvr) lvr.style.display = meta.vaultJson ? 'none' : '';
+        _showReenrollReminder(_reenrollReminderDays(meta));
       }
     } catch {
       localStorage.clear();
@@ -1485,6 +1486,64 @@ document.getElementById('btn-sss')?.addEventListener('click', async () => {
   }
 });
 
+// ── Re-enrollment emlékeztető (dna_chain kor ellenőrzés) ─────────────────────
+function _reenrollReminderDays(meta) {
+  try {
+    const vault = JSON.parse(meta?.vaultJson ?? 'null');
+    if (!vault || vault.v !== 5 || !vault.dna_chain?.length) return 0;
+    const lastTs = vault.dna_chain[vault.dna_chain.length - 1].ts;
+    return Math.floor((Date.now() - lastTs) / 86400000);
+  } catch { return 0; }
+}
+
+function _showReenrollReminder(days) {
+  const existing = document.getElementById('reenroll-reminder-banner');
+  if (existing) existing.remove();
+  if (days < 365) return;
+  if (sessionStorage.getItem('reenroll-reminder-dismissed')) return;
+
+  const urgent = days > 730;
+  const banner = document.createElement('div');
+  banner.id = 'reenroll-reminder-banner';
+  const msgKey = urgent ? 'msg.reenroll.reminder.urgent' : 'msg.reenroll.reminder';
+  banner.style.cssText = [
+    'margin:0.6rem 0 0.2rem',
+    'padding:0.65rem 0.9rem',
+    'border-radius:8px',
+    `background:${urgent ? '#ff6b2b18' : '#ffb30018'}`,
+    `border:1px solid ${urgent ? '#ff6b2b66' : '#ffb30066'}`,
+    `color:${urgent ? '#ff8c55' : '#e6a800'}`,
+    'font-size:0.84rem',
+    'display:flex',
+    'gap:0.5rem',
+    'align-items:flex-start',
+  ].join(';');
+  banner.innerHTML = `
+    <span style="flex:1;line-height:1.4">
+      ${urgent ? '🔴' : '🟡'} ${t(msgKey, { days })}
+    </span>
+    <button id="btn-reenroll-reminder-now"
+      style="background:none;border:none;cursor:pointer;color:inherit;font-size:0.84rem;text-decoration:underline;padding:0;white-space:nowrap;flex-shrink:0">
+      ${t('msg.reenroll.reminder.btn')}
+    </button>
+    <button id="btn-reenroll-reminder-dismiss"
+      style="background:none;border:none;cursor:pointer;color:inherit;font-size:1rem;padding:0 0 0 0.3rem;flex-shrink:0"
+      title="${t('btn.close') || '✕'}">✕</button>
+  `;
+
+  const lockPanel = document.getElementById('panel-lock');
+  if (lockPanel) lockPanel.insertBefore(banner, lockPanel.firstChild);
+
+  document.getElementById('btn-reenroll-reminder-dismiss')?.addEventListener('click', () => {
+    banner.remove();
+    sessionStorage.setItem('reenroll-reminder-dismissed', '1');
+  });
+  document.getElementById('btn-reenroll-reminder-now')?.addEventListener('click', () => {
+    banner.remove();
+    document.getElementById('btn-reenroll')?.click();
+  });
+}
+
 // ── Kötelező arc re-enrollment SSS paper+device nyitás után ─────────────────
 async function _mandatoryReenroll(meta) {
   showPanel('lock');
@@ -1619,6 +1678,7 @@ function _applyVaultJson(meta, vaultText) {
   localStorage.setItem('biowallet_meta', JSON.stringify(meta));
   document.getElementById('load-vault-row').style.display = 'none';
   setMsgK('msg.vault.file.loaded', 'ok');
+  _showReenrollReminder(_reenrollReminderDays(meta));
 }
 
 function _validateAndApplyVault(meta, vaultText) {

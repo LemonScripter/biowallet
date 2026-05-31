@@ -154,6 +154,7 @@ Full analysis with data tables and bar charts: <a href="https://biowallet.metasp
 | v29 | DCC constitution on-chain anchor (Arbitrum One), SRI integrity on vendor JS, CSP headers, Non-Commercial license, PWA auto-update banner; **Phase 10 SSS(2,3)** — Shamir 2-of-3: face share (x=1), WebAuthn device share (x=2), paper share (x=3); any 2-of-3 sufficient to open vault |
 | v30 | Mobile compatibility: vault file picker fix (user gesture preserved), `visibilitychange` camera restart, vault pre-validation (`salt` + `vaultId` check) |
 | v31 | Security comparison pages (radar chart + EN/HU bar-chart analyses), header comparison link |
+| v32 | Vault v5: genesis.dna identity anchor, dna_chain re-enrollment history, genesis_backup (face-only emergency recovery); mandatory face re-enrollment after SSS paper+device open (`re_enrollment_via_sss` chain entry); annual re-enrollment reminder banner (365 / 730 day thresholds) |
 
 ---
 
