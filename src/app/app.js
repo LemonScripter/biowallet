@@ -182,7 +182,7 @@ function _refreshDynamicLabels() {
         showPanel('setup');
         setMsgK('msg.vault.outdated', 'error');
       } else {
-        await callWorker('INIT_VAULT', { vaultId: meta.vaultId });
+        await callWorker('INIT_VAULT', { vaultId: meta.vaultId, bfState: _bfGet() });
         vaultReady = true;
         // Show paper share input field if vault is v4 or v5
         if (meta.vaultJson) {
@@ -926,7 +926,7 @@ btnRestore.addEventListener('click', async () => {
     const vaultId = pFile.name.replace(/\.P\.json$/i, '').replace(/^.*[/\\]/, '');
 
     localStorage.setItem('biowallet_meta', JSON.stringify({ vaultId, P, walletName: vaultId }));
-    await callWorker('INIT_VAULT', { vaultId });
+    await callWorker('INIT_VAULT', { vaultId, bfState: _bfGet() });
     vaultReady = true;
     showPanel('lock');
     setMsgK('msg.restore.ok', 'ok');

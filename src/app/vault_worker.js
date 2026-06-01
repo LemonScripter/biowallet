@@ -59,6 +59,10 @@ async function handle(type, p) {
 
     case 'INIT_VAULT': {
       vault = new BioVault(p.vaultId);
+      if (p.bfState) {
+        _bioFailCount  = p.bfState.n     ?? 0;
+        _cooldownUntil = p.bfState.until ?? 0;
+      }
       return {};
     }
 
