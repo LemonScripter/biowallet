@@ -35,7 +35,7 @@
     code { font-family: monospace; font-size: 0.82rem; background: #1e1e24; padding: 1px 5px; border-radius: 3px; }
     #lang-btn { float: right; background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 0.3rem 0.7rem; border-radius: 6px; cursor: pointer; font-size: 0.78rem; }
     #lang-btn:hover { border-color: var(--accent); color: var(--accent); }
-    .lang-en, .lang-hu { display: none; }
+    .lang-hu { display: none; }
   </style>
 </head>
 <body>
@@ -153,16 +153,6 @@
   </div>
 </div>
 
-<script>
-  let lang = navigator.language?.startsWith('hu') ? 'hu' : 'en';
-  function applyLang() {
-    document.querySelectorAll('.lang-en').forEach(el => el.style.display = lang === 'en' ? '' : 'none');
-    document.querySelectorAll('.lang-hu').forEach(el => el.style.display = lang === 'hu' ? '' : 'none');
-    document.getElementById('lang-btn').textContent = lang === 'en' ? 'HU' : 'EN';
-    document.documentElement.lang = lang;
-  }
-  function toggleLang() { lang = lang === 'en' ? 'hu' : 'en'; applyLang(); }
-  applyLang();
-</script>
+<script src="/dapp-guide.js"></script>
 </body>
 </html>
