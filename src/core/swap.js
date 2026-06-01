@@ -47,13 +47,12 @@ export async function buildSwapTx(chainId, toToken, amountWei, fromAddress, slip
   // 2. lépés: TX felépítése
   const slippageBps = Math.round(clampedSlippage * 100);
   const body = {
-    srcToken:   ETH_ADDR,
-    destToken:  toToken,
-    srcAmount:  amountWei,
-    destAmount: priceRoute.destAmount,
+    srcToken:    ETH_ADDR,
+    destToken:   toToken,
+    srcAmount:   amountWei,
     priceRoute,
     userAddress: fromAddress,
-    slippage:   slippageBps,
+    slippage:    slippageBps,
   };
   if (TREASURY) {
     body.partner        = PARTNER_ID;
