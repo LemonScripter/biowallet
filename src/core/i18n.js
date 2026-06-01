@@ -306,6 +306,11 @@ const STRINGS = {
     'device.offer.now':   'Regisztrálás most',
     'device.offer.skip':  'Kihagyás',
     'msg.device.relink':  '⚡ A tárca tartalmaz eszközfaktort — kattints az Eszköz gombra a gyors belépés visszaállításához.',
+    'msg.device.relink.warn': '⚠ Eszköz újracsatolás elérhető — DE FIGYELEM: az eszköz csatolása ÉRVÉNYTELENÍTI a jelenlegi papírkódodat! Csak akkor csatold, ha az ÚJ papírkódot azonnal le tudod jegyezni.',
+    'sss.paper.modal.reenroll.warn': '🔴 A RÉGI PAPÍRKÓD MÁR ÉRVÉNYTELEN! Ez az ÚJ kód — írd le most. A régi papírkód nem fog többé működni.',
+    'sss.paper.reenroll.confirm2': 'Megértettem: a régi papírkód ÉRVÉNYTELEN — csak ez az ÚJ kód érvényes',
+    'sss.paper.required.warn': '⚠ Papírkód szükséges — ezen a böngészőn nincs aktív device. Adja meg a papírkódot a scan előtt.',
+    'sss.lock.paper.required': '🔴 Papírkód KÖTELEZŐ (nincs aktív device ezen a böngészőn)',
 
     /* ── Guide modal ───────────────────────────────────────────────── */
     'guide.modal.title': 'BioWallet — Használati útmutató',
@@ -613,6 +618,11 @@ const STRINGS = {
     'device.offer.now':   'Set up now',
     'device.offer.skip':  'Skip',
     'msg.device.relink':  '⚡ This vault has a device factor — click the Device button to restore quick access on this browser.',
+    'msg.device.relink.warn': '⚠ Device re-linking available — WARNING: linking a device will INVALIDATE your current paper code! Only proceed if you can immediately write down the NEW paper code.',
+    'sss.paper.modal.reenroll.warn': '🔴 YOUR OLD PAPER CODE IS NOW INVALID! This is your NEW code — write it down now. The old paper code will no longer work.',
+    'sss.paper.reenroll.confirm2': 'I understand: the old paper code is INVALID — only this NEW code is valid',
+    'sss.paper.required.warn': '⚠ Paper code required — no active device on this browser. Enter your paper code before scanning.',
+    'sss.lock.paper.required': '🔴 Paper code REQUIRED (no active device on this browser)',
 
     /* ── Guide modal ───────────────────────────────────────────────── */
     'guide.modal.title': 'BioWallet — User guide',

@@ -185,6 +185,28 @@ function _refreshDynamicLabels() {
           if (vMatch && parseInt(vMatch[1]) >= 4) {
             const pr = document.getElementById('sss-paper-row');
             if (pr) pr.style.display = '';
+            // Auto-restore meta.device from vault if missing (e.g. after P.json restore + page reload)
+            if (!meta.device) {
+              try {
+                const _v = JSON.parse(meta.vaultJson);
+                const cred = _v.deviceWrap ?? _v.sss?.deviceShare ?? null;
+                if (cred?.credentialId && cred?.prfSalt) {
+                  const hexToArr = h => Array.from({ length: h.length / 2 }, (_, i) => parseInt(h.slice(i*2, i*2+2), 16));
+                  meta.device = { credentialId: hexToArr(cred.credentialId), prfSalt: hexToArr(cred.prfSalt) };
+                  localStorage.setItem('biowallet_meta', JSON.stringify(meta));
+                }
+              } catch {}
+            }
+            let vaultHasDevice = false;
+            try { const _v = JSON.parse(meta.vaultJson); vaultHasDevice = !!((_v.sss?.deviceShare) || _v.deviceWrap); } catch {}
+            const paperLabel = document.querySelector('#sss-paper-row label');
+            if (paperLabel) {
+              if (vaultHasDevice && !meta.device) {
+                paperLabel.style.color = '#ff4757';
+                paperLabel.setAttribute('data-i18n', 'sss.lock.paper.required');
+                paperLabel.textContent = t('sss.lock.paper.required');
+              }
+            }
           }
           if (vMatch && parseInt(vMatch[1]) >= 5 && meta.P?.genesisS) {
             const grr = document.getElementById('genesis-recover-row');
@@ -898,7 +920,7 @@ btnRestore.addEventListener('click', async () => {
 
     const vaultId = pFile.name.replace(/\.P\.json$/i, '').replace(/^.*[/\\]/, '');
 
-    localStorage.setItem('biowallet_meta', JSON.stringify({ vaultId, P }));
+    localStorage.setItem('biowallet_meta', JSON.stringify({ vaultId, P, walletName: vaultId }));
     await callWorker('INIT_VAULT', { vaultId });
     vaultReady = true;
     showPanel('lock');
@@ -1078,6 +1100,22 @@ btnScan.addEventListener('click', async () => {
 
   btnScan.disabled = true;
   setMsg(t('msg.camera.init'), '');
+
+  // Pre-scan: if vault has deviceShare but no device linked here, paper code is mandatory
+  {
+    let _vaultHasDevice = false;
+    try { const _v = JSON.parse(meta.vaultJson); _vaultHasDevice = !!((_v.sss?.deviceShare) || _v.deviceWrap); } catch {}
+    if (_vaultHasDevice && !meta.device) {
+      const _paperInput = document.getElementById('sss-paper-input');
+      const _hex = (_paperInput?.value ?? '').trim().toLowerCase().replace(/\s/g, '');
+      if (!(_hex.length === 64 && /^[0-9a-f]+$/.test(_hex))) {
+        setMsg(t('sss.paper.required.warn'), 'error');
+        btnScan.disabled = false;
+        return;
+      }
+    }
+  }
+
   await _ensureCameraForScan();
 
   setScanning(true);
@@ -1161,8 +1199,7 @@ btnScan.addEventListener('click', async () => {
     if (!hasDevice && navigator.credentials) {
       setTimeout(() => setMsg(t('msg.device.offer'), ''), 1500);
     } else if (hasDevice && !meta.device && navigator.credentials) {
-      // Device share exists in vault but not linked to this browser — prompt re-link
-      setTimeout(() => setMsg(t('msg.device.relink'), ''), 1500);
+      setTimeout(() => setMsg(t('msg.device.relink.warn'), 'error'), 1500);
     }
   } catch (e) {
     setScanning(false);
@@ -1401,13 +1438,24 @@ function showSSSInfoModal() {
 }
 
 // ── Paper share modal (shown after v4 creation/upgrade) ──────────────────
-function showPaperShareModal(paperShareHex) {
+// isReenroll=true → device enrollment context: old paper code is now invalid
+function showPaperShareModal(paperShareHex, isReenroll = false) {
   return new Promise(resolve => {
     const ov = document.createElement('div');
-    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;overflow-y:auto;';
+    const reenrollBanner = isReenroll
+      ? `<div style="background:#2b0a0a;border:1px solid #ff4757;border-radius:8px;padding:0.75rem;margin-bottom:1rem;font-size:0.8rem;font-weight:700;color:#ff4757;line-height:1.5;">${t('sss.paper.modal.reenroll.warn')}</div>`
+      : '';
+    const check2Html = isReenroll
+      ? `<label style="display:flex;align-items:flex-start;gap:0.6rem;cursor:pointer;font-size:0.8rem;color:#ff9f43;margin-bottom:0.75rem">
+          <input type="checkbox" id="_psc_check2" style="width:1.1rem;height:1.1rem;margin-top:0.1rem;flex-shrink:0;accent-color:#ff4757">
+          ${t('sss.paper.reenroll.confirm2')}
+        </label>`
+      : '';
     ov.innerHTML = `
-      <div style="background:#16161a;border:1px solid #ffa502;border-radius:16px;width:100%;max-width:400px;padding:1.5rem;">
-        <div style="font-size:1rem;font-weight:700;color:#ffa502;margin-bottom:0.6rem">${t('sss.paper.modal.title')}</div>
+      <div style="background:#16161a;border:1px solid ${isReenroll ? '#ff4757' : '#ffa502'};border-radius:16px;width:100%;max-width:400px;padding:1.5rem;margin:auto;">
+        <div style="font-size:1rem;font-weight:700;color:${isReenroll ? '#ff4757' : '#ffa502'};margin-bottom:0.6rem">${t('sss.paper.modal.title')}</div>
+        ${reenrollBanner}
         <div style="font-size:0.78rem;color:#b0b0c0;line-height:1.6;margin-bottom:1rem">${t('sss.paper.modal.body')}</div>
         <div style="background:#0d0d10;border:1px solid #2a2a35;border-radius:10px;padding:0.85rem;margin-bottom:0.85rem;font-family:monospace;font-size:0.78rem;color:#e8e8f0;word-break:break-all;letter-spacing:0.05em;line-height:1.7">${paperShareHex}</div>
         <div style="display:flex;gap:0.6rem;margin-bottom:1rem">
@@ -1417,26 +1465,31 @@ function showPaperShareModal(paperShareHex) {
           <input type="checkbox" id="_psc_check" style="width:1.1rem;height:1.1rem;accent-color:#6c63ff">
           ${t('sss.paper.confirm')}
         </label>
+        ${check2Html}
         <button id="_psc_done" disabled style="width:100%;padding:0.75rem;border-radius:10px;border:none;background:#333;color:#666;font-size:0.9rem;font-weight:600;cursor:not-allowed">${t('sss.paper.done')}</button>
       </div>`;
     document.body.appendChild(ov);
 
     const copyBtn  = ov.querySelector('#_psc');
     const checkbox = ov.querySelector('#_psc_check');
+    const checkbox2 = ov.querySelector('#_psc_check2');
     const doneBtn  = ov.querySelector('#_psc_done');
+
+    const updateDone = () => {
+      const ok = checkbox.checked && (!checkbox2 || checkbox2.checked);
+      doneBtn.disabled = !ok;
+      doneBtn.style.background = ok ? '#6c63ff' : '#333';
+      doneBtn.style.color      = ok ? '#fff'    : '#666';
+      doneBtn.style.cursor     = ok ? 'pointer' : 'not-allowed';
+    };
 
     copyBtn.addEventListener('click', async () => {
       await navigator.clipboard.writeText(paperShareHex).catch(() => {});
       copyBtn.textContent = t('sss.paper.copied');
     });
 
-    checkbox.addEventListener('change', () => {
-      const ok = checkbox.checked;
-      doneBtn.disabled = !ok;
-      doneBtn.style.background = ok ? '#6c63ff' : '#333';
-      doneBtn.style.color      = ok ? '#fff'    : '#666';
-      doneBtn.style.cursor     = ok ? 'pointer' : 'not-allowed';
-    });
+    checkbox.addEventListener('change', updateDone);
+    checkbox2?.addEventListener('change', updateDone);
 
     doneBtn.addEventListener('click', () => { ov.remove(); resolve(); });
   });
@@ -1675,8 +1728,11 @@ function _showWalletBadge(meta) {
     el.id = 'wallet-badge-vault';
     el.style.cssText = 'display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;opacity:0.75';
     el.innerHTML =
-      `<div style="flex-shrink:0">${_walletBadgeSvg(dna, 32)}</div>` +
-      `<span style="font-size:0.72rem;color:#666;font-family:monospace" title="${dna}">${fp}</span>`;
+      `<div style="flex-shrink:0;border-radius:6px;overflow:hidden">${_walletBadgeSvg(dna, 32)}</div>` +
+      `<div style="min-width:0">` +
+        `<div style="font-weight:600;font-size:0.85rem;color:#e8e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${name}">${name}</div>` +
+        `<div style="font-size:0.68rem;color:#666;font-family:monospace;letter-spacing:0.02em" title="${dna}">${fp}</div>` +
+      `</div>`;
     const firstCard = vaultPanel.querySelector('.card');
     if (firstCard) vaultPanel.insertBefore(el, firstCard);
     else vaultPanel.insertBefore(el, vaultPanel.firstChild);
@@ -1813,6 +1869,34 @@ function _applyVaultJson(meta, vaultText) {
   if (vMatch && parseInt(vMatch[1]) >= 4) {
     const pr = document.getElementById('sss-paper-row');
     if (pr) pr.style.display = '';
+
+    // Auto-restore meta.device from vault if not already set (e.g. after P.json restore).
+    // credentialId/prfSalt are hex strings in vault → convert to number arrays for WebAuthn.
+    if (!meta.device) {
+      try {
+        const _v = JSON.parse(vaultText);
+        const cred = _v.deviceWrap ?? _v.sss?.deviceShare ?? null;
+        if (cred?.credentialId && cred?.prfSalt) {
+          const hexToArr = h => Array.from({ length: h.length / 2 }, (_, i) => parseInt(h.slice(i*2, i*2+2), 16));
+          meta.device = { credentialId: hexToArr(cred.credentialId), prfSalt: hexToArr(cred.prfSalt) };
+        }
+      } catch {}
+    }
+
+    let vaultHasDevice = false;
+    try { const _v = JSON.parse(vaultText); vaultHasDevice = !!((_v.sss?.deviceShare) || _v.deviceWrap); } catch {}
+    const paperLabel = document.querySelector('#sss-paper-row label');
+    if (paperLabel) {
+      if (vaultHasDevice && !meta.device) {
+        paperLabel.style.color = '#ff4757';
+        paperLabel.setAttribute('data-i18n', 'sss.lock.paper.required');
+        paperLabel.textContent = t('sss.lock.paper.required');
+      } else {
+        paperLabel.style.color = '';
+        paperLabel.setAttribute('data-i18n', 'sss.lock.paper.label');
+        paperLabel.textContent = t('sss.lock.paper.label');
+      }
+    }
   }
   if (vMatch && parseInt(vMatch[1]) >= 5 && meta.P?.genesisS) {
     const grr = document.getElementById('genesis-recover-row');
@@ -1841,6 +1925,7 @@ document.getElementById('btn-load-vault')?.addEventListener('click', async () =>
     const vaultFile = await pickFile('.biowallet');
     const encBuf    = await vaultFile.arrayBuffer();
     if (new Uint8Array(encBuf)[0] !== 0x7b) { setMsg(t('msg.invalid.vault.file'), 'error'); return; }
+    meta.walletName = vaultFile.name.replace(/\.biowallet$/i, '').replace(/^.*[/\\]/, '') || meta.walletName;
     _validateAndApplyVault(meta, new TextDecoder().decode(encBuf));
   } catch (e) {
     if (e.message && !e.message.includes('no.file')) setMsg(friendlyError(e.message), 'error');
@@ -1901,10 +1986,11 @@ btnDevice.addEventListener('click', async () => {
     meta.vaultJson = new TextDecoder().decode(encryptedVault);
     localStorage.setItem('biowallet_meta', JSON.stringify(meta));
 
-    // v4/v5 SSS vault: SSS re-split → new paper share, must be shown to user
+    // Legacy v4/old v5: SSS re-split → new paper code (old is now invalid)
+    // New v5: paperShareY is null — paper code unchanged, no modal needed
     if (paperShareY) {
       const paperHex = paperShareY.map(b => b.toString(16).padStart(2, '0')).join('');
-      await showPaperShareModal(paperHex);
+      await showPaperShareModal(paperHex, true);
     }
 
     const walletName = await showSaveModal(encryptedVault, null, 'device', meta.walletName || 'biowallet');
