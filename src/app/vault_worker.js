@@ -168,6 +168,12 @@ async function handle(type, p) {
       return { signature: sig };
     }
 
+    case 'SIGN_TYPED_DATA': {
+      if (!vault) throw new Error('No vault initialised');
+      const sig = await vault.signTypedData(p.typedDataJson);
+      return { signature: sig };
+    }
+
     case 'RECOVERY_FORMULA': {
       if (!vault) throw new Error('No vault initialised');
       const { rawA, r } = await vault.makeRecoveryFormula();

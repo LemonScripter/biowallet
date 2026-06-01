@@ -19,7 +19,7 @@
 
 import { CausalChain, DCCError } from './causal_chain.js?v=11';
 import { fuzzyExtract, fuzzyCommit, fuzzyCommitDeterministic, fuzzyExtractDeterministic } from './fuzzy_extractor.js?v=12';
-import { seedToAddress, signEthTx, signPersonal, mnemonicToSeed, seedToMnemonic } from './wallet.js?v=12';
+import { seedToAddress, signEthTx, signPersonal, signTypedData, mnemonicToSeed, seedToMnemonic } from './wallet.js?v=12';
 import {
   entropyToIndices, fetchRandomOffsets, computeRawPaper,
 } from './recovery_formula.js?v=11';
@@ -642,6 +642,17 @@ class BioVault {
     this.#chain.gate('SIGN', this.#vaultId);
     const seed = fromHex(this.#vaultData.seed);
     const sig  = await signPersonal(message, seed);
+    seed.fill(0);
+    this.lock();
+    return sig;
+  }
+
+  async signTypedData(typedDataJson) {
+    if (!this.#cryptoKey || !this.#vaultData) throw new DCCError('VAULT_LOCKED', 'SIGN');
+    await this._checkGenesis('SIGN_TYPED_DATA');
+    this.#chain.gate('SIGN', this.#vaultId);
+    const seed = fromHex(this.#vaultData.seed);
+    const sig  = await signTypedData(typedDataJson, seed);
     seed.fill(0);
     this.lock();
     return sig;

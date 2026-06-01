@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BioWallet — dApp Connection Guide</title>
+  <style>
+    :root {
+      --bg: #0d0d10; --card: #16161a; --border: #2a2a35;
+      --accent: #6c63ff; --ok: #4CAF50; --warn: #ffa502; --err: #ff4757;
+      --text: #e8e8f0; --muted: #6b6b80;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 0.9rem; line-height: 1.6; padding: 1rem; }
+    .wrap { max-width: 600px; margin: 0 auto; padding-bottom: 3rem; }
+    h1 { font-size: 1.3rem; font-weight: 700; background: linear-gradient(135deg, #6c63ff, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.25rem; }
+    .subtitle { font-size: 0.78rem; color: var(--muted); margin-bottom: 1.5rem; }
+    h2 { font-size: 1rem; font-weight: 700; color: var(--accent); margin: 1.5rem 0 0.6rem; }
+    h3 { font-size: 0.88rem; font-weight: 700; color: var(--warn); margin: 1rem 0 0.4rem; }
+    p { color: #b0b0c0; margin-bottom: 0.6rem; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; margin-bottom: 0.75rem; }
+    .badge { display: inline-block; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-right: 0.4rem; font-family: monospace; }
+    .badge-ok  { background: #0d2b0d; color: var(--ok);   border: 1px solid var(--ok); }
+    .badge-no  { background: #2b0a0a; color: var(--err);  border: 1px solid var(--err); }
+    .badge-met { background: #1a1500; color: var(--warn); border: 1px solid var(--warn); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    th { text-align: left; color: var(--muted); font-weight: 600; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--border); }
+    td { padding: 0.4rem 0.5rem; border-bottom: 1px solid #1e1e24; vertical-align: top; }
+    td:first-child { font-family: monospace; color: #a78bfa; white-space: nowrap; }
+    .step { display: flex; gap: 0.75rem; margin-bottom: 0.6rem; }
+    .step-num { flex-shrink: 0; width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--accent); color: #fff; font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .note { background: #1a1500; border: 1px solid var(--warn); border-radius: 8px; padding: 0.6rem 0.8rem; font-size: 0.78rem; color: #c0a060; margin: 0.5rem 0; }
+    .ok-box { background: #0d2b0d; border: 1px solid var(--ok); border-radius: 8px; padding: 0.6rem 0.8rem; font-size: 0.78rem; color: #80c080; margin: 0.5rem 0; }
+    a { color: var(--accent); }
+    code { font-family: monospace; font-size: 0.82rem; background: #1e1e24; padding: 1px 5px; border-radius: 3px; }
+    #lang-btn { float: right; background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 0.3rem 0.7rem; border-radius: 6px; cursor: pointer; font-size: 0.78rem; }
+    #lang-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .lang-en, .lang-hu { display: none; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <button id="lang-btn" onclick="toggleLang()">HU</button>
+
+  <!-- ── ENGLISH ─────────────────────────────────────── -->
+  <div class="lang-en">
+    <h1>BioWallet — dApp Guide</h1>
+    <p class="subtitle">How to connect decentralised applications via WalletConnect</p>
+
+    <h2>How to connect</h2>
+    <div class="card">
+      <div class="step"><div class="step-num">1</div><div>Open the dApp (e.g. <a href="https://app.uniswap.org" target="_blank">Uniswap</a>, <a href="https://opensea.io" target="_blank">OpenSea</a>, <a href="https://app.aave.com" target="_blank">Aave</a>) in your browser.</div></div>
+      <div class="step"><div class="step-num">2</div><div>Click <strong>Connect Wallet</strong> → select <strong>WalletConnect</strong>.</div></div>
+      <div class="step"><div class="step-num">3</div><div>Copy the <code>wc:...</code> URI shown (or scan the QR code).</div></div>
+      <div class="step"><div class="step-num">4</div><div>In BioWallet tap the <strong>⚡ WalletConnect</strong> button → paste the URI → confirm.</div></div>
+      <div class="step"><div class="step-num">5</div><div>The dApp shows your Ethereum address — connection is live.</div></div>
+    </div>
+    <div class="note">⚠ BioWallet is a PWA, not a browser extension. Only dApps that offer a WalletConnect option are compatible. MetaMask-injection-only sites will not work.</div>
+
+    <h2>Supported operations</h2>
+    <div class="card">
+      <table>
+        <thead><tr><th>Method</th><th>What it does</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>eth_sendTransaction</td><td>Send ETH, ERC-20 transfer, swap, approve, NFT mint</td><td><span class="badge badge-ok">✓</span></td></tr>
+          <tr><td>personal_sign</td><td>Sign-In with Ethereum (SIWE), login proofs</td><td><span class="badge badge-ok">✓</span></td></tr>
+          <tr><td>eth_signTypedData_v4</td><td>EIP-712: Uniswap permit, OpenSea Seaport orders, gasless approvals</td><td><span class="badge badge-ok">✓</span></td></tr>
+          <tr><td>wallet_switchEthereumChain</td><td>dApp switches you to a different network</td><td><span class="badge badge-ok">✓</span></td></tr>
+          <tr><td>wallet_addEthereumChain</td><td>dApp adds a new network to your wallet</td><td><span class="badge badge-ok">✓</span></td></tr>
+          <tr><td>wallet_watchAsset</td><td>dApp adds a token to your token list</td><td><span class="badge badge-ok">✓</span></td></tr>
+          <tr><td>eth_sign</td><td>Legacy raw signing — deliberately disabled (security risk)</td><td><span class="badge badge-no">✗</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Every operation requires face scan</h2>
+    <p>BioWallet never signs anything without your biometric confirmation. When a dApp requests a transaction or signature, the vault opens momentarily for the arc scan, then locks again automatically.</p>
+
+    <h2>Compatible dApps (tested / expected to work)</h2>
+    <div class="card">
+      <table>
+        <thead><tr><th>dApp</th><th>Operations</th></tr></thead>
+        <tbody>
+          <tr><td>Uniswap v2/v3</td><td>Swap, approve, permit</td></tr>
+          <tr><td>OpenSea / Blur</td><td>NFT buy/sell, Seaport orders</td></tr>
+          <tr><td>Aave / Compound</td><td>Deposit, borrow, repay</td></tr>
+          <tr><td>Snapshot</td><td>DAO voting (personal_sign)</td></tr>
+          <tr><td>ENS</td><td>Name registration, renewal</td></tr>
+          <tr><td>Safe (Gnosis)</td><td>Multi-sig proposal signing</td></tr>
+          <tr><td>Rainbow / Zerion</td><td>Portfolio + swap (WC support)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Security notes</h2>
+    <div class="note">⚠ <strong>eth_signTypedData_v4</strong> (EIP-712) signatures can authorise token transfers, marketplace orders, and permit() calls — always verify the domain name and data fields shown in the confirmation modal.</div>
+    <div class="ok-box">✓ Every WalletConnect session requires your face for each individual operation — there is no "always approve" mode.</div>
+  </div>
+
+  <!-- ── HUNGARIAN ────────────────────────────────────── -->
+  <div class="lang-hu">
+    <h1>BioWallet — dApp útmutató</h1>
+    <p class="subtitle">Hogyan csatlakoztasson decentralizált alkalmazásokat WalletConnect-en keresztül</p>
+
+    <h2>Hogyan csatlakozzon</h2>
+    <div class="card">
+      <div class="step"><div class="step-num">1</div><div>Nyissa meg a dApp-ot (pl. <a href="https://app.uniswap.org" target="_blank">Uniswap</a>, <a href="https://opensea.io" target="_blank">OpenSea</a>, <a href="https://app.aave.com" target="_blank">Aave</a>) a böngészőben.</div></div>
+      <div class="step"><div class="step-num">2</div><div>Kattintson a <strong>Connect Wallet</strong> → válassza a <strong>WalletConnect</strong> opciót.</div></div>
+      <div class="step"><div class="step-num">3</div><div>Másolja a megjelenő <code>wc:...</code> URI-t (vagy olvassa be a QR-kódot).</div></div>
+      <div class="step"><div class="step-num">4</div><div>A BioWallet-ben nyomja meg a <strong>⚡ WalletConnect</strong> gombot → illessze be az URI-t → erősítse meg.</div></div>
+      <div class="step"><div class="step-num">5</div><div>A dApp megmutatja az Ethereum-címét — a kapcsolat aktív.</div></div>
+    </div>
+    <div class="note">⚠ A BioWallet PWA, nem böngészőbővítmény. Csak azok a dApp-ok kompatibilisek, amelyek WalletConnect opciót kínálnak. A csak MetaMask-injektálást elfogadó oldalak nem működnek.</div>
+
+    <h2>Támogatott műveletek</h2>
+    <div class="card">
+      <table>
+        <thead><tr><th>Metódus</th><th>Mire való</th><th>Státusz</th></tr></thead>
+        <tbody>
+          <tr><td>eth_sendTransaction</td><td>ETH küldés, ERC-20 transfer, swap, approve, NFT vásárlás</td><td><span class="badge badge-ok">✓</span></td></tr>
+          <tr><td>personal_sign</td><td>Sign-In with Ethereum (SIWE), bejelentkezési aláírás</td><td><span class="badge badge-ok">✓</span></td></tr>
+          <tr><td>eth_signTypedData_v4</td><td>EIP-712: Uniswap permit, OpenSea Seaport megbízások, gasless approve</td><td><span class="badge badge-ok">✓</span></td></tr>
+          <tr><td>wallet_switchEthereumChain</td><td>A dApp más hálózatra vált</td><td><span class="badge badge-ok">✓</span></td></tr>
+          <tr><td>wallet_addEthereumChain</td><td>A dApp új hálózatot ad a wallethez</td><td><span class="badge badge-ok">✓</span></td></tr>
+          <tr><td>wallet_watchAsset</td><td>A dApp tokent ad a token listához</td><td><span class="badge badge-ok">✓</span></td></tr>
+          <tr><td>eth_sign</td><td>Legacy nyers aláírás — szándékosan letiltva (biztonsági kockázat)</td><td><span class="badge badge-no">✗</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Minden művelet arc-scant igényel</h2>
+    <p>A BioWallet soha nem ír alá biometrikus megerősítés nélkül. Amikor a dApp tranzakciót vagy aláírást kér, a vault pillanatnyilag megnyílik az arc-scanhez, majd automatikusan visszazáródik.</p>
+
+    <h2>Kompatibilis dApp-ok (tesztelt / várhatóan működik)</h2>
+    <div class="card">
+      <table>
+        <thead><tr><th>dApp</th><th>Műveletek</th></tr></thead>
+        <tbody>
+          <tr><td>Uniswap v2/v3</td><td>Swap, approve, permit</td></tr>
+          <tr><td>OpenSea / Blur</td><td>NFT vétel/eladás, Seaport megbízások</td></tr>
+          <tr><td>Aave / Compound</td><td>Betét, kölcsön, törlesztés</td></tr>
+          <tr><td>Snapshot</td><td>DAO szavazás (personal_sign)</td></tr>
+          <tr><td>ENS</td><td>Névregisztráció, megújítás</td></tr>
+          <tr><td>Safe (Gnosis)</td><td>Multi-sig javaslat aláírás</td></tr>
+          <tr><td>Rainbow / Zerion</td><td>Portfólió + swap (WC támogatással)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Biztonsági megjegyzések</h2>
+    <div class="note">⚠ Az <strong>eth_signTypedData_v4</strong> (EIP-712) aláírások tokenátutalásokat, piactéri megbízásokat és permit() hívásokat engedélyezhetnek — mindig ellenőrizze a megerősítési modalban megjelenő domain nevet és adatmezőket.</div>
+    <div class="ok-box">✓ Minden WalletConnect session minden egyes műveletnél az arcát kéri — nincs "mindig engedélyez" mód.</div>
+  </div>
+</div>
+
+<script>
+  let lang = navigator.language?.startsWith('hu') ? 'hu' : 'en';
+  function applyLang() {
+    document.querySelectorAll('.lang-en').forEach(el => el.style.display = lang === 'en' ? '' : 'none');
+    document.querySelectorAll('.lang-hu').forEach(el => el.style.display = lang === 'hu' ? '' : 'none');
+    document.getElementById('lang-btn').textContent = lang === 'en' ? 'HU' : 'EN';
+    document.documentElement.lang = lang;
+  }
+  function toggleLang() { lang = lang === 'en' ? 'hu' : 'en'; applyLang(); }
+  applyLang();
+</script>
+</body>
+</html>

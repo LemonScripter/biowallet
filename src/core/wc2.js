@@ -45,8 +45,10 @@ export async function wcApprove(id, address, chainIds) {
     id,
     namespaces: {
       eip155: {
-        methods:  ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4',
-                   'wallet_switchEthereumChain'],
+        methods:  ['eth_sendTransaction', 'personal_sign',
+                   'eth_signTypedData_v4', 'eth_signTypedData',
+                   'wallet_switchEthereumChain', 'wallet_addEthereumChain',
+                   'wallet_watchAsset'],
         chains:   allChains,
         events:   ['accountsChanged', 'chainChanged'],
         accounts: allAccounts,

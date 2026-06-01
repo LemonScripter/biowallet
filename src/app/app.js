@@ -6,7 +6,7 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v32.5b';
+const APP_VERSION = 'v32.5c';
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
 import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=11';
@@ -2348,8 +2348,14 @@ async function dispatchWCRequest(topic, id, params) {
     await handleWCEthSend(topic, id, params.request.params[0]);
   } else if (method === 'personal_sign') {
     await handleWCPersonalSign(topic, id, params.request.params[0]);
+  } else if (method === 'eth_signTypedData_v4' || method === 'eth_signTypedData') {
+    await handleWCTypedSign(topic, id, params.request.params[1]);
   } else if (method === 'wallet_switchEthereumChain') {
     await handleWCSwitchChain(topic, id, params.request.params[0]);
+  } else if (method === 'wallet_addEthereumChain') {
+    await handleWCAddChain(topic, id, params.request.params[0]);
+  } else if (method === 'wallet_watchAsset') {
+    await handleWCWatchAsset(topic, id, params.request.params);
   } else {
     await wcRespondError(topic, id, `Unsupported: ${method}`);
     setMsg(t('msg.wc.unsupported', { method }), 'error');
@@ -2372,6 +2378,127 @@ async function handleWCSwitchChain(topic, id, { chainId: hexChain }) {
   setMsg(t('msg.network.switch', { name: currentNetwork.name }), 'ok');
   const addr = ethAddress.textContent;
   if (addr && addr !== '—') fetchBalance(addr);
+}
+
+// ── Custom token storage ──────────────────────────────────────────────────
+function getCustomTokens(networkKey) {
+  try {
+    const all = JSON.parse(localStorage.getItem('biowallet_custom_tokens') ?? '{}');
+    return all[networkKey] ?? [];
+  } catch { return []; }
+}
+
+function saveCustomToken(networkKey, token) {
+  try {
+    const all = JSON.parse(localStorage.getItem('biowallet_custom_tokens') ?? '{}');
+    const existing = all[networkKey] ?? [];
+    if (!existing.find(t => t.address.toLowerCase() === token.address.toLowerCase())) {
+      all[networkKey] = [...existing, token];
+      localStorage.setItem('biowallet_custom_tokens', JSON.stringify(all));
+    }
+  } catch {}
+}
+
+async function handleWCAddChain(topic, id, chainParams) {
+  const chainId   = parseInt(chainParams.chainId, 16);
+  const existing  = getAllNetworks().find(n => n.chainId === chainId);
+  if (existing) {
+    // Chain already known — just switch
+    currentNetwork = existing;
+    btnNetwork.textContent = currentNetwork.name;
+    btnNetwork.classList.toggle('mainnet', !currentNetwork.testnet);
+    await wcRespondOk(topic, id, null);
+    await wcEmitChainChanged(topic, currentNetwork.chainId);
+    return;
+  }
+
+  const approved = await showWCAddChainModal(chainParams);
+  if (!approved) { await wcRespondError(topic, id); return; }
+
+  const net = {
+    key:      `custom_${chainId}`,
+    name:     chainParams.chainName ?? `Chain ${chainId}`,
+    chainId,
+    rpc:      chainParams.rpcUrls?.[0] ?? '',
+    symbol:   chainParams.nativeCurrency?.symbol ?? 'ETH',
+    decimals: chainParams.nativeCurrency?.decimals ?? 18,
+    explorer: chainParams.blockExplorerUrls?.[0] ?? '',
+    testnet:  false,
+  };
+  saveCustomNetwork(net);
+  currentNetwork = net;
+  btnNetwork.textContent = currentNetwork.name;
+  btnNetwork.classList.toggle('mainnet', !currentNetwork.testnet);
+  await wcRespondOk(topic, id, null);
+  await wcEmitChainChanged(topic, currentNetwork.chainId);
+  setMsg(t('msg.wc.chain.added', { name: net.name }), 'ok');
+  updateTokenSelector();
+}
+
+async function handleWCWatchAsset(topic, id, params) {
+  // params can be object {type,options} or array [{type,options}]
+  const p = Array.isArray(params) ? params[0] : params;
+  if (p?.type !== 'ERC20' || !p?.options?.address) {
+    await wcRespondError(topic, id, 'Only ERC20 supported');
+    return;
+  }
+  const { address, symbol, decimals, image } = p.options;
+  const approved = await showWCWatchAssetModal({ address, symbol, decimals: decimals ?? 18, image });
+  if (!approved) { await wcRespondError(topic, id, 'User rejected'); return; }
+
+  saveCustomToken(currentNetwork.key, { symbol, address, decimals: decimals ?? 18 });
+  updateTokenSelector();
+  await wcRespondOk(topic, id, true);
+  setMsg(t('msg.wc.asset.added', { sym: symbol }), 'ok');
+}
+
+function showWCAddChainModal(p) {
+  return new Promise(resolve => {
+    const chainId = parseInt(p.chainId, 16);
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;';
+    ov.innerHTML = `
+      <div style="background:#16161a;border:1px solid #6c63ff;border-radius:16px;width:100%;max-width:380px;padding:1.5rem;">
+        <div style="font-size:1rem;font-weight:700;color:#6c63ff;margin-bottom:0.75rem;">${t('wc.addchain.title')}</div>
+        <div style="background:#1e1e24;border:1px solid #2a2a35;border-radius:10px;padding:0.75rem;margin-bottom:0.9rem;font-size:0.82rem;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem"><span style="color:#888">${t('wc.addchain.name')}</span><span style="color:#e8e8f0;font-weight:600">${p.chainName ?? '—'}</span></div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem"><span style="color:#888">Chain ID</span><span style="color:#e8e8f0;font-family:monospace">${chainId}</span></div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem"><span style="color:#888">${t('wc.addchain.symbol')}</span><span style="color:#e8e8f0">${p.nativeCurrency?.symbol ?? '—'}</span></div>
+          <div style="color:#888;margin-top:0.4rem;font-size:0.7rem;word-break:break-all">${p.rpcUrls?.[0] ?? ''}</div>
+        </div>
+        <div style="display:flex;gap:0.75rem;">
+          <button id="_wcac_rej" style="flex:1;padding:0.7rem;border-radius:10px;border:1px solid #2a2a35;background:#1e1e24;color:#e8e8f0;font-size:0.85rem;font-weight:600;cursor:pointer;">${t('wc.sign.reject')}</button>
+          <button id="_wcac_ok" style="flex:1;padding:0.7rem;border-radius:10px;border:none;background:#6c63ff;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;">${t('wc.addchain.add')}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    ov.querySelector('#_wcac_rej').onclick = () => { ov.remove(); resolve(false); };
+    ov.querySelector('#_wcac_ok').onclick  = () => { ov.remove(); resolve(true); };
+  });
+}
+
+function showWCWatchAssetModal({ address, symbol, decimals, image }) {
+  return new Promise(resolve => {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;';
+    const imgHtml = image ? `<img src="${image}" style="width:32px;height:32px;border-radius:50%;margin-right:0.5rem;vertical-align:middle" onerror="this.style.display='none'">` : '';
+    ov.innerHTML = `
+      <div style="background:#16161a;border:1px solid #4CAF50;border-radius:16px;width:100%;max-width:360px;padding:1.5rem;">
+        <div style="font-size:1rem;font-weight:700;color:#4CAF50;margin-bottom:0.75rem;">${t('wc.watchasset.title')}</div>
+        <div style="background:#1e1e24;border:1px solid #2a2a35;border-radius:10px;padding:0.75rem;margin-bottom:0.9rem;">
+          <div style="font-size:1rem;font-weight:700;color:#e8e8f0;margin-bottom:0.3rem;">${imgHtml}${symbol ?? '—'}</div>
+          <div style="font-size:0.72rem;color:#888;word-break:break-all">${address}</div>
+          <div style="font-size:0.72rem;color:#888;margin-top:0.2rem">${t('wc.watchasset.decimals')}: ${decimals}</div>
+        </div>
+        <div style="display:flex;gap:0.75rem;">
+          <button id="_wcwa_rej" style="flex:1;padding:0.7rem;border-radius:10px;border:1px solid #2a2a35;background:#1e1e24;color:#e8e8f0;font-size:0.85rem;font-weight:600;cursor:pointer;">${t('wc.sign.reject')}</button>
+          <button id="_wcwa_ok" style="flex:1;padding:0.7rem;border-radius:10px;border:none;background:#4CAF50;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;">${t('wc.watchasset.add')}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    ov.querySelector('#_wcwa_rej').onclick = () => { ov.remove(); resolve(false); };
+    ov.querySelector('#_wcwa_ok').onclick  = () => { ov.remove(); resolve(true); };
+  });
 }
 
 async function handleWCEthSend(topic, id, wcTx) {
@@ -2467,6 +2594,74 @@ async function handleWCPersonalSign(topic, id, hexMsg) {
   }
 }
 
+async function handleWCTypedSign(topic, id, typedDataJson) {
+  if (cooldownMs() > 0) { await wcRespondError(topic, id, 'Cooldown active'); return; }
+
+  const approved = await showWCTypedSignModal(typedDataJson);
+  if (!approved) { await wcRespondError(topic, id); return; }
+
+  try {
+    await _ensureCameraForScan();
+    setScanning(true);
+    setMsg(t('msg.signing.msg'), '');
+    const meta      = JSON.parse(localStorage.getItem('biowallet_meta'));
+    const embedding = await captureEmbedding(video);
+    await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
+    bioSuccess();
+    const { signature } = await callWorker('SIGN_TYPED_DATA', { typedDataJson });
+    setScanning(false);
+    await wcRespondOk(topic, id, signature);
+    setMsg(t('msg.wc.typed.signed'), 'ok');
+  } catch (e) {
+    setScanning(false);
+    if (e.message?.includes('BIO_MISMATCH') || e.message?.includes('GENESIS_MISMATCH')) bioFail();
+    await wcRespondError(topic, id, e.message);
+    setMsg(friendlyError(e.message) + bioFailHint(), 'error');
+  }
+}
+
+function showWCTypedSignModal(typedDataJson) {
+  return new Promise(resolve => {
+    let parsed = null;
+    try { parsed = JSON.parse(typedDataJson); } catch {}
+
+    const domainName  = parsed?.domain?.name   ?? '—';
+    const primaryType = parsed?.primaryType     ?? '—';
+    const msgEntries  = parsed?.message ? Object.entries(parsed.message) : [];
+    const msgHtml = msgEntries.slice(0, 8).map(([k, v]) => {
+      const val = typeof v === 'object' ? JSON.stringify(v) : String(v);
+      const short = val.length > 42 ? val.slice(0, 42) + '…' : val;
+      return `<tr><td style="color:#888;padding:0.15rem 0.5rem 0.15rem 0;font-size:0.72rem;white-space:nowrap">${k}</td><td style="color:#e8e8f0;font-size:0.72rem;word-break:break-all;font-family:monospace">${short}</td></tr>`;
+    }).join('');
+
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:2000;display:flex;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto;';
+    ov.innerHTML = `
+      <div style="background:#16161a;border:1px solid #ffa502;border-radius:16px;width:100%;max-width:400px;padding:1.5rem;margin:auto;">
+        <div style="font-size:1rem;font-weight:700;color:#ffa502;margin-bottom:0.25rem;">${t('wc.typed.title')}</div>
+        <div style="font-size:0.78rem;color:#6b6b80;margin-bottom:0.9rem;">${t('wc.typed.desc')}</div>
+        <div style="background:#1e1e24;border:1px solid #2a2a35;border-radius:10px;padding:0.75rem;margin-bottom:0.75rem;">
+          <div style="font-size:0.72rem;color:#888;margin-bottom:0.25rem;">${t('wc.typed.domain')}</div>
+          <div style="font-size:0.88rem;font-weight:600;color:#e8e8f0;">${domainName}</div>
+          <div style="font-size:0.72rem;color:#6c63ff;margin-top:0.2rem;">${primaryType}</div>
+        </div>
+        ${msgHtml ? `
+        <div style="background:#1e1e24;border:1px solid #2a2a35;border-radius:10px;padding:0.75rem;margin-bottom:0.9rem;overflow-x:auto;">
+          <div style="font-size:0.72rem;color:#888;margin-bottom:0.4rem;">${t('wc.typed.fields')}</div>
+          <table style="border-collapse:collapse;width:100%">${msgHtml}</table>
+        </div>` : ''}
+        <div style="font-size:0.72rem;color:#ff4757;margin-bottom:0.9rem;">${t('wc.typed.warn')}</div>
+        <div style="display:flex;gap:0.75rem;">
+          <button id="_wcts_reject" style="flex:1;padding:0.7rem;border-radius:10px;border:1px solid #2a2a35;background:#1e1e24;color:#e8e8f0;font-size:0.85rem;font-weight:600;cursor:pointer;">${t('wc.sign.reject')}</button>
+          <button id="_wcts_ok" style="flex:1;padding:0.7rem;border-radius:10px;border:none;background:#ffa502;color:#000;font-size:0.85rem;font-weight:600;cursor:pointer;">${t('wc.typed.sign')}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    ov.querySelector('#_wcts_reject').onclick = () => { ov.remove(); resolve(false); };
+    ov.querySelector('#_wcts_ok').onclick     = () => { ov.remove(); resolve(true); };
+  });
+}
+
 // ── WC modals ─────────────────────────────────────────────────────────────
 
 function showWCPairModal() {
@@ -2510,9 +2705,10 @@ function showWCProposalModal(meta) {
         <div style="font-size:1rem;font-weight:700;color:#e8e8f0;margin-bottom:0.25rem;">${meta.name ?? t('wc.proposal.unknown')}</div>
         <div style="font-size:0.75rem;color:#6b6b80;margin-bottom:0.25rem;">${meta.url ?? ''}</div>
         <div style="font-size:0.78rem;color:#a0a0b0;margin-bottom:1rem;line-height:1.5;">${meta.description ?? ''}</div>
-        <div style="font-size:0.75rem;color:#6b6b80;padding:0.5rem 0.7rem;background:#1e1e24;border-radius:8px;margin-bottom:1rem;line-height:1.5;">
+        <div style="font-size:0.75rem;color:#6b6b80;padding:0.5rem 0.7rem;background:#1e1e24;border-radius:8px;margin-bottom:0.75rem;line-height:1.5;">
           ${t('wc.proposal.info')}
         </div>
+        <a href="/dapp-guide.html" target="_blank" rel="noopener" style="display:block;text-align:center;font-size:0.75rem;color:#6c63ff;margin-bottom:0.9rem;">↗ ${t('wc.proposal.guide.link')}</a>
         <div style="display:flex;gap:0.75rem;">
           <button id="_wc_reject" style="flex:1;padding:0.7rem;border-radius:10px;border:1px solid #5a2020;background:#2b0a0a;color:#ff4757;font-size:0.85rem;font-weight:600;cursor:pointer;">${t('wc.proposal.reject')}</button>
           <button id="_wc_approve" style="flex:1;padding:0.7rem;border-radius:10px;border:none;background:#6c63ff;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;">${t('wc.proposal.approve')}</button>
@@ -2557,7 +2753,7 @@ function showWCSignModal(hexMsg) {
 
 function updateTokenSelector() {
   const sym    = currentNetwork.nativeSymbol ?? 'ETH';
-  const tokens = TOKEN_LIST[currentNetwork.key] ?? [];
+  const tokens = [...(TOKEN_LIST[currentNetwork.key] ?? []), ...getCustomTokens(currentNetwork.key)];
   tokenSelector.innerHTML = '';
 
   for (const tok of [{ symbol: sym }, ...tokens]) {

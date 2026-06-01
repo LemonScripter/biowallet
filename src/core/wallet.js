@@ -84,3 +84,17 @@ export async function signPersonal(hexMessage, seedBytes) {
     : hexMessage;
   return wallet.signMessage(bytes);
 }
+
+/** eth_signTypedData_v4 — EIP-712 typed data signing. */
+export async function signTypedData(typedDataJson, seedBytes) {
+  const e      = eth();
+  const hex    = '0x' + Array.from(seedBytes).map(b => b.toString(16).padStart(2,'0')).join('');
+  const wallet = new e.Wallet(e.HDNodeWallet.fromSeed(hex).derivePath(ETH_PATH).privateKey);
+
+  const { domain, types, message, primaryType } = JSON.parse(typedDataJson);
+
+  // ethers v6 signTypedData rejects EIP712Domain in types
+  const { EIP712Domain: _removed, ...filteredTypes } = types;
+
+  return wallet.signTypedData(domain, filteredTypes, message);
+}
