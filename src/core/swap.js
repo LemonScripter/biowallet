@@ -1,23 +1,19 @@
 /**
- * BioWallet — 1inch Swap Module (Phase 1: native → ERC-20)
+ * BioWallet — Swap Module (Paraswap v5, Phase 1: native → ERC-20)
  *
- * Csak native token (ETH/BNB/POL…) → ERC-20 swapot kezel.
- * ERC-20 → bármi (approval flow) = Phase 2.
- *
- * Fee: 0.15% a TREASURY címre (ha be van állítva).
- * Slippage: max 1% (MEV-sandwich védelem).
+ * Paraswap ingyenes, nincs API kulcs. Partner fee: 0.15% a TREASURY-re.
+ * ERC-20 → bármi (approval) = Phase 2.
  */
 
-const INCH_BASE   = 'https://api.1inch.io/v5.2';
-const INCH_ROUTER = '0x1111111254EEB25477B68fb85Ed929f73A960582';
+const PARASWAP   = 'https://apiv5.paraswap.io';
+const PARTNER_ID = 'biowallet';
 export const ETH_ADDR = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
 
-// ── Treasury cím (Arbitrum One ajánlott — set before production) ──────────
-export const TREASURY = '';   // pl. '0xYourTreasuryAddress'
-const FEE_PCT         = 0.15; // 0.15%
-const MAX_SLIPPAGE    = 1;    // 1% hard cap
+// ── Treasury cím — set before production ─────────────────────────────────
+export const TREASURY = '';  // pl. '0xYourArbitrumTreasuryAddress'
+const FEE_BPS         = 15; // 0.15% in basis points
+const MAX_SLIPPAGE    = 1;  // 1% hard cap
 
-// Támogatott chainId-k (1inch v5.2)
 const SUPPORTED = new Set([1, 56, 137, 42161, 8453, 10, 43114]);
 
 export function isSwapSupported(chainId) {
@@ -25,71 +21,73 @@ export function isSwapSupported(chainId) {
 }
 
 /**
- * Quote lekérés — nem indít tranzakciót.
- * Visszaad: { outputAmount: string (wei), outputSymbol, outputDecimals }
- */
-export async function getSwapQuote(chainId, fromToken, toToken, amountWei) {
-  const url = new URL(`${INCH_BASE}/${chainId}/quote`);
-  url.searchParams.set('fromTokenAddress', fromToken);
-  url.searchParams.set('toTokenAddress',   toToken);
-  url.searchParams.set('amount',           amountWei);
-  const res = await fetch(url);
-  if (!res.ok) {
-    const e = await res.json().catch(() => ({}));
-    throw new Error(e.description ?? `1inch quote error ${res.status}`);
-  }
-  const d = await res.json();
-  return {
-    outputAmount:   d.toTokenAmount,
-    outputSymbol:   d.toToken?.symbol   ?? '?',
-    outputDecimals: d.toToken?.decimals ?? 18,
-  };
-}
-
-/**
- * Swap TX felépítése — ezt kell aláírni és broadcastolni.
+ * buildSwapTx — quote + TX felépítés egy lépésben.
  * Visszaad: { tx, outputAmount, outputSymbol, outputDecimals }
- * tx.to === INCH_ROUTER (ellenőrzött)
  */
 export async function buildSwapTx(chainId, toToken, amountWei, fromAddress, slippage = 1) {
   const clampedSlippage = Math.min(slippage, MAX_SLIPPAGE);
-  const url = new URL(`${INCH_BASE}/${chainId}/swap`);
-  url.searchParams.set('fromTokenAddress', ETH_ADDR);
-  url.searchParams.set('toTokenAddress',   toToken);
-  url.searchParams.set('amount',           amountWei);
-  url.searchParams.set('fromAddress',      fromAddress);
-  url.searchParams.set('slippage',         clampedSlippage);
-  url.searchParams.set('disableEstimate',  'true');
+
+  // 1. lépés: priceRoute lekérése
+  const priceUrl = new URL(`${PARASWAP}/prices`);
+  priceUrl.searchParams.set('srcToken',    ETH_ADDR);
+  priceUrl.searchParams.set('destToken',   toToken);
+  priceUrl.searchParams.set('amount',      amountWei);
+  priceUrl.searchParams.set('srcDecimals', '18');
+  priceUrl.searchParams.set('network',     chainId);
+  priceUrl.searchParams.set('side',        'SELL');
+  if (TREASURY) priceUrl.searchParams.set('partner', PARTNER_ID);
+
+  const priceRes = await fetch(priceUrl);
+  if (!priceRes.ok) {
+    const e = await priceRes.json().catch(() => ({}));
+    throw new Error(e.error ?? `Paraswap quote: ${priceRes.status}`);
+  }
+  const { priceRoute } = await priceRes.json();
+
+  // 2. lépés: TX felépítése
+  const slippageBps = Math.round(clampedSlippage * 100);
+  const body = {
+    srcToken:   ETH_ADDR,
+    destToken:  toToken,
+    srcAmount:  amountWei,
+    destAmount: priceRoute.destAmount,
+    priceRoute,
+    userAddress: fromAddress,
+    slippage:   slippageBps,
+  };
   if (TREASURY) {
-    url.searchParams.set('referrerAddress', TREASURY);
-    url.searchParams.set('fee',             FEE_PCT);
+    body.partner        = PARTNER_ID;
+    body.partnerAddress = TREASURY;
+    body.partnerFeeBps  = FEE_BPS;
   }
 
-  const res = await fetch(url);
-  if (!res.ok) {
-    const e = await res.json().catch(() => ({}));
-    throw new Error(e.description ?? `1inch swap error ${res.status}`);
-  }
-  const d = await res.json();
+  const txUrl = new URL(`${PARASWAP}/transactions/${chainId}`);
+  txUrl.searchParams.set('ignoreGasEstimate', 'true');
 
-  if (d.tx?.to?.toLowerCase() !== INCH_ROUTER.toLowerCase()) {
-    throw new Error('1inch: unexpected router address');
+  const txRes = await fetch(txUrl, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(body),
+  });
+  if (!txRes.ok) {
+    const e = await txRes.json().catch(() => ({}));
+    throw new Error(e.error ?? `Paraswap build TX: ${txRes.status}`);
   }
+  const d = await txRes.json();
 
   return {
     tx: {
-      to:       d.tx.to,
-      value:    d.tx.value,
-      data:     d.tx.data,
-      gasLimit: d.tx.gas ? Math.ceil(d.tx.gas * 1.25).toString() : undefined,
+      to:       d.to,
+      value:    d.value ?? '0',
+      data:     d.data,
+      gasLimit: d.gas ? Math.ceil(Number(d.gas) * 1.25).toString() : '400000',
     },
-    outputAmount:   d.toTokenAmount,
-    outputSymbol:   d.toToken?.symbol   ?? '?',
-    outputDecimals: d.toToken?.decimals ?? 18,
+    outputAmount:   priceRoute.destAmount,
+    outputSymbol:   priceRoute.destToken?.symbol   ?? '?',
+    outputDecimals: priceRoute.destDecimals         ?? 18,
   };
 }
 
-/** Wei-ből ember-olvasható (max 6 tizedesjegy) */
 export function formatOutput(amountWei, decimals) {
   const val = Number(BigInt(amountWei)) / 10 ** decimals;
   return val < 0.000001 ? '<0.000001' : val.toLocaleString('en', { maximumFractionDigits: 6 });
