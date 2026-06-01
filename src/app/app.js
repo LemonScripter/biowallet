@@ -14,7 +14,7 @@ import {
   WC_PROJECT_ID, initWC, wcPair, wcApprove, wcRejectProposal, wcEmitChainChanged,
   wcRespondOk, wcRespondError, wcGetSessions, wcDisconnect, wcReady,
 } from '../core/wc2.js';
-import { isSwapSupported, getSwapQuote, buildSwapTx, formatOutput, ETH_ADDR } from '../core/swap.js';
+import { isSwapSupported, buildSwapTx, formatOutput, ETH_ADDR } from '../core/swap.js';
 import {
   BUILTIN_NETWORKS, getAllNetworks, saveCustomNetwork, deleteCustomNetwork,
   getBalance, getNonce,
