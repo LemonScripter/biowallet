@@ -1,5 +1,5 @@
-# BioWallet v32.3 — Canonical File Hashes (self-heal + all camera-await + cooldown UX)
-# Date: 2026-05-31
+# BioWallet v32.5b — Canonical File Hashes
+# Date: 2026-06-01
 # Verify: sha256sum -c checksums.txt
 #
 # The constitution anchor is spec/biowallet.bio.
@@ -7,7 +7,7 @@
 
 793cac74939d658e3cebde0e8066b2ac754ab34e9c85657043c5f58a0a1866e2  spec/biowallet.bio
 23c5605f37a1c5fdc95c6b67695ac1116aa4c39cf6241c84bbc5baf4c4efebfb  src/core/causal_chain.js
-e7873456f9cbfac6b441ed574513745c329048f2eb1bfc511f2b17787c33b524  src/core/vault.js
+77ba8c24060829d60116ded9005ce1235ef6e07d6ea18ea05d45a8e0e1e86c89  src/core/vault.js
 f0b77111a307f8582a4ae7402fd28ab96e0575904253a1067cf07a3674d26b96  src/core/sss.js
 9a6912650e4780e8de8d078ce626a0cd1019a03f27599e1e2af25a166aa97876  src/core/fuzzy_extractor.js
 be9ba29ec7f15ba7606aad6f646dd23153b16a8df2f006f45bd69b64ddee39cb  src/core/wallet.js
@@ -15,9 +15,9 @@ c5fb3b5b0e0949308c07a4f0390729cff8eed494180a12153738f23f0d5bec52  src/core/recov
 4f909a0d72798ee7d9d07d76acdcebbc7cf9867c33f18990130c6f5aad34149c  src/core/bio_capture.js
 3b0114e13dd677dad7da042d30e8c43c1ae95d8b1d2eca05d143b0d64efb8518  src/core/rpc.js
 c61e3a591b8b2586c37492427ad750092bbf5e74df44bbf3cfd241e61d4aac1b  src/core/wc2.js
-791eead18f279dfd8361979ce91a43c949358a428e644b9d4cf0c782f197d17f  src/core/i18n.js
+c2b844c3ea93f06f9a72d867a0b27a5c45425e776238314598b7e8709c2b0cef  src/core/i18n.js
 ef070710b416348df248f46aed4fafee844271cf6d189bd625696340a03145bb  src/app/vault_worker.js
-afcab855f9573dc3e5bc1969d8760b440604e778c6202f016c7cabd076280414  src/app/app.js
-37758520f09b97f7ea5096018584fe9c903e76c4bb717f41f665eb7e84d4ff58  src/app/sw.js
-76ed1624c906d0d2c86652f19e53f1772ed774c391609cd3d352017855e51d8c  src/app/index.html
+bef3053c0b4f151a60c72abaa85efa98ecd5cc430996a646a6bdc356c8048d35  src/app/app.js
+deb66d55a22cb549cc70f50f1a40bb1eafb6d705091bfd4a60862e6dd0a588ca  src/app/sw.js
+0fd376df321401d917c93009748ce375c4571fe537e6ab06613e5f0d472bde0e  src/app/index.html
 a9a2269d6ef5c573911f0e1150800026066d7fed9ba7096abd382b99524787bf  recovery_tool.html
