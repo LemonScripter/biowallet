@@ -8,3 +8,4 @@ function applyLang() {
 }
 function toggleLang() { lang = lang === 'en' ? 'hu' : 'en'; applyLang(); }
 applyLang();
+document.getElementById('lang-btn').addEventListener('click', toggleLang);
