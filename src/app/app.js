@@ -2879,7 +2879,7 @@ async function _executeSwap(swapResult) {
       maxPriorityFeePerGas: feeData.maxPriorityFeePerGas.toString(),
     };
 
-    const fingerprint = await callWorker('COMMIT_TX', { tx });
+    const { fingerprint } = await callWorker('COMMIT_TX', { tx });
     const confirmed = await _showSwapConfirm(tx, swapResult, fingerprint);
     if (!confirmed) { await callWorker('CANCEL_TX'); return; }
 
