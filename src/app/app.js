@@ -3386,6 +3386,7 @@ function _switchNetwork(net) {
   btnNetwork.textContent = currentNetwork.name;
   btnNetwork.classList.toggle('mainnet', !currentNetwork.testnet);
   updateTokenSelector();
+  if (vaultReady) swapRow.style.display = isSwapSupported(currentNetwork.chainId) ? '' : 'none';
   const addr = ethAddress.textContent;
   if (addr && addr !== '—') fetchBalance(addr);
 }
