@@ -10,7 +10,7 @@ const PARTNER_ID = 'biowallet';
 export const ETH_ADDR = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
 
 // ── Treasury cím — set before production ─────────────────────────────────
-export const TREASURY = '';  // pl. '0xYourArbitrumTreasuryAddress'
+export const TREASURY = '0x4368F0bF9201118bD19b62fB68bFcbaC4B61B7Eb';
 const FEE_BPS         = 15; // 0.15% in basis points
 const MAX_SLIPPAGE    = 1;  // 1% hard cap
 
