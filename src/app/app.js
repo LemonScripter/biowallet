@@ -6,6 +6,8 @@
  * Confirm overlay before every send.
  */
 
+const APP_VERSION = 'v32.5';
+
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
 import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=11';
 import {
@@ -147,6 +149,9 @@ function _refreshDynamicLabels() {
 
 // ── Init ──────────────────────────────────────────────────────────────────
 (async () => {
+  const verEl = document.getElementById('app-version');
+  if (verEl) verEl.textContent = APP_VERSION;
+
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/app/sw.js').catch(() => {});
     navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -1124,7 +1129,6 @@ btnScan.addEventListener('click', async () => {
   try {
     const embedding = await captureEmbedding(video);
     await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
-    bioSuccess();
 
     // Try device factor if this vault has one registered on this device
     let devicePrf = null;
@@ -1167,6 +1171,7 @@ btnScan.addEventListener('click', async () => {
       [encBuf]
     );
 
+    bioSuccess(); // csak sikeres vault nyitás után nullázzuk a bf számlálót
     ethAddress.textContent = address;
     fetchBalance(address);
     updateTokenSelector();
@@ -1495,6 +1500,26 @@ function showPaperShareModal(paperShareHex, isReenroll = false) {
   });
 }
 
+// ── Genesis recover preflight confirmation ────────────────────────────────
+function showGenesisRecoverPreflight() {
+  return new Promise(resolve => {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:2000;display:flex;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto;';
+    ov.innerHTML = `
+      <div style="background:#1a1a2e;border:2px solid #ff4757;border-radius:16px;padding:1.5rem;max-width:400px;width:100%;margin:auto;">
+        <div style="font-size:1rem;font-weight:700;color:#ff4757;margin-bottom:1rem;">${t('genesis.recover.preflight.title')}</div>
+        <div style="font-size:0.82rem;color:#c0c0d0;line-height:1.8;white-space:pre-line;margin-bottom:1.25rem;">${t('genesis.recover.preflight.body')}</div>
+        <div style="display:flex;gap:0.75rem;">
+          <button id="_grp_cancel" style="flex:1;padding:0.75rem;border-radius:10px;border:1px solid #2a2a35;background:#1e1e24;color:#e8e8f0;font-size:0.9rem;font-weight:600;cursor:pointer;">${t('genesis.recover.preflight.cancel')}</button>
+          <button id="_grp_ok" style="flex:1;padding:0.75rem;border-radius:10px;border:none;background:#ff4757;color:#fff;font-size:0.9rem;font-weight:600;cursor:pointer;">${t('genesis.recover.preflight.ok')}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    ov.querySelector('#_grp_cancel').onclick = () => { ov.remove(); resolve(false); };
+    ov.querySelector('#_grp_ok').onclick     = () => { ov.remove(); resolve(true); };
+  });
+}
+
 // ── Genesis recover modal (shows 24-word mnemonic after face recovery) ───
 function showGenesisRecoverModal(mnemonic) {
   return new Promise(resolve => {
@@ -1515,8 +1540,38 @@ function showGenesisRecoverModal(mnemonic) {
         </div>
       </div>`;
     document.body.appendChild(ov);
-    ov.querySelector('#_gr_copy').onclick  = () => navigator.clipboard.writeText(mnemonic).catch(() => {});
-    ov.querySelector('#_gr_close').onclick = () => { ov.remove(); resolve(); };
+    const copyBtn = ov.querySelector('#_gr_copy');
+    copyBtn.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(mnemonic);
+        copyBtn.textContent = t('genesis.recover.copy.ok');
+        copyBtn.style.borderColor = '#4CAF50';
+        copyBtn.style.color = '#4CAF50';
+      } catch {
+        // Fallback: select a temporary textarea
+        const ta = document.createElement('textarea');
+        ta.value = mnemonic;
+        ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (ok) {
+          copyBtn.textContent = t('genesis.recover.copy.ok');
+          copyBtn.style.borderColor = '#4CAF50';
+          copyBtn.style.color = '#4CAF50';
+        } else {
+          copyBtn.textContent = t('genesis.recover.copy.fail');
+          copyBtn.style.borderColor = '#ff4757';
+          copyBtn.style.color = '#ff4757';
+        }
+      }
+    };
+    ov.querySelector('#_gr_close').onclick = () => {
+      ov.remove();
+      navigator.clipboard?.writeText('').catch(() => {});
+      resolve();
+    };
   });
 }
 
@@ -1536,6 +1591,9 @@ document.getElementById('btn-genesis-recover')?.addEventListener('click', async 
     if (lvr) lvr.style.display = '';
     return;
   }
+
+  const confirmed = await showGenesisRecoverPreflight();
+  if (!confirmed) return;
 
   await _ensureCameraForScan();
   setScanning(true);
@@ -1562,7 +1620,12 @@ document.getElementById('btn-genesis-recover')?.addEventListener('click', async 
     await showGenesisRecoverModal(mnemonic);
     setMsg(t('msg.genesis.recover.done'), 'ok');
   } catch (e) {
-    setMsg(friendlyError(e.message), 'error');
+    if (e.message.includes('GENESIS_DECODE_FAIL') || e.message.includes('GENESIS_MISMATCH')) {
+      bioFail();
+      setMsg(t('err.genesis.recover.fail') + bioFailHint(), 'error');
+    } else {
+      setMsg(friendlyError(e.message), 'error');
+    }
   }
 });
 

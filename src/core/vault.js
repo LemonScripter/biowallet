@@ -796,19 +796,19 @@ class BioVault {
     try {
       const faceKey   = await deriveKey(newR, newSalt, null);
       const faceShare = { x: shares[0].x, ...await wrapBytes(faceKey, shares[0].y) };
+      // shares[1] (x=2) discarded — device uses deviceWrap (direct K-wrap) instead
+      const paperShareY = shares[2].y.slice();
 
-      let deviceShare = null;
+      // Device: direct vault key wrap — enrollDevice can update without changing paper
+      let deviceWrap = null;
       if (devicePrf && credentialId && prfSalt) {
         const devKey = await deriveKeyDevice(newR, new Uint8Array(devicePrf), newSalt);
-        deviceShare  = {
-          x: shares[1].x,
-          ...await wrapBytes(devKey, shares[1].y),
+        deviceWrap = {
+          ...await wrapBytes(devKey, this.#vaultKeyRaw),
           credentialId: toHex(new Uint8Array(credentialId)),
           prfSalt:      toHex(new Uint8Array(prfSalt)),
         };
       }
-
-      const paperShareY = shares[2].y.slice();
 
       const vault    = this.#vaultFormat;
       const chain    = vault.dna_chain;
@@ -819,7 +819,8 @@ class BioVault {
       );
       chain.push(entry);
       vault.salt           = toHex(newSalt);
-      vault.sss            = { faceShare, deviceShare, paperX: 3 };
+      vault.sss            = { faceShare, paperX: 3 };
+      vault.deviceWrap     = deviceWrap;
       vault.genesis_backup = { gbSalt: toHex(gbSalt), gbIv: toHex(gbIv), gbCt: toHex(new Uint8Array(gbCtBuf)) };
 
       this.#faceR = newR.slice();

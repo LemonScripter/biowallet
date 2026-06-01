@@ -712,7 +712,7 @@
 </div>
 
 <header>
-  <span class="logo">BioWallet</span>
+  <span class="logo">BioWallet<span id="app-version" style="display:block;font-size:0.6rem;font-weight:500;letter-spacing:0.04em;opacity:0.6;-webkit-text-fill-color:#a78bfa;margin-top:-0.1rem;"></span></span>
   <div class="header-actions">
     <a id="btn-security-compare" href="/docs/security_comparison_en.html" class="help-btn" target="_blank" rel="noopener" data-i18n="header.security" data-i18n-href="header.security.href">↗ Security</a>
     <button id="btn-lang" class="help-btn" data-i18n="lang.switch">EN</button>
@@ -967,12 +967,15 @@
       <button class="help-btn" id="btn-sss-info" title="Mi ez?">ℹ</button>
     </div>
 
-    <div class="btn-row" id="reenroll-row" style="display:none">
-      <button class="btn btn-ghost" id="btn-reenroll">
-        <span data-i18n="btn.reenroll">Arc profil frissítése</span>
-        <small data-i18n="btn.reenroll.sub">Új arc-beolvasás regisztrálása (pl. böngészőváltás után)</small>
-      </button>
-    </div>
+    <details id="reenroll-row" style="display:none;margin-top:0.25rem;">
+      <summary style="font-size:0.73rem;color:var(--accent);cursor:pointer;user-select:none;" data-i18n="btn.security.advanced">⚙ Biztonsági eszközök</summary>
+      <div class="btn-row" style="margin-top:0.4rem;">
+        <button class="btn btn-ghost" id="btn-reenroll">
+          <span data-i18n="btn.reenroll">Arc profil frissítése</span>
+          <small data-i18n="btn.reenroll.sub">Új arc-beolvasás regisztrálása (pl. böngészőváltás után)</small>
+        </button>
+      </div>
+    </details>
 
     <div class="btn-row">
       <button class="btn btn-ghost" id="btn-paper">
