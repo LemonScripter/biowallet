@@ -67,10 +67,10 @@ $PRECACHE_FILES = @(
 )
 
 # ── Segédfüggvények ───────────────────────────────────────────────────────────
-function Write-Step { param($msg) Write-Host "`n▶ $msg" -ForegroundColor Cyan }
-function Write-Ok   { param($msg) Write-Host "  ✓ $msg" -ForegroundColor Green }
-function Write-Warn { param($msg) Write-Host "  ⚠ $msg" -ForegroundColor Yellow }
-function Write-Fail { param($msg) Write-Host "  ✗ $msg" -ForegroundColor Red }
+function Write-Step { param($msg) Write-Host "`n>> $msg" -ForegroundColor Cyan }
+function Write-Ok   { param($msg) Write-Host "  OK  $msg" -ForegroundColor Green }
+function Write-Warn { param($msg) Write-Host "  !!  $msg" -ForegroundColor Yellow }
+function Write-Fail { param($msg) Write-Host "  ERR $msg" -ForegroundColor Red }
 
 # ── Preflight ─────────────────────────────────────────────────────────────────
 if (-not $SkipPreflight) {
@@ -183,4 +183,4 @@ if (-not $SkipGitPush) {
     Write-Warn "GitHub push kihagyva (-SkipGitPush)"
 }
 
-Write-Host "`n✅ Deploy kész!" -ForegroundColor Green
+Write-Host "`nDeploy kesz!" -ForegroundColor Green
