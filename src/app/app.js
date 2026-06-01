@@ -2900,15 +2900,33 @@ async function _signAndBroadcast(tx, meta, label) {
   return signed;
 }
 
+async function _reopenVaultForSwap(meta, stepLabel) {
+  // P7 auto-lock után újra kell nyitni a vault-ot a swap TX aláírásához.
+  const isHu = document.documentElement.lang !== 'en';
+  setMsg(stepLabel, '');
+  await _ensureCameraForScan();
+  setScanning(true);
+
+  const embedding = await captureEmbedding(video);
+  await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
+
+  let devicePrf = null;
+  if (meta.device?.credentialId) {
+    try { devicePrf = await getDevicePrf(meta.device.credentialId, meta.device.prfSalt); } catch {}
+  }
+  const encBuf = new TextEncoder().encode(meta.vaultJson).buffer;
+  await callWorker('OPEN', { encryptedVault: encBuf, P: meta.P, devicePrf }, [encBuf]);
+  setScanning(false);
+}
+
 async function _executeApproveAndSwap(approveResult, swapResult) {
   const isHu = document.documentElement.lang !== 'en';
   try {
-    const meta    = JSON.parse(localStorage.getItem('biowallet_meta'));
-    const feeData = await getFeeData(currentNetwork.rpc);
+    const meta      = JSON.parse(localStorage.getItem('biowallet_meta'));
+    const feeData   = await getFeeData(currentNetwork.rpc);
     const baseNonce = await getNonce(ethAddress.textContent, currentNetwork.rpc);
-    const addr    = ethAddress.textContent;
 
-    // 1. Approve TX (nonce N)
+    // 1/3 — Approve TX (nonce N)
     const approveTx = {
       to:                   approveResult.to,
       value:                '0',
@@ -2919,13 +2937,18 @@ async function _executeApproveAndSwap(approveResult, swapResult) {
       maxFeePerGas:         feeData.maxFeePerGas.toString(),
       maxPriorityFeePerGas: feeData.maxPriorityFeePerGas.toString(),
     };
-    const signedApprove = await _signAndBroadcast(approveTx, meta, isHu ? '1/2 — Approve arc-scan…' : '1/2 — Approve face scan…');
+    const signedApprove = await _signAndBroadcast(approveTx, meta,
+      isHu ? '1/3 — Approve arc-scan…' : '1/3 — Approve face scan…');
     if (!signedApprove) return;
 
-    const approveHash = await broadcastTx(signedApprove, currentNetwork.rpc);
-    setMsg((isHu ? 'Approve elküldve, swap következik…' : 'Approval sent, signing swap…'), 'ok');
+    await broadcastTx(signedApprove, currentNetwork.rpc);
+    setMsg(isHu ? 'Approve elküldve — vault újranyitás…' : 'Approval sent — re-opening vault…', 'ok');
 
-    // 2. Swap TX (nonce N+1)
+    // 2/3 — Vault újranyitás (P7 auto-lock miatt szükséges)
+    await _reopenVaultForSwap(meta,
+      isHu ? '2/3 — Vault újranyitása a swaphoz…' : '2/3 — Re-opening vault for swap…');
+
+    // 3/3 — Swap TX (nonce N+1)
     const swapTx = {
       to:                   swapResult.tx.to,
       value:                swapResult.tx.value ?? '0',
@@ -2936,7 +2959,8 @@ async function _executeApproveAndSwap(approveResult, swapResult) {
       maxFeePerGas:         feeData.maxFeePerGas.toString(),
       maxPriorityFeePerGas: feeData.maxPriorityFeePerGas.toString(),
     };
-    const signedSwap = await _signAndBroadcast(swapTx, meta, isHu ? '2/2 — Swap arc-scan…' : '2/2 — Swap face scan…');
+    const signedSwap = await _signAndBroadcast(swapTx, meta,
+      isHu ? '3/3 — Swap arc-scan…' : '3/3 — Swap face scan…');
     if (!signedSwap) return;
 
     const swapHash = await broadcastTx(signedSwap, currentNetwork.rpc);
