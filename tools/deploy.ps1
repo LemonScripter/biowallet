@@ -48,6 +48,7 @@ $DEPLOY_MAP = [ordered]@{
     "src\core\wallet.js"     = "/var/www/biowallet/core/wallet.js"
     "src\core\wc2.js"        = "/var/www/biowallet/core/wc2.js"
     "src\core\i18n.js"       = "/var/www/biowallet/core/i18n.js"
+    "src\core\swap.js"       = "/var/www/biowallet/core/swap.js"
     "src\core\fuzzy_extractor.js" = "/var/www/biowallet/core/fuzzy_extractor.js"
     "src\core\rpc.js"        = "/var/www/biowallet/core/rpc.js"
     "dapp-guide.html"        = "/var/www/biowallet/dapp-guide.html"
@@ -60,7 +61,7 @@ $DEPLOY_MAP = [ordered]@{
 $PRECACHE_FILES = @(
     "src\app\app.js", "src\app\vault_worker.js", "src\app\index.html",
     "src\core\vault.js", "src\core\wallet.js", "src\core\wc2.js",
-    "src\core\i18n.js", "src\core\fuzzy_extractor.js", "src\core\rpc.js",
+    "src\core\i18n.js", "src\core\swap.js", "src\core\fuzzy_extractor.js", "src\core\rpc.js",
     "src\core\bio_capture.js", "src\core\causal_chain.js", "src\core\recovery_formula.js",
     "dapp-guide.html", "dapp-guide.js", "recovery_tool.html"
 )

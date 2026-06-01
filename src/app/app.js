@@ -14,6 +14,7 @@ import {
   WC_PROJECT_ID, initWC, wcPair, wcApprove, wcRejectProposal, wcEmitChainChanged,
   wcRespondOk, wcRespondError, wcGetSessions, wcDisconnect, wcReady,
 } from '../core/wc2.js';
+import { isSwapSupported, getSwapQuote, buildSwapTx, formatOutput, ETH_ADDR } from '../core/swap.js';
 import {
   BUILTIN_NETWORKS, getAllNetworks, saveCustomNetwork, deleteCustomNetwork,
   getBalance, getNonce,
@@ -103,6 +104,8 @@ const qrCanvas       = document.getElementById('qr-canvas');
 const ensHint        = document.getElementById('ens-hint');
 const btnDevice      = document.getElementById('btn-device');
 const deviceRow      = document.getElementById('device-row');
+const btnSwap        = document.getElementById('btn-swap');
+const swapRow        = document.getElementById('swap-row');
 
 const dots = [0,1,2,3,4].map(i => document.getElementById(`dot-${i}`));
 
@@ -1179,6 +1182,7 @@ btnScan.addEventListener('click', async () => {
 
     _updateDeviceRow(hasDevice, usedDevice);
     deviceRow.style.display = '';
+    swapRow.style.display   = isSwapSupported(currentNetwork.chainId) ? '' : 'none';
     const sssRow = document.getElementById('sss-row');
     if (sssRow) sssRow.style.display = (isV4 || isV5) ? 'none' : '';
     const reenrollRow = document.getElementById('reenroll-row');
@@ -2724,6 +2728,214 @@ function showWCProposalModal(meta) {
     document.body.appendChild(ov);
     ov.querySelector('#_wc_reject').onclick  = () => { ov.remove(); resolve(false); };
     ov.querySelector('#_wc_approve').onclick = () => { ov.remove(); resolve(true); };
+  });
+}
+
+// ── Swap ──────────────────────────────────────────────────────────────────
+
+btnSwap.addEventListener('click', () => { if (vaultReady) _showSwapPanel(); });
+
+async function _showSwapPanel() {
+  const isHu      = document.documentElement.lang !== 'en';
+  const sym       = currentNetwork.nativeSymbol ?? 'ETH';
+  const tokens    = [...(TOKEN_LIST[currentNetwork.key] ?? [])];
+  const address   = ethAddress.textContent;
+
+  if (!tokens.length) {
+    setMsg(isHu ? 'Ezen a hálózaton nincs elérhető token a cseréhez.' : 'No tokens available for swap on this network.', 'error');
+    return;
+  }
+
+  const tokenOptions = tokens.map(tok =>
+    `<option value="${tok.address}" data-sym="${tok.symbol}" data-dec="${tok.decimals}">${tok.symbol}</option>`
+  ).join('');
+
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;overflow-y:auto;';
+  ov.innerHTML = `
+    <div style="background:#16161a;border:1px solid #2a2a35;border-radius:16px;width:100%;max-width:400px;padding:1.5rem;">
+      <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#6c63ff;margin-bottom:0.75rem;">
+        ${isHu ? 'Token csere — 1inch' : 'Token Swap — 1inch'}
+      </div>
+
+      <div style="font-size:0.75rem;color:#6b6b80;margin-bottom:0.3rem;">${isHu ? 'Elköltöm:' : 'You spend:'}</div>
+      <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;">
+        <div style="flex:1;background:#1e1e24;border:1px solid #2a2a35;border-radius:8px;padding:0.6rem 0.8rem;font-size:0.85rem;font-weight:700;color:#e8e8f0;">${sym}</div>
+        <input id="_sw_amount" type="text" placeholder="0.01"
+          style="flex:2;background:#1e1e24;border:1px solid #2a2a35;border-radius:8px;padding:0.6rem 0.8rem;
+                 font-size:0.85rem;color:#e8e8f0;outline:none;" autocomplete="off">
+      </div>
+
+      <div style="font-size:0.75rem;color:#6b6b80;margin-bottom:0.3rem;">${isHu ? 'Kapom:' : 'You receive:'}</div>
+      <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;">
+        <select id="_sw_toToken" style="flex:1;background:#1e1e24;border:1px solid #2a2a35;border-radius:8px;
+                padding:0.6rem;font-size:0.85rem;color:#e8e8f0;outline:none;">${tokenOptions}</select>
+        <div id="_sw_output" style="flex:2;background:#1e1e24;border:1px solid #2a2a35;border-radius:8px;
+             padding:0.6rem 0.8rem;font-size:0.85rem;color:#6b6b80;display:flex;align-items:center;">—</div>
+      </div>
+
+      <div id="_sw_details" style="display:none;font-size:0.72rem;color:#6b6b80;background:#1e1e24;
+           border:1px solid #2a2a35;border-radius:8px;padding:0.6rem 0.8rem;margin-bottom:0.75rem;line-height:1.8;">
+      </div>
+
+      <div id="_sw_err" style="display:none;font-size:0.72rem;color:#ff4757;background:#2b0a0a;
+           border:1px solid #5a2020;border-radius:6px;padding:0.5rem 0.7rem;margin-bottom:0.6rem;"></div>
+
+      <div style="display:flex;gap:0.5rem;">
+        <button id="_sw_quote" style="flex:1;padding:0.65rem;border-radius:10px;border:1px solid #6c63ff;
+                background:transparent;color:#6c63ff;font-size:0.82rem;font-weight:600;cursor:pointer;">
+          ${isHu ? 'Árfolyam' : 'Quote'}
+        </button>
+        <button id="_sw_exec" disabled style="flex:2;padding:0.65rem;border-radius:10px;border:none;
+                background:#6c63ff;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;opacity:0.5;">
+          ${isHu ? '⚡ Csere + arc-scan' : '⚡ Swap + face scan'}
+        </button>
+        <button id="_sw_cancel" style="flex:1;padding:0.65rem;border-radius:10px;border:1px solid #5a2020;
+                background:#2b0a0a;color:#ff4757;font-size:0.82rem;font-weight:600;cursor:pointer;">
+          ${isHu ? 'Mégse' : 'Cancel'}
+        </button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(ov);
+
+  const amountEl  = ov.querySelector('#_sw_amount');
+  const toSel     = ov.querySelector('#_sw_toToken');
+  const outputEl  = ov.querySelector('#_sw_output');
+  const detailsEl = ov.querySelector('#_sw_details');
+  const errEl     = ov.querySelector('#_sw_err');
+  const execBtn   = ov.querySelector('#_sw_exec');
+
+  let pendingSwapTx = null;
+
+  ov.querySelector('#_sw_cancel').addEventListener('click', () => ov.remove());
+
+  ov.querySelector('#_sw_quote').addEventListener('click', async () => {
+    errEl.style.display = 'none';
+    outputEl.textContent = '…';
+    detailsEl.style.display = 'none';
+    execBtn.disabled = true; execBtn.style.opacity = '0.5';
+    pendingSwapTx = null;
+
+    const amtStr = amountEl.value.trim().replace(',', '.');
+    const amt    = parseFloat(amtStr);
+    if (!amtStr || isNaN(amt) || amt <= 0) {
+      errEl.textContent = isHu ? 'Adj meg egy pozitív összeget!' : 'Enter a positive amount.';
+      errEl.style.display = 'block'; outputEl.textContent = '—'; return;
+    }
+
+    const selected = toSel.selectedOptions[0];
+    const toAddr   = selected.value;
+    const toSym    = selected.dataset.sym;
+    const toDec    = parseInt(selected.dataset.dec);
+    const amountWei = (BigInt(Math.round(amt * 1e9)) * BigInt(1e9)).toString();
+
+    try {
+      const result = await buildSwapTx(currentNetwork.chainId, toAddr, amountWei, address);
+      pendingSwapTx = result;
+
+      const outFmt = formatOutput(result.outputAmount, result.outputDecimals);
+      outputEl.textContent = `${outFmt} ${result.outputSymbol}`;
+      outputEl.style.color = '#4CAF50';
+
+      const feeInfo = isHu ? `0.15% protokoll fee (treasury)` : `0.15% protocol fee (treasury)`;
+      detailsEl.innerHTML =
+        `<div>${isHu ? 'Küldöm:' : 'From:'} <b>${amtStr} ${sym}</b></div>` +
+        `<div>${isHu ? 'Kapom (min):' : 'Receive (min):'} <b>${outFmt} ${toSym}</b></div>` +
+        `<div>${isHu ? 'Fogadó:' : 'Recipient:'} <b style="font-family:monospace;font-size:0.7rem;">${address.slice(0,10)}…${address.slice(-6)}</b></div>` +
+        `<div>${isHu ? 'Slippage:' : 'Slippage:'} max 1%</div>` +
+        `<div style="color:#ffa502;">${feeInfo}</div>`;
+      detailsEl.style.display = 'block';
+
+      execBtn.disabled = false; execBtn.style.opacity = '1';
+    } catch (e) {
+      errEl.textContent = e.message;
+      errEl.style.display = 'block';
+      outputEl.textContent = '—'; outputEl.style.color = '#6b6b80';
+    }
+  });
+
+  execBtn.addEventListener('click', async () => {
+    if (!pendingSwapTx || cooldownMs() > 0) return;
+    ov.remove();
+    await _executeSwap(pendingSwapTx);
+  });
+}
+
+async function _executeSwap(swapResult) {
+  const isHu = document.documentElement.lang !== 'en';
+  try {
+    const meta = JSON.parse(localStorage.getItem('biowallet_meta'));
+    const feeData = await getFeeData(currentNetwork.rpc);
+
+    const tx = {
+      to:                   swapResult.tx.to,
+      value:                swapResult.tx.value ?? '0',
+      data:                 swapResult.tx.data,
+      nonce:                (await getNonce(ethAddress.textContent, currentNetwork.rpc)).toString(),
+      chainId:              currentNetwork.chainId,
+      gasLimit:             swapResult.tx.gasLimit ?? '300000',
+      maxFeePerGas:         feeData.maxFeePerGas.toString(),
+      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas.toString(),
+    };
+
+    const fingerprint = await callWorker('COMMIT_TX', { tx });
+    const confirmed = await _showSwapConfirm(tx, swapResult, fingerprint);
+    if (!confirmed) { await callWorker('CANCEL_TX'); return; }
+
+    await _ensureCameraForScan();
+    setScanning(true);
+    setMsg(isHu ? 'Arc beolvasása a swaphoz…' : 'Face scan for swap…', '');
+
+    const embedding = await captureEmbedding(video);
+    await callWorker('BIO_CAPTURE', { embedding, P: meta.P, userInput: confirmed }, [embedding.buffer]);
+    bioSuccess();
+
+    const { signed } = await callWorker('SIGN', { tx });
+    setScanning(false);
+    const txHash = await broadcastTx(signed, currentNetwork.rpc);
+    setMsg((isHu ? 'Swap elküldve: ' : 'Swap sent: ') + txHash.slice(0, 12) + '…', 'ok');
+  } catch (e) {
+    setScanning(false);
+    if (e.message?.includes('BIO_MISMATCH') || e.message?.includes('WORKER_COOLDOWN')) bioFail();
+    setMsg(friendlyError(e.message) + bioFailHint(), 'error');
+  }
+}
+
+function _showSwapConfirm(tx, swapResult, fingerprint) {
+  const isHu = document.documentElement.lang !== 'en';
+  return new Promise(resolve => {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;';
+    ov.innerHTML = `
+      <div style="background:#16161a;border:1px solid #2a2a35;border-radius:16px;width:100%;max-width:400px;padding:1.5rem;">
+        <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#ffa502;margin-bottom:0.6rem;">
+          ${isHu ? 'Swap megerősítése' : 'Confirm Swap'}
+        </div>
+        <div style="background:#1e1e24;border:1px solid #2a2a35;border-radius:8px;padding:0.7rem;margin-bottom:0.75rem;font-size:0.78rem;line-height:1.8;">
+          <div>${isHu ? 'Kapom (min):' : 'Receive (min):'} <b style="color:#4CAF50;">${formatOutput(swapResult.outputAmount, swapResult.outputDecimals)} ${swapResult.outputSymbol}</b></div>
+          <div>${isHu ? 'Router:' : 'Router:'} <span style="font-family:monospace;font-size:0.7rem;color:#a78bfa;">${tx.to.slice(0,10)}…${tx.to.slice(-6)}</span></div>
+          <div>${isHu ? 'Gas limit:' : 'Gas limit:'} ${tx.gasLimit}</div>
+          <div style="color:#ffa502;">${isHu ? '0.15% protokoll fee a treasury-re' : '0.15% protocol fee to treasury'}</div>
+        </div>
+        <div style="font-size:0.75rem;color:#6b6b80;margin-bottom:0.3rem;">${isHu ? 'TX azonosító (első 4 karakter):' : 'TX fingerprint (first 4 chars):'}</div>
+        <div style="font-family:monospace;font-size:1.1rem;font-weight:700;color:#6c63ff;letter-spacing:0.15em;margin-bottom:0.5rem;">${fingerprint}</div>
+        <input id="_sc_fp" type="text" maxlength="4" placeholder="${isHu ? '4 karakter' : '4 chars'}"
+          style="width:100%;background:#1e1e24;border:1px solid #2a2a35;border-radius:8px;padding:0.6rem;
+                 font-size:1rem;color:#e8e8f0;text-align:center;font-family:monospace;letter-spacing:0.1em;
+                 outline:none;margin-bottom:0.75rem;">
+        <div style="display:flex;gap:0.75rem;">
+          <button id="_sc_cancel" style="flex:1;padding:0.7rem;border-radius:10px;border:1px solid #5a2020;background:#2b0a0a;color:#ff4757;font-size:0.85rem;font-weight:600;cursor:pointer;">${isHu ? 'Mégse' : 'Cancel'}</button>
+          <button id="_sc_ok" style="flex:2;padding:0.7rem;border-radius:10px;border:none;background:#6c63ff;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;">${isHu ? '⚡ Aláírom' : '⚡ Sign'}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    ov.querySelector('#_sc_cancel').addEventListener('click', () => { ov.remove(); resolve(null); });
+    ov.querySelector('#_sc_ok').addEventListener('click', () => {
+      const input = ov.querySelector('#_sc_fp').value.trim();
+      ov.remove();
+      resolve(input || null);
+    });
   });
 }
 
