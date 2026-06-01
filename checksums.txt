@@ -1,4 +1,4 @@
-# BioWallet v32.5b — Canonical File Hashes
+# BioWallet v32.5c — Canonical File Hashes
 # Date: 2026-06-01
 # Verify: sha256sum -c checksums.txt
 #
@@ -7,17 +7,19 @@
 
 793cac74939d658e3cebde0e8066b2ac754ab34e9c85657043c5f58a0a1866e2  spec/biowallet.bio
 23c5605f37a1c5fdc95c6b67695ac1116aa4c39cf6241c84bbc5baf4c4efebfb  src/core/causal_chain.js
-77ba8c24060829d60116ded9005ce1235ef6e07d6ea18ea05d45a8e0e1e86c89  src/core/vault.js
+df4d5d047c00b916b183d2efca25a6bd3090b86caaf38b656a6a3b1feb941246  src/core/vault.js
 f0b77111a307f8582a4ae7402fd28ab96e0575904253a1067cf07a3674d26b96  src/core/sss.js
 9a6912650e4780e8de8d078ce626a0cd1019a03f27599e1e2af25a166aa97876  src/core/fuzzy_extractor.js
-be9ba29ec7f15ba7606aad6f646dd23153b16a8df2f006f45bd69b64ddee39cb  src/core/wallet.js
+c09887e7e7addbeb213360bc7955d6e26f3c6557fa802aaf2fa29f8143c8542a  src/core/wallet.js
 c5fb3b5b0e0949308c07a4f0390729cff8eed494180a12153738f23f0d5bec52  src/core/recovery_formula.js
 4f909a0d72798ee7d9d07d76acdcebbc7cf9867c33f18990130c6f5aad34149c  src/core/bio_capture.js
 3b0114e13dd677dad7da042d30e8c43c1ae95d8b1d2eca05d143b0d64efb8518  src/core/rpc.js
-c61e3a591b8b2586c37492427ad750092bbf5e74df44bbf3cfd241e61d4aac1b  src/core/wc2.js
-c2b844c3ea93f06f9a72d867a0b27a5c45425e776238314598b7e8709c2b0cef  src/core/i18n.js
-ef070710b416348df248f46aed4fafee844271cf6d189bd625696340a03145bb  src/app/vault_worker.js
-bef3053c0b4f151a60c72abaa85efa98ecd5cc430996a646a6bdc356c8048d35  src/app/app.js
-deb66d55a22cb549cc70f50f1a40bb1eafb6d705091bfd4a60862e6dd0a588ca  src/app/sw.js
+2124f8b4854c8795464ecdaea31a92655b55e56fa00c92f9cf4b16fbbc6b092d  src/core/wc2.js
+a4c53d2e8fb75dd3bdb0e821a061fb7e6b06e30491a5a155dff9ba1af6264e90  src/core/i18n.js
+2982644855e02ee815fae26769a1d3de5ecc5e2a01fb6fc349f4b9ec97ef9797  src/app/vault_worker.js
+922591d086dbb304890ec151f157b49002a2ad886c17f35b88aa3ce9c9c5b3fc  src/app/app.js
+7f0cc56859139897e64611a2f46dedd302d5ed17f21bf0f89ebefc7a5178a1e9  src/app/sw.js
 0fd376df321401d917c93009748ce375c4571fe537e6ab06613e5f0d472bde0e  src/app/index.html
 a9a2269d6ef5c573911f0e1150800026066d7fed9ba7096abd382b99524787bf  recovery_tool.html
+ed3622a64ed369ab3ae01a0ad349952c326918a7e86c79e980aadec3cd62a4e1  dapp-guide.html
+86bf498d2edad52823ff038c6a0c56747d04243e57f81205f90c4265cdbda7eb  dapp-guide.js
