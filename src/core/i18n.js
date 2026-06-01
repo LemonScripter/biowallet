@@ -714,9 +714,10 @@ const INFO_CONTENT = {
     },
     wc: {
       title: 'dApp kapcsolat (WalletConnect)',
-      body: `<p>WalletConnect lehetővé teszi, hogy a BioWallettel csatlakozz bármely DeFi alkalmazáshoz.</p>
+      body: `<p>WalletConnect lehetővé teszi, hogy a BioWallettel csatlakozz bármely DeFi alkalmazáshoz (Uniswap, OpenSea, Aave stb.).</p>
 <ol><li>Nyisd meg a dApp-ot <strong>egy másik böngészőfülön</strong>.</li><li>Kattints: <strong>Connect Wallet → WalletConnect → Copy URI</strong>.</li><li>Másold ki az URI-t (wc:… kezdetű).</li><li>Kattints ide, illeszd be, erősítsd meg.</li><li>Minden tranzakció jóváhagyása <strong>ebben a BioWallet fülben</strong> történik arc-scannel.</li></ol>
-<p style="color:#6b6b80;font-size:0.8rem;">Támogatott: eth_sendTransaction, personal_sign, wallet_switchEthereumChain.</p>`,
+<p style="color:#6b6b80;font-size:0.8rem;">Támogatott: ETH küldés, ERC-20, EIP-712 aláírás (Uniswap permit, OpenSea), hálózat- és tokenkezelés.</p>
+<p style="margin-top:0.6rem"><a href="/dapp-guide.html" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:600;">↗ Teljes dApp útmutató — támogatott műveletek és kompatibilis alkalmazások</a></p>`,
     },
     paper: {
       title: 'Papírképlet készítése',
@@ -772,9 +773,10 @@ const INFO_CONTENT = {
     },
     wc: {
       title: 'dApp connection (WalletConnect)',
-      body: `<p>WalletConnect lets you connect BioWallet to any DeFi application.</p>
+      body: `<p>WalletConnect lets you connect BioWallet to any DeFi application (Uniswap, OpenSea, Aave etc.).</p>
 <ol><li>Open the dApp <strong>in another browser tab</strong>.</li><li>Click: <strong>Connect Wallet → WalletConnect → Copy URI</strong>.</li><li>Copy the URI (starts with wc:…).</li><li>Click here, paste it, confirm.</li><li>All transaction approvals happen <strong>in this BioWallet tab</strong> with face scan.</li></ol>
-<p style="color:#6b6b80;font-size:0.8rem;">Supported: eth_sendTransaction, personal_sign, wallet_switchEthereumChain.</p>`,
+<p style="color:#6b6b80;font-size:0.8rem;">Supported: ETH send, ERC-20, EIP-712 signing (Uniswap permit, OpenSea), network and token management.</p>
+<p style="margin-top:0.6rem"><a href="/dapp-guide.html" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:600;">↗ Full dApp guide — supported operations and compatible apps</a></p>`,
     },
     paper: {
       title: 'Generate paper recovery',
