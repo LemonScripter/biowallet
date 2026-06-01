@@ -7,7 +7,7 @@
  */
 
 export const BUILTIN_NETWORKS = [
-  { key: 'mainnet',   name: 'Ethereum',   chainId: 1,        rpc: 'https://rpc.ankr.com/eth',                    explorer: 'https://etherscan.io/tx/',             nativeSymbol: 'ETH',  blockscout: 'https://eth.blockscout.com',          testnet: false },
+  { key: 'mainnet',   name: 'Ethereum',   chainId: 1,        rpc: 'https://ethereum.publicnode.com',                    explorer: 'https://etherscan.io/tx/',             nativeSymbol: 'ETH',  blockscout: 'https://eth.blockscout.com',          testnet: false },
   { key: 'bsc',       name: 'BNB Chain',  chainId: 56,       rpc: 'https://bsc-dataseed.binance.org/',           explorer: 'https://bscscan.com/tx/',              nativeSymbol: 'BNB',  blockscout: null,                                  testnet: false },
   { key: 'polygon',   name: 'Polygon',    chainId: 137,      rpc: 'https://polygon-rpc.com/',                    explorer: 'https://polygonscan.com/tx/',           nativeSymbol: 'POL',  blockscout: 'https://polygon.blockscout.com',      testnet: false },
   { key: 'arbitrum',  name: 'Arbitrum',   chainId: 42161,    rpc: 'https://arb1.arbitrum.io/rpc',                explorer: 'https://arbiscan.io/tx/',              nativeSymbol: 'ETH',  blockscout: 'https://arbitrum.blockscout.com',     testnet: false },
