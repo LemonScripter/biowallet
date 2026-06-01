@@ -62,6 +62,7 @@ export async function buildSwapTx(chainId, toToken, amountWei, fromAddress, slip
 
   const txUrl = new URL(`${PARASWAP}/transactions/${chainId}`);
   txUrl.searchParams.set('ignoreGasEstimate', 'true');
+  txUrl.searchParams.set('ignoreChecks',      'true');
 
   const txRes = await fetch(txUrl, {
     method:  'POST',
