@@ -1,40 +1,62 @@
 /**
- * BioWallet — Swap Module (Paraswap v5, Phase 1: native → ERC-20)
- *
- * Paraswap ingyenes, nincs API kulcs. Partner fee: 0.15% a TREASURY-re.
- * ERC-20 → bármi (approval) = Phase 2.
+ * BioWallet — Swap Module (Paraswap v5)
+ * Phase 1: native → ERC-20 (no approval)
+ * Phase 2: ERC-20 → any (with approval flow)
  */
 
 const PARASWAP   = 'https://apiv5.paraswap.io';
 const PARTNER_ID = 'biowallet';
 export const ETH_ADDR = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
 
-// ── Treasury cím — set before production ─────────────────────────────────
 export const TREASURY = '0x4368F0bF9201118bD19b62fB68bFcbaC4B61B7Eb';
-const FEE_BPS         = 15; // 0.15% in basis points
-const MAX_SLIPPAGE    = 1;  // 1% hard cap
+const FEE_BPS         = 15;   // 0.15%
+const MAX_SLIPPAGE    = 1;    // 1% hard cap
 
 const SUPPORTED = new Set([1, 56, 137, 42161, 8453, 10, 43114]);
+export function isSwapSupported(chainId) { return SUPPORTED.has(chainId); }
 
-export function isSwapSupported(chainId) {
-  return SUPPORTED.has(chainId);
+// Cache: Paraswap TokenTransferProxy per chain
+const _spenderCache = {};
+
+/** Returns the address the user must approve for ERC-20 swaps. */
+export async function getParaswapSpender(chainId) {
+  if (_spenderCache[chainId]) return _spenderCache[chainId];
+  const res = await fetch(`${PARASWAP}/adapters/contracts?network=${chainId}`);
+  if (!res.ok) throw new Error('Paraswap spender fetch failed');
+  const d = await res.json();
+  _spenderCache[chainId] = d.TokenTransferProxy;
+  return d.TokenTransferProxy;
+}
+
+/** Encode ERC-20 approve(spender, amount) calldata — exact amount only. */
+export function buildApproveTx(tokenAddress, spenderAddress, amountWei) {
+  const paddedSpender = spenderAddress.slice(2).toLowerCase().padStart(64, '0');
+  const paddedAmount  = BigInt(amountWei).toString(16).padStart(64, '0');
+  return {
+    to:       tokenAddress,
+    value:    '0',
+    data:     `0x095ea7b3${paddedSpender}${paddedAmount}`,
+    gasLimit: '80000',
+  };
 }
 
 /**
- * buildSwapTx — quote + TX felépítés egy lépésben.
- * Visszaad: { tx, outputAmount, outputSymbol, outputDecimals }
+ * Build swap TX via Paraswap.
+ * fromToken: ETH_ADDR for native, or ERC-20 address.
+ * Returns: { tx, outputAmount, outputSymbol, outputDecimals, spender }
+ *   spender: address to approve (null if fromToken is native)
  */
-export async function buildSwapTx(chainId, toToken, amountWei, fromAddress, slippage = 1) {
+export async function buildSwapTx(chainId, fromToken, toToken, amountWei, fromAddress, slippage = 1) {
   const clampedSlippage = Math.min(slippage, MAX_SLIPPAGE);
+  const isNative = fromToken.toLowerCase() === ETH_ADDR.toLowerCase();
 
-  // 1. lépés: priceRoute lekérése
+  // 1. priceRoute
   const priceUrl = new URL(`${PARASWAP}/prices`);
-  priceUrl.searchParams.set('srcToken',    ETH_ADDR);
-  priceUrl.searchParams.set('destToken',   toToken);
-  priceUrl.searchParams.set('amount',      amountWei);
-  priceUrl.searchParams.set('srcDecimals', '18');
-  priceUrl.searchParams.set('network',     chainId);
-  priceUrl.searchParams.set('side',        'SELL');
+  priceUrl.searchParams.set('srcToken',  fromToken);
+  priceUrl.searchParams.set('destToken', toToken);
+  priceUrl.searchParams.set('amount',    amountWei);
+  priceUrl.searchParams.set('network',   chainId);
+  priceUrl.searchParams.set('side',      'SELL');
   if (TREASURY) priceUrl.searchParams.set('partner', PARTNER_ID);
 
   const priceRes = await fetch(priceUrl);
@@ -44,15 +66,14 @@ export async function buildSwapTx(chainId, toToken, amountWei, fromAddress, slip
   }
   const { priceRoute } = await priceRes.json();
 
-  // 2. lépés: TX felépítése
-  const slippageBps = Math.round(clampedSlippage * 100);
+  // 2. TX
   const body = {
-    srcToken:    ETH_ADDR,
+    srcToken:    fromToken,
     destToken:   toToken,
     srcAmount:   amountWei,
     priceRoute,
     userAddress: fromAddress,
-    slippage:    slippageBps,
+    slippage:    Math.round(clampedSlippage * 100),
   };
   if (TREASURY) {
     body.partner        = PARTNER_ID;
@@ -85,6 +106,7 @@ export async function buildSwapTx(chainId, toToken, amountWei, fromAddress, slip
     outputAmount:   priceRoute.destAmount,
     outputSymbol:   priceRoute.destToken?.symbol   ?? '?',
     outputDecimals: priceRoute.destDecimals         ?? 18,
+    spender:        isNative ? null : priceRoute.contractAddress ?? null,
   };
 }
 

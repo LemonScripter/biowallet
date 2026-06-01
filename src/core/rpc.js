@@ -110,6 +110,15 @@ export async function broadcastTx(signedHex, rpcUrl) {
   return await rpcCall(rpcUrl, 'eth_sendRawTransaction', [signedHex]);
 }
 
+/** ERC-20 allowance(owner, spender) — returns BigInt. */
+export async function getAllowance(tokenAddress, owner, spender, rpcUrl) {
+  const data = '0xdd62ed3e'
+    + owner.slice(2).toLowerCase().padStart(64, '0')
+    + spender.slice(2).toLowerCase().padStart(64, '0');
+  const hex = await rpcCall(rpcUrl, 'eth_call', [{ to: tokenAddress, data }, 'latest']);
+  return hex === '0x' ? 0n : BigInt(hex);
+}
+
 // ── Conversion ────────────────────────────────────────────────────────────
 
 /** "0.001" ETH string → wei BigInt. No floating-point errors. */
