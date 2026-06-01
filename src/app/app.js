@@ -2412,6 +2412,13 @@ async function handleWCAddChain(topic, id, chainParams) {
     return;
   }
 
+  const rpcUrl = chainParams.rpcUrls?.[0] ?? '';
+  if (!rpcUrl.startsWith('https://')) {
+    await wcRespondError(topic, id, 'RPC URL must use HTTPS');
+    setMsg(t('net.add.err.rpc'), 'error');
+    return;
+  }
+
   const approved = await showWCAddChainModal(chainParams);
   if (!approved) { await wcRespondError(topic, id); return; }
 
@@ -2419,7 +2426,7 @@ async function handleWCAddChain(topic, id, chainParams) {
     key:      `custom_${chainId}`,
     name:     chainParams.chainName ?? `Chain ${chainId}`,
     chainId,
-    rpc:      chainParams.rpcUrls?.[0] ?? '',
+    rpc:      rpcUrl,
     symbol:   chainParams.nativeCurrency?.symbol ?? 'ETH',
     decimals: chainParams.nativeCurrency?.decimals ?? 18,
     explorer: chainParams.blockExplorerUrls?.[0] ?? '',
@@ -2708,7 +2715,7 @@ function showWCProposalModal(meta) {
         <div style="font-size:0.75rem;color:#6b6b80;padding:0.5rem 0.7rem;background:#1e1e24;border-radius:8px;margin-bottom:0.75rem;line-height:1.5;">
           ${t('wc.proposal.info')}
         </div>
-        <a href="/dapp-guide.html" target="_blank" rel="noopener" style="display:block;text-align:center;font-size:0.75rem;color:#6c63ff;margin-bottom:0.9rem;">↗ ${t('wc.proposal.guide.link')}</a>
+        <a href="/app/dapp-guide.html" target="_blank" rel="noopener" style="display:block;text-align:center;font-size:0.75rem;color:#6c63ff;margin-bottom:0.9rem;">↗ ${t('wc.proposal.guide.link')}</a>
         <div style="display:flex;gap:0.75rem;">
           <button id="_wc_reject" style="flex:1;padding:0.7rem;border-radius:10px;border:1px solid #5a2020;background:#2b0a0a;color:#ff4757;font-size:0.85rem;font-weight:600;cursor:pointer;">${t('wc.proposal.reject')}</button>
           <button id="_wc_approve" style="flex:1;padding:0.7rem;border-radius:10px;border:none;background:#6c63ff;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;">${t('wc.proposal.approve')}</button>
@@ -2718,6 +2725,17 @@ function showWCProposalModal(meta) {
     ov.querySelector('#_wc_reject').onclick  = () => { ov.remove(); resolve(false); };
     ov.querySelector('#_wc_approve').onclick = () => { ov.remove(); resolve(true); };
   });
+}
+
+function _parseSIWE(text) {
+  // EIP-4361: "<domain> wants you to sign in with your Ethereum account:"
+  const m = text.match(/^([^\n]+) wants you to sign in with your Ethereum account:/i);
+  if (!m) return null;
+  const domain = m[1].trim();
+  const stmtM  = text.match(/\n\n([^\n]+)\n\n/);
+  const uriM   = text.match(/URI:\s*(\S+)/);
+  const chainM = text.match(/Chain ID:\s*(\d+)/);
+  return { domain, statement: stmtM?.[1] ?? '', uri: uriM?.[1] ?? '', chainId: chainM?.[1] ?? '' };
 }
 
 function showWCSignModal(hexMsg) {
@@ -2730,24 +2748,46 @@ function showWCSignModal(hexMsg) {
     if (/^[\x20-\x7E\n\r\t]+$/.test(txt)) decoded = txt;
   } catch { /* leave as hex */ }
 
+  const siwe = _parseSIWE(decoded);
+  const isHu = document.documentElement.lang !== 'en';
+
+  let headerColor, labelHtml, bodyHtml;
+  if (siwe) {
+    headerColor = '#4CAF50';
+    labelHtml = isHu ? 'Bejelentkezési kérés (EIP-4361)' : 'Sign-In Request (EIP-4361)';
+    bodyHtml = `
+      <div style="background:#1e1e24;border:1px solid #2a2a35;border-radius:8px;padding:0.7rem;margin-bottom:0.6rem;font-size:0.78rem;line-height:1.6;">
+        <div><span style="color:#6b6b80;">${isHu ? 'Domain:' : 'Domain:'}</span> <b style="color:#e8e8f0;">${siwe.domain}</b></div>
+        ${siwe.statement ? `<div><span style="color:#6b6b80;">${isHu ? 'Üzenet:' : 'Message:'}</span> <span style="color:#e8e8f0;">${siwe.statement}</span></div>` : ''}
+        ${siwe.chainId   ? `<div><span style="color:#6b6b80;">Chain ID:</span> <span style="color:#e8e8f0;">${siwe.chainId}</span></div>` : ''}
+      </div>`;
+  } else {
+    headerColor = '#ffa502';
+    labelHtml = isHu ? '⚠ Egyedi üzenet aláírása' : '⚠ Arbitrary Message Signing';
+    bodyHtml = `
+      <div style="font-size:0.72rem;color:#ffa502;background:#2a1f00;border:1px solid #5a4000;border-radius:6px;padding:0.5rem 0.7rem;margin-bottom:0.6rem;">
+        ${isHu ? 'Ez nem EIP-4361 bejelentkezési kérés. Ellenőrizd az üzenetet!' : 'This is not an EIP-4361 sign-in request. Check the message carefully!'}
+      </div>
+      <div style="background:#1e1e24;border:1px solid #2a2a35;border-radius:8px;padding:0.7rem;
+           font-family:monospace;font-size:0.75rem;color:#e8e8f0;word-break:break-all;
+           max-height:120px;overflow-y:auto;margin-bottom:0.6rem;line-height:1.5;">${decoded}</div>`;
+  }
+
   return new Promise(resolve => {
     const ov = document.createElement('div');
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;';
     ov.innerHTML = `
       <div style="background:#16161a;border:1px solid #2a2a35;border-radius:16px;width:100%;max-width:400px;padding:1.5rem;">
-        <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#ffa502;margin-bottom:0.3rem;">${t('wc.sign.label')}</div>
-        <div style="font-size:0.78rem;color:#6b6b80;margin-bottom:0.6rem;">${t('wc.sign.desc')}</div>
-        <div style="background:#1e1e24;border:1px solid #2a2a35;border-radius:8px;padding:0.7rem;
-             font-family:monospace;font-size:0.75rem;color:#e8e8f0;word-break:break-all;
-             max-height:120px;overflow-y:auto;margin-bottom:1rem;line-height:1.5;">${decoded}</div>
+        <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${headerColor};margin-bottom:0.5rem;">${labelHtml}</div>
+        ${bodyHtml}
         <div style="display:flex;gap:0.75rem;">
           <button id="_wcs_reject" style="flex:1;padding:0.7rem;border-radius:10px;border:1px solid #5a2020;background:#2b0a0a;color:#ff4757;font-size:0.85rem;font-weight:600;cursor:pointer;">${t('wc.sign.reject')}</button>
           <button id="_wcs_sign" style="flex:1;padding:0.7rem;border-radius:10px;border:none;background:#6c63ff;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;">${t('wc.sign.sign')}</button>
         </div>
       </div>`;
     document.body.appendChild(ov);
-    ov.querySelector('#_wcs_reject').onclick = () => { ov.remove(); resolve(false); };
-    ov.querySelector('#_wcs_sign').onclick   = () => { ov.remove(); resolve(true); };
+    ov.querySelector('#_wcs_reject').addEventListener('click', () => { ov.remove(); resolve(false); });
+    ov.querySelector('#_wcs_sign').addEventListener('click',   () => { ov.remove(); resolve(true); });
   });
 }
 
@@ -3011,6 +3051,7 @@ function friendlyError(m) {
   if (m.includes('GENESIS_MISMATCH'))         return t('err.genesis.mismatch');
   if (m.includes('CAMERA_UNAVAILABLE'))        return t('err.camera.unavailable');
   if (m.includes('VAULT_CORRUPTED'))           return t('err.vault.corrupted');
+  if (m.includes('WORKER_COOLDOWN')) { const sec = m.split(':')[1] ?? '?'; return t('err.bio.mismatch') + ` (${sec}s)`; }
   if (m.includes('BIO_MISMATCH'))             return t('err.bio.mismatch');
   if (m.includes('EXPIRED'))         return t('err.expired');
   if (m.includes('NO_TOKEN'))        return t('err.no.token');
@@ -3203,7 +3244,7 @@ function showAddNetworkModal() {
 // restart so the app never stays frozen.
 
 const _MANAGED_ERRORS = [
-  'BIO_MISMATCH', 'VAULT_CORRUPTED', 'FE_DECODE_FAIL', 'CAMERA_UNAVAILABLE',
+  'WORKER_COOLDOWN', 'BIO_MISMATCH', 'VAULT_CORRUPTED', 'FE_DECODE_FAIL', 'CAMERA_UNAVAILABLE',
   'GENESIS_MISMATCH', 'GENESIS_DECODE_FAIL', 'GENESIS_BACKUP_UNAVAILABLE',
   'TX_MISMATCH', 'VAULT_ID_MISMATCH', 'ALREADY_CONSUMED', 'EXPIRED',
   'NO_TOKEN', 'no.file', 'AbortError', 'NotAllowedError', 'NotFoundError',

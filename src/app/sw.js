@@ -1,5 +1,5 @@
 // BioWallet ServiceWorker — offline cache (Phase C + WC2)
-const CACHE = 'biowallet-v31';
+const CACHE = 'biowallet-v32';
 
 const PRECACHE = [
   '/app/',
@@ -30,8 +30,8 @@ const PRECACHE = [
   '/models/face_recognition_model-shard2',
   '/models/face_recognition_model-weights_manifest.json',
   '/recovery_tool.html',
-  '/dapp-guide.html',
-  '/dapp-guide.js',
+  '/app/dapp-guide.html',
+  '/app/dapp-guide.js',
 ];
 
 // cache: 'reload' — HTTP cache kihagyása, mindig a szerverről tölt

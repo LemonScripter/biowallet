@@ -1,4 +1,4 @@
-# BioWallet v32.5c — Canonical File Hashes
+# BioWallet v33-sec — Canonical File Hashes
 # Date: 2026-06-01
 # Verify: sha256sum -c checksums.txt
 #
@@ -16,10 +16,10 @@ c5fb3b5b0e0949308c07a4f0390729cff8eed494180a12153738f23f0d5bec52  src/core/recov
 3b0114e13dd677dad7da042d30e8c43c1ae95d8b1d2eca05d143b0d64efb8518  src/core/rpc.js
 2124f8b4854c8795464ecdaea31a92655b55e56fa00c92f9cf4b16fbbc6b092d  src/core/wc2.js
 a4c53d2e8fb75dd3bdb0e821a061fb7e6b06e30491a5a155dff9ba1af6264e90  src/core/i18n.js
-2982644855e02ee815fae26769a1d3de5ecc5e2a01fb6fc349f4b9ec97ef9797  src/app/vault_worker.js
-922591d086dbb304890ec151f157b49002a2ad886c17f35b88aa3ce9c9c5b3fc  src/app/app.js
-7f0cc56859139897e64611a2f46dedd302d5ed17f21bf0f89ebefc7a5178a1e9  src/app/sw.js
+255b270c294855ce8df22f3c532867f99d0b1fed49de3ec854c8062888accae0  src/app/vault_worker.js
+d9127f8fe78216d1903f8b857b92d9474afb7ff601afc3322802103f399eea46  src/app/app.js
+dbd3f428851a76a50723c52beff2cbbb7250b112ed9c689f8ac7c3a6edf18a45  src/app/sw.js
 0fd376df321401d917c93009748ce375c4571fe537e6ab06613e5f0d472bde0e  src/app/index.html
 a9a2269d6ef5c573911f0e1150800026066d7fed9ba7096abd382b99524787bf  recovery_tool.html
-ed3622a64ed369ab3ae01a0ad349952c326918a7e86c79e980aadec3cd62a4e1  dapp-guide.html
-86bf498d2edad52823ff038c6a0c56747d04243e57f81205f90c4265cdbda7eb  dapp-guide.js
+8092420c33973ea23acfad3aa4fe58ee3b6e0af7fb6597f58f4ada55c925b5b0  src/app/dapp-guide.html
+86bf498d2edad52823ff038c6a0c56747d04243e57f81205f90c4265cdbda7eb  src/app/dapp-guide.js

@@ -37,6 +37,14 @@ import { BioVault } from '../core/vault.js?v=16';
 
 let vault = null;
 
+// Worker-szintű brute-force védelem (UI-rétegtől független hard gate)
+let _bioFailCount  = 0;
+let _cooldownUntil = 0;
+function _workerCooldownMs() {
+  const counts = [0, 0, 0, 30_000, 60_000, 120_000, 240_000];
+  return counts[Math.min(_bioFailCount, counts.length - 1)];
+}
+
 self.onmessage = async ({ data: { id, type, payload } }) => {
   try {
     const result = await handle(type, payload ?? {});
@@ -127,11 +135,27 @@ async function handle(type, p) {
 
     case 'OPEN': {
       if (!vault) throw new Error('No vault initialised');
+      const now = Date.now();
+      if (now < _cooldownUntil) {
+        const remaining = Math.ceil((_cooldownUntil - now) / 1000);
+        throw new Error(`WORKER_COOLDOWN:${remaining}`);
+      }
       const devicePrf  = p.devicePrf   ? new Uint8Array(p.devicePrf)  : null;
       const paperShare = p.paperShareY
         ? { x: 3, y: new Uint8Array(p.paperShareY) }
         : null;
-      const result = await vault.open(p.encryptedVault, p.P, devicePrf, p.pin ?? null, paperShare);
+      let result;
+      try {
+        result = await vault.open(p.encryptedVault, p.P, devicePrf, p.pin ?? null, paperShare);
+      } catch (e) {
+        if (e.message?.includes('BIO_MISMATCH')) {
+          _bioFailCount++;
+          _cooldownUntil = Date.now() + _workerCooldownMs();
+        }
+        throw e;
+      }
+      _bioFailCount  = 0;
+      _cooldownUntil = 0;
       return {
         address:    result.address,
         hasDevice:  result.hasDevice,
