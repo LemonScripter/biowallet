@@ -3064,6 +3064,43 @@ function _selfHealReset() {
   }, 5000);
 }
 
+// Camera freeze detector — video.currentTime must advance every 4 s when stream is live
+{
+  let _lastCamTime = 0;
+  let _frozenTicks = 0;
+  const _CAM_CHECK_MS  = 4000;
+  const _CAM_MAX_FROZEN = 2; // 2 ticks (~8 s) before restart attempt
+
+  setInterval(async () => {
+    // Skip if scanning or camera intentionally off
+    if (faceGuide.classList.contains('scanning')) { _frozenTicks = 0; return; }
+    if (!stream || !video.srcObject) { _frozenTicks = 0; _lastCamTime = 0; return; }
+
+    // Only check when stream reports live and video has data
+    const isLive = stream.getTracks().some(t => t.readyState === 'live');
+    if (!isLive || video.readyState < 2 || video.currentTime === 0) return;
+
+    if (video.currentTime === _lastCamTime) {
+      _frozenTicks++;
+      if (_frozenTicks >= _CAM_MAX_FROZEN) {
+        _frozenTicks = 0;
+        _lastCamTime = 0;
+        // Silent restart attempt
+        try {
+          _stopCamera();
+          stream = await openCamera(video, () => {});
+          // success — no message, seamless recovery
+        } catch {
+          _showSelfHealToast('Camera frozen');
+        }
+      }
+    } else {
+      _frozenTicks = 0;
+      _lastCamTime = video.currentTime;
+    }
+  }, _CAM_CHECK_MS);
+}
+
 window.addEventListener('unhandledrejection', e => {
   const msg = e.reason?.message || String(e.reason ?? 'Unknown');
   if (_isManagedError(msg)) return;

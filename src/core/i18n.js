@@ -827,7 +827,20 @@ const GUIDE_HTML = {
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">6. Hibaelhárítás</div>
+      <div class="guide-h2">6. recovery_tool.html — offline visszafejtő</div>
+      <p class="guide-p">A <strong>recovery_tool.html</strong> egy önálló, teljesen offline működő HTML eszköz a Papírképlet kezeléséhez. Internetkapcsolat nélkül használandó.</p>
+      <p class="guide-p"><strong>Letöltés:</strong> <a href="/recovery_tool.html" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:600;">biowallet.metaspace.bio/recovery_tool.html</a> → mentse el a számítógépre, majd <strong>internet nélkül nyissa meg</strong>.</p>
+      <table class="guide-table" style="margin-top:0.5rem"><thead><tr><th>Mód</th><th>Mikor?</th><th>Mit csinál?</th></tr></thead><tbody>
+        <tr><td><strong>ENCODE</strong></td><td>Wallet létrehozása / arc-frissítés után</td><td>Nyers Papír A + fejben tartott P → <strong>Végleges Papír A</strong> (ezt kell eltenni)</td></tr>
+        <tr><td><strong>DECODE</strong></td><td>24 szó visszaállításakor</td><td>Végleges Papír A + Papír B + P → <strong>24 BIP39 szó</strong> → MetaMask import</td></tr>
+      </tbody></table>
+      <div class="guide-ok" style="margin-top:0.6rem">✓ ENCODE után a Nyers Papír A-t meg kell semmisíteni — csak a Végleges Papír A marad meg, a P fejben.</div>
+      <div class="guide-note" style="margin-top:0.4rem">⚠ A P értéket a BioWallet soha nem látja — csak Ön és az offline recovery_tool.html kombinálhatja. Papír B-t és Papír A-t <strong>különböző helyen</strong> tárolja.</div>
+    </div>
+    <hr class="guide-sep">
+    <div class="guide-section">
+      <div class="guide-h2">7. Hibaelhárítás</div>
+
       <table class="guide-table"><thead><tr><th>Hibaüzenet / jelenség</th><th>Teendő</th></tr></thead><tbody>
         <tr><td><span class="guide-badge badge-err">FE_DECODE_FAIL</span></td><td>Jobb megvilágítás, egyenes tartás, próbálja újra</td></tr>
         <tr><td><span class="guide-badge badge-err">EXPIRED</span></td><td>Az időablak lejárt — indítson új arc-scant</td></tr>
@@ -841,7 +854,7 @@ const GUIDE_HTML = {
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">7. PWA telepítés</div>
+      <div class="guide-h2">8. PWA telepítés</div>
       <p class="guide-p">A BioWallet elérhető és közvetlenül a böngészőből telepíthető alkalmazásként (PWA):</p>
       <p class="guide-p" style="text-align:center;margin:0.5rem 0"><a href="https://biowallet.metaspace.bio" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:700;font-size:1rem;">https://biowallet.metaspace.bio</a></p>
       <table class="guide-table" style="margin-top:0.4rem"><thead><tr><th>Platform</th><th>Telepítés</th></tr></thead><tbody>
@@ -854,7 +867,7 @@ const GUIDE_HTML = {
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">8. Kanonikus verzió és alkotmányvédelem</div>
+      <div class="guide-h2">9. Kanonikus verzió és alkotmányvédelem</div>
       <p class="guide-p"><strong style="color:#ffa502;">Csak a hivatalos telepítési forrásból telepített alkalmazás megbízható.</strong></p>
       <p class="guide-p">A BioWallet kanonikus, ellenőrzött példánya kizárólag itt érhető el:</p>
       <p class="guide-p" style="text-align:center;margin:0.5rem 0"><a href="https://biowallet.metaspace.bio" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:700;font-size:1rem;">https://biowallet.metaspace.bio</a></p>
@@ -930,7 +943,19 @@ const GUIDE_HTML = {
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">6. Troubleshooting</div>
+      <div class="guide-h2">6. recovery_tool.html — offline decoder</div>
+      <p class="guide-p">The <strong>recovery_tool.html</strong> is a standalone, fully offline HTML tool for the Paper Recovery formula. Use it with no internet connection.</p>
+      <p class="guide-p"><strong>Download:</strong> <a href="/recovery_tool.html" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:600;">biowallet.metaspace.bio/recovery_tool.html</a> → save to your computer, then <strong>open offline</strong>.</p>
+      <table class="guide-table" style="margin-top:0.5rem"><thead><tr><th>Mode</th><th>When?</th><th>What it does</th></tr></thead><tbody>
+        <tr><td><strong>ENCODE</strong></td><td>After wallet creation / face update</td><td>Raw Paper A + memorised P → <strong>Final Paper A</strong> (keep this)</td></tr>
+        <tr><td><strong>DECODE</strong></td><td>When recovering 24 words</td><td>Final Paper A + Paper B + P → <strong>24 BIP39 words</strong> → MetaMask import</td></tr>
+      </tbody></table>
+      <div class="guide-ok" style="margin-top:0.6rem">✓ After ENCODE, destroy Raw Paper A — only Final Paper A remains, P stays in your head.</div>
+      <div class="guide-note" style="margin-top:0.4rem">⚠ BioWallet never sees your P value — only you and the offline recovery_tool.html can combine them. Store Paper B and Paper A in <strong>separate locations</strong>.</div>
+    </div>
+    <hr class="guide-sep">
+    <div class="guide-section">
+      <div class="guide-h2">7. Troubleshooting</div>
       <table class="guide-table"><thead><tr><th>Error / symptom</th><th>Action</th></tr></thead><tbody>
         <tr><td><span class="guide-badge badge-err">FE_DECODE_FAIL</span></td><td>Better lighting, hold head straight, try again</td></tr>
         <tr><td><span class="guide-badge badge-err">EXPIRED</span></td><td>Window expired — start a new face scan</td></tr>
@@ -944,7 +969,7 @@ const GUIDE_HTML = {
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">7. Install as PWA</div>
+      <div class="guide-h2">8. Install as PWA</div>
       <p class="guide-p">BioWallet is available and installable directly from the browser (PWA):</p>
       <p class="guide-p" style="text-align:center;margin:0.5rem 0"><a href="https://biowallet.metaspace.bio" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:700;font-size:1rem;">https://biowallet.metaspace.bio</a></p>
       <table class="guide-table" style="margin-top:0.4rem"><thead><tr><th>Platform</th><th>How to install</th></tr></thead><tbody>
@@ -957,7 +982,7 @@ const GUIDE_HTML = {
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">8. Canonical version &amp; constitution protection</div>
+      <div class="guide-h2">9. Canonical version &amp; constitution protection</div>
       <p class="guide-p"><strong style="color:#ffa502;">Only the app installed from the official source is trustworthy.</strong></p>
       <p class="guide-p">The canonical, verified instance of BioWallet is available exclusively at:</p>
       <p class="guide-p" style="text-align:center;margin:0.5rem 0"><a href="https://biowallet.metaspace.bio" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:700;font-size:1rem;">https://biowallet.metaspace.bio</a></p>
