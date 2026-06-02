@@ -1,0 +1,42 @@
+{
+  "title": "BioWallet: Formally Verified Biometric Ethereum Wallet with DCC Causal Chain Protocol",
+  "description": "BioWallet is a self-sovereign, biometric Ethereum wallet with formal security proofs. This deposit includes: (1) Z3-based formal verification of the Digital Causal Closure (DCC) protocol — 56/56 invariants verified; (2) exhaustive GF(2^8) Shamir Secret Sharing arithmetic proofs — 196,608 cases verified; (3) the complete threat model, security policy, and audit documentation.\n\nKey technical contributions:\n- BCH(255,55,t=25) fuzzy extractor for stable face-to-key derivation\n- DCC causal token protocol enforcing biometric causality on every vault operation\n- Shamir 2-of-3 SSS with WebAuthn PRF device factor\n- Genesis identity chain (genesis_hmac) for tamper-evident re-enrollment history\n- Single-file air-gapped deployment (biowallet.html, ~11.5 MB, all assets inlined)",
+  "creators": [
+    {
+      "name": "Szőke, László-Ferenc",
+      "affiliation": "Citrom Média LTD / MetaSpace Research"
+    }
+  ],
+  "keywords": [
+    "biometric wallet",
+    "formal verification",
+    "Z3 theorem prover",
+    "fuzzy extractor",
+    "BCH code",
+    "Shamir secret sharing",
+    "GF(2^8)",
+    "Ethereum",
+    "WebCrypto",
+    "DCC protocol",
+    "causal chain",
+    "self-sovereign identity",
+    "WebAuthn",
+    "browser security"
+  ],
+  "license": "other-open",
+  "upload_type": "software",
+  "access_right": "open",
+  "language": "eng",
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/LemonScripter/biowallet",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    },
+    {
+      "identifier": "https://biowallet.metaspace.bio",
+      "relation": "isDocumentedBy",
+      "scheme": "url"
+    }
+  ]
+}

@@ -4,6 +4,7 @@ BioWallet_Backup_Pre_Phase9/
 *.tar.gz
 *.tar.bz2
 build/
+biowallet.html
 .env
 .env.*
 *.log

@@ -3,8 +3,10 @@
   <p align="center"><strong>Your face is the key. Your secret stays offline.</strong></p>
   <p align="center">
     <a href="https://biowallet.metaspace.bio">Live demo</a> ·
+    <a href="../../releases/latest">⬇ Download</a> ·
     <a href="README.hu.md">Magyar</a> ·
     <a href="SECURITY.md">Security policy</a> ·
+    <a href="THREAT_MODEL.md">Threat model</a> ·
     <a href="docs/architecture.md">Architecture</a> ·
     <a href="docs/formal-verification.md">Formal verification</a>
   </p>
@@ -16,6 +18,8 @@
   <a href="tests/verify_biowallet.py"><img src="https://img.shields.io/badge/Z3%20invariants-56%2F56%20PASS-brightgreen" alt="Z3 56/56" /></a>
   <a href="tests/verify_sss_gf256.py"><img src="https://img.shields.io/badge/SSS%20GF(2%E2%81%B8)-13%2F13%20PASS-brightgreen" alt="SSS GF(2^8)" /></a>
   <img src="https://img.shields.io/badge/CDN%20dependencies-zero-blue" alt="No CDN" />
+  <a href="THREAT_MODEL.md"><img src="https://img.shields.io/badge/threat%20model-published-informational" alt="Threat model" /></a>
+  <a href="../../releases/latest"><img src="https://img.shields.io/badge/air--gap%20build-11.5%20MB-success" alt="Air-gap build" /></a>
 </p>
 
 ---
@@ -42,6 +46,7 @@ Most wallets tell you they are secure. BioWallet shows you the proof.
 | Enrolled device opens without PIN | WebAuthn PRF: `HKDF(face_R ‖ device_prf, salt)` — device factor is additional, not instead of biometric | [src/core/vault.js](src/core/vault.js) |
 | Shamir GF(2⁸) arithmetic is provably correct | Z3 BitVec, 196 608 exhaustive cases verified | [tests/verify_sss_gf256.py](tests/verify_sss_gf256.py) |
 | No third-party code fetched at runtime | All vendors bundled locally, SHA-256 build fingerprint, SRI integrity attributes | [src/vendor/](src/vendor/) |
+| No XSS via dApp metadata | All WalletConnect-provided strings (dApp name, symbol, image URL, chain name) HTML-escaped via `h()` before DOM injection; `javascript:` URIs blocked in image sources | [src/app/app.js](src/app/app.js) |
 | Offline recovery without exposing the seed | Two-step paper formula — P value never enters the app | [recovery\_tool.html](recovery_tool.html) |
 | DCC constitution tamper-evident | SHA-256 of `spec/biowallet.bio` anchored on Arbitrum One blockchain | [CONSTITUTION.md](CONSTITUTION.md) |
 | Genesis identity chain tamper-evident | `genesis_hmac` = HMAC-SHA256(HKDF(vault\_key, "biowallet-genesis-hmac-v1"), JSON(genesis + dna\_chain)); verified on every vault open | [src/core/vault.js](src/core/vault.js) |
@@ -162,7 +167,7 @@ Full analysis with data tables and bar charts: <a href="https://biowallet.metasp
 | v33 | Paraswap swap integration (ERC-20 → any token, approve+swap, gas speed selector Slow/Normal/Fast, 5-4-3-2-1 countdown camera overlay, USD price display via DeFi Llama, 0.15% protocol fee) |
 | v34 | **MetaMask import fix:** correct BIP39 seed derivation for HD accounts (`keyType: bip39`); **private key import** for MetaMask imported accounts (`keyType: privkey`); bilingual import UI (12–24-word tab / Private key tab); full i18n on import panel |
 | v35 | **Genesis HMAC:** `genesis_hmac` field in vault JSON — HMAC-SHA256(HKDF(vault\_key), genesis+dna\_chain) verified on every open; `ignoreChecks` removed from Paraswap — balance verified before broadcast; **production-ready** |
-| v35.1 | **Paper formula fix:** `entropyToIndices` now supports 16-byte (12-word) entropy; `fetchRandomOffsets(n)` receives correct word count dynamically; `privkey` vaults blocked before DCC gate (vault stays open, friendly error); `btnPaper` split try-catch — BIO\_CAPTURE failures leave vault open, RECOVERY\_FORMULA failures always navigate to lock panel |
+| v35.1 | **Paper formula fix:** 12-word (16-byte) entropy support in `entropyToIndices`; `privkey` vault guard before DCC gate; split try-catch in `btnPaper`. **Worker self-healing:** `onerror`/`onmessageerror` reject all pending promises, 30 s timeout, `unhandledrejection` → scanning reset. **XSS hardening:** `h()` escape + `safeImgSrc()` on all WalletConnect-sourced HTML. **Mobile:** paper grid `minmax(0,1fr)`. **PWA fix:** nginx `sw.js no-cache`, `reg.update()` on load. **Docs:** `THREAT_MODEL.md` published, `SECURITY.md` liveness disclosure, GitHub Private Vulnerability Reporting enabled |
 
 ---
 
@@ -180,6 +185,30 @@ See [docs/cryptography.md](docs/cryptography.md) for the full cryptographic spec
 - BIP39 mnemonic → BIP44 HD key derivation
 - Shamir Secret Sharing over GF(2⁸) (Phase 10)
 - DCC causal token protocol
+
+---
+
+## Air-gapped / offline use
+
+BioWallet ships as a **single self-contained HTML file** with every asset inlined — no internet required after download.
+
+**[⬇ Download biowallet.html from the latest release](../../releases/latest)**
+
+```bash
+# Verify before opening (optional but recommended)
+sha256sum biowallet.html
+# Compare against the fingerprint published in HASHES.md
+```
+
+| Property | Value |
+|----------|-------|
+| File size | ~11.5 MB |
+| Contents | All JS, CSS, face-api models, ethers.js, WalletConnect — all inlined |
+| Network | Zero outbound connections (no CDN, no telemetry) |
+| Works offline | ✅ — open as `file://` or serve locally |
+| Build from source | `python build_single.py` in the repo root |
+
+> **Note:** the WalletConnect dApp integration requires internet. All other features (create wallet, import, sign, paper recovery) work fully offline.
 
 ---
 
@@ -224,8 +253,9 @@ Both scripts are self-contained and produce human-readable PASS/FAIL output for 
 - [x] **MetaMask import** — BIP39 seed phrase (12–24 words) and raw private key, correct HD derivation *(LIVE since v34)*
 - [x] **Paraswap swap** — ERC-20 token swaps with gas speed selector, balance-checked *(LIVE since v35)*
 - [x] **Genesis HMAC** — tamper-evident identity chain, verified on every vault open *(LIVE since v35)*
-- [ ] **Single-file build** — air-gapped `biowallet.html` (~11 MB, all assets inlined)
-- [ ] **External security audit** — independent third-party review
+- [x] **Single-file build** — air-gapped `biowallet.html` (~11.5 MB, all assets inlined) — [download latest release](../../releases/latest)
+- [ ] **Liveness / PAD** — presentation-attack detection (photo/mask spoofing mitigation)
+- [ ] **External security audit** — independent third-party review (Trail of Bits / Least Authority)
 
 ---
 
@@ -246,7 +276,10 @@ biowallet/
 ├── docs/
 ├── README.md
 ├── README.hu.md
-└── SECURITY.md
+├── SECURITY.md            # Responsible disclosure, audit status, liveness disclaimer
+├── THREAT_MODEL.md        # Asset inventory, attacker models, trust boundaries, risk matrix
+├── HASHES.md              # SHA-256 build fingerprints (verified by app footer)
+└── checksums.txt          # sha256sum -c verifiable file hashes
 ```
 
 ---
