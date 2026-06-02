@@ -104,11 +104,11 @@ if (-not $SkipPreflight) {
     if ($changedAfterBump.Count -gt 0) {
         Write-Fail "PRECACHE fájlok változtak a v$swVersion bump ($swBumpHash) UTÁN:"
         $changedAfterBump | ForEach-Object { Write-Fail "    $_" }
-        Write-Fail "→ Bumold a SW verziót, majd futtasd újra a deploy-t!"
+        Write-Fail "-> Bumold a SW verziót, majd futtasd újra a deploy-t!"
         Write-Fail "  (Kihagyáshoz: -SkipPreflight, de csak ha tudod mit csinálsz)"
         exit 1
     } else {
-        Write-Ok "Nincs PRECACHE változás a SW bump után — rendben"
+        Write-Ok "Nincs PRECACHE változás a SW bump után - rendben"
     }
 
     # 4. Munkafa tiszta?
@@ -152,7 +152,7 @@ foreach ($entry in $DEPLOY_MAP.GetEnumerator()) {
 }
 
 if ($errors -gt 0) {
-    Write-Fail "$errors fájl SCP-je sikertelen — ellenőrizd a kapcsolatot!"
+    Write-Fail "$errors fajl SCP-je sikertelen - ellenorizd a kapcsolatot!"
     exit 1
 }
 
