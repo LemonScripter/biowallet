@@ -6,7 +6,7 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v34.2';
+const APP_VERSION = 'v34.3';
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
 import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=11';
@@ -93,9 +93,7 @@ function _setImportMode(mode) {
   const hint = document.getElementById('import-blur-hint');
   if (hint) hint.style.display = mode === 'privkey' ? 'none' : '';
   const sub = document.getElementById('import-enroll-sub');
-  if (sub) sub.textContent = mode === 'privkey'
-    ? '5 arc-scan → biometriai titkosítás · privát kulcs azonnal törlődik'
-    : '5 arc-scan → biometriai titkosítás · szavak azonnal törlődnek';
+  if (sub) sub.textContent = t(mode === 'privkey' ? 'btn.import.enroll.sub.pk' : 'btn.import.enroll.sub');
 }
 btnImportTabPhrase?.addEventListener('click',  () => _setImportMode('phrase'));
 btnImportTabPrivkey?.addEventListener('click', () => _setImportMode('privkey'));

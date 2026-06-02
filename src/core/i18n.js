@@ -38,8 +38,11 @@ const STRINGS = {
     'import.info1': '<strong style="color:#ffa502;font-size:0.75rem;">Mikor érdemes importálni?</strong><br>Ha meglévő MetaMask / Ledger wallet-ját szeretné arc-scannel védeni. Az importálás után a seed phrase biometriailag titkosítva tárolódik — az eredeti szavak azonnal törölhetők.',
     'import.info2': '<strong style="color:#4CAF50;">Miért biztonságos?</strong><br>A seed phrase / privát kulcs soha nem hagyja el a böngészőt — ellenőrizhető:<br><span style="color:#6b6b80;">DevTools → Network → nincs kérés beírás közben.</span><br>Ajánlott: <strong>kapcsolja le az internetet</strong> importálás előtt (PWA offline mód).',
     'import.blur.hint': 'A szöveg homályos — kattintson bele az íráshoz / olvasáshoz.',
-    'btn.import.enroll':     'Beolvasás + importálás',
-    'btn.import.enroll.sub': '5 arc-scan → biometriai titkosítás · szavak azonnal törlődnek',
+    'import.tab.phrase':         '12/24 szó',
+    'import.tab.privkey':        'Privát kulcs (0x…)',
+    'btn.import.enroll':         'Beolvasás + importálás',
+    'btn.import.enroll.sub':     '5 arc-scan → biometriai titkosítás · szavak azonnal törlődnek',
+    'btn.import.enroll.sub.pk':  '5 arc-scan → biometriai titkosítás · privát kulcs azonnal törlődik',
     'btn.import.cancel':     'Vissza',
 
     /* ── Lock panel ────────────────────────────────────────────────── */
@@ -377,8 +380,11 @@ const STRINGS = {
     'import.info1': '<strong style="color:#ffa502;font-size:0.75rem;">When should I import?</strong><br>If you want to protect your existing MetaMask / Ledger wallet with face scan. After import, the seed phrase is biometrically encrypted — the original words can be deleted immediately.',
     'import.info2': '<strong style="color:#4CAF50;">Why is this secure?</strong><br>Your seed phrase or private key never leaves the browser — verifiable:<br><span style="color:#6b6b80;">DevTools → Network → no request sent while typing.</span><br>Recommended: <strong>go offline</strong> before importing (PWA offline mode).',
     'import.blur.hint': 'Text is blurred — click inside to read or write.',
-    'btn.import.enroll':     'Scan + import',
-    'btn.import.enroll.sub': '5 face scans → biometric encryption · words erased immediately',
+    'import.tab.phrase':         '12/24 words',
+    'import.tab.privkey':        'Private key (0x…)',
+    'btn.import.enroll':         'Scan + import',
+    'btn.import.enroll.sub':     '5 face scans → biometric encryption · words erased immediately',
+    'btn.import.enroll.sub.pk':  '5 face scans → biometric encryption · private key erased immediately',
     'btn.import.cancel':     'Back',
 
     /* ── Lock panel ────────────────────────────────────────────────── */
