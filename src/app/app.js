@@ -181,7 +181,9 @@ function _refreshDynamicLabels() {
   if (verEl) verEl.textContent = APP_VERSION;
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/app/sw.js').catch(() => {});
+    navigator.serviceWorker.register('/app/sw.js').then(reg => {
+      reg.update().catch(() => {}); // azonnal ellenőrzi az új SW-t, nem vár 24 órát
+    }).catch(() => {});
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       const banner = document.getElementById('update-banner');
       const btn    = document.getElementById('update-reload-btn');
