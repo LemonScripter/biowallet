@@ -4,15 +4,17 @@
 
 | Version | Status |
 |---|---|
-| v35 (current, `main` branch) | ✅ Actively maintained |
-| v34 | ✅ Security fixes backported if critical |
-| v33 and below | ❌ No security fixes |
+| v35.1 (current, `main` branch) | ✅ Actively maintained |
+| v35.0 | ✅ Security fixes backported if critical |
+| v34 and below | ❌ No security fixes |
 
 ---
 
 ## Threat model
 
 BioWallet is designed for a specific set of threats. Understanding what it protects against — and what it does not — is essential for evaluating whether it fits your use case.
+
+> **Full threat model:** see [THREAT_MODEL.md](THREAT_MODEL.md) for the complete asset inventory, attacker capability matrix, trust boundaries, and risk matrix.
 
 ### What BioWallet protects against
 
@@ -44,8 +46,14 @@ All vendor libraries (FaceNet, ethers.js, WalletConnect, QRCode) are bundled at 
 **A fully compromised browser**
 If the browser process itself is controlled by an attacker, Worker isolation provides no protection. Use a dedicated browser profile for high-value wallets. See *Hardened Deployment* below for a kernel-level mitigation.
 
-**The enrolled face itself being replicated**
-BioWallet uses FaceNet embeddings, which are based on 2D video frames from a webcam. A high-quality photograph or a 3D face mask could potentially bypass liveness detection. For high-value holdings, combine BioWallet with a hardware wallet (Ledger, Trezor) or enroll the WebAuthn device factor (adds a physical authenticator as a second SSS share).
+**Presentation attacks (photo or mask spoofing) — known limitation**
+BioWallet uses FaceNet embeddings derived from 2D webcam frames. **There is no liveness detection.** A high-quality photograph or 3D face mask of the enrolled user could potentially bypass face authentication.
+
+*Mitigations available to users:*
+- **SSS 2-of-3 (strongly recommended):** enroll the WebAuthn device factor (hardware authenticator as the second SSS share). A photo gives an attacker the face share (x=1) only — without the device factor or paper share, the 2-of-3 threshold is not met and the vault cannot be opened.
+- For the highest-value holdings, combine with a hardware wallet (Ledger, Trezor) for transaction signing.
+
+*Roadmap:* liveness/PAD (presentation-attack detection) integration is on the roadmap as a future optional security layer.
 
 **Loss of the `.biowallet` file AND the paper recovery formula**
 Without both the encrypted vault file and a valid recovery formula, the funds are unrecoverable. BioWallet cannot help you. Store both independently.
@@ -91,18 +99,44 @@ Authentication:
 
 If you discover a security vulnerability in BioWallet, please **do not open a public GitHub issue**.
 
+### Preferred: GitHub Private Vulnerability Reporting
+
+Use GitHub's built-in private reporting — no email needed, end-to-end encrypted:
+
+**[Report a vulnerability →](https://github.com/LemonScripter/biowallet/security/advisories/new)**
+
+### Alternative: email
+
 **Email:** admin@metaspace.bio  
-**Subject:** `[BioWallet Security]`
+**Subject:** `[BioWallet Security]`  
+**PGP:** not required, but appreciated for critical findings
 
-Please include:
-- A description of the vulnerability
-- Steps to reproduce
-- Potential impact assessment
-- Your suggested fix (if any)
+### What to include
 
-We will acknowledge your report within 48 hours and aim to release a fix within 14 days for critical vulnerabilities.
+- Description of the vulnerability and affected component
+- Steps to reproduce (PoC preferred)
+- Potential impact and severity assessment (CVSS estimate if possible)
+- Your suggested fix (optional but appreciated)
 
-We do not currently offer a bug bounty program, but we will publicly credit responsible disclosure in the release notes.
+### Response timeline
+
+| Action | Target |
+|--------|--------|
+| Acknowledgement | 48 hours |
+| Initial triage | 5 business days |
+| Fix for critical vulnerabilities | 14 days |
+| Fix for high/medium vulnerabilities | 30 days |
+| Public disclosure (coordinated) | After fix is deployed |
+
+### Recognition
+
+We do not operate a paid bug bounty program. Researchers who responsibly disclose valid vulnerabilities will receive:
+
+- **Public credit** in the release notes and SECURITY.md (name/handle, with your permission)
+- **GitHub Security Advisory** co-authorship credit
+- A **Hall of Fame** entry at [biowallet.metaspace.bio](https://biowallet.metaspace.bio) (coming soon)
+
+Findings that are part of the known limitations listed above (e.g. liveness detection, OS-level compromise) are **out of scope** for recognition, but we welcome constructive discussion.
 
 ---
 
@@ -154,8 +188,10 @@ A fully validated BioWallet + BioOS joint deployment remains experimental — se
 | Genesis HMAC (v35+) | HMAC-SHA256 via WebCrypto HKDF | ✅ Internal | — |
 | BIP39/BIP44 key derivation | Standard — matches MetaMask derivation | ✅ Internal | — |
 | Worker isolation | CSP `worker-src 'self'` | ✅ Internal | — |
+| XSS / HTML injection (v35.1+) | — | ✅ `h()` escape on all external data | — |
 | WalletConnect v2 | — | ✅ Internal | — |
 | Paraswap swap integration | — | ✅ Internal | — |
+| Liveness / PAD | ❌ Not implemented | ⚠️ Known limitation — SSS mitigates | — |
 | External audit | ❌ Not yet performed | | |
 
 We invite independent security researchers to audit the codebase and the formal verification tests.
