@@ -144,7 +144,11 @@ def _build(tmp):
 
     interceptor = _make_interceptor(model_entries)
 
-    # Összerakás: interceptor ELSŐ (face-api load előtt fut)
+    # Összerakás:
+    #   HEAD: interceptor + vendor globálok (DOM-hozzáférés nem kell)
+    #   BODY vége: app_code — az esbuild IIFE nem defer-el, ezért a DOM
+    #   elemeknek (getElementById) már létezniük kell futáskor.
+    #   (ES module-ok automatikusan deferáltak, IIFE-k nem.)
     out_lines = [
         '<!DOCTYPE html>',
         '<html lang="hu">',
@@ -158,10 +162,10 @@ def _build(tmp):
         '<script>' + qrcode_js + '</script>',
         '<script>' + fa_js + '</script>',
         '<script>' + ethers_js + '</script>',
-        '<script>' + app_code + '</script>',
         '</head>',
         '<body>',
         body_html,
+        '<script>' + app_code + '</script>',
         '</body>',
         '</html>',
     ]
