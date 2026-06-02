@@ -6,7 +6,7 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v33.5';
+const APP_VERSION = 'v33.6';
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
 import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=11';
@@ -2936,11 +2936,13 @@ async function _signAndBroadcast(tx, meta, label) {
   const userInput = await _showSwapConfirm(tx, null, fingerprint, label);
   if (!userInput) { await callWorker('CANCEL_TX'); return null; }
 
-  // 1.5s: felhasználónak legyen ideje a kamerához pozicionálni
-  setMsg(isHu ? '⏱ Arc-scan 1.5s múlva — nézzen a kamerába…' : '⏱ Face scan in 1.5s — look at the camera…', '');
-  await new Promise(r => setTimeout(r, 1500));
-
+  // Görget a kamerához, majd 3-2-1 visszaszámlálás a kamera overlay-en
   await _ensureCameraForScan();
+  setMsg(isHu ? '⏱ Közelítsen a kamerához…' : '⏱ Move closer to camera…', '');
+  for (const n of ['3', '2', '1']) {
+    scanHint.textContent = `⏱  ${n}`;
+    await new Promise(r => setTimeout(r, 500));
+  }
   setScanning(true);
   setMsg(label, '');
   const embedding = await captureEmbedding(video);
@@ -2954,9 +2956,12 @@ async function _signAndBroadcast(tx, meta, label) {
 async function _reopenVaultForSwap(meta, stepLabel) {
   // P7 auto-lock után újra kell nyitni a vault-ot a swap TX aláírásához.
   const isHu = document.documentElement.lang !== 'en';
-  setMsg(isHu ? `${stepLabel} — nézzen a kamerába…` : `${stepLabel} — look at camera…`, '');
-  await new Promise(r => setTimeout(r, 1000));
+  setMsg(stepLabel, '');
   await _ensureCameraForScan();
+  for (const n of ['2', '1']) {
+    scanHint.textContent = `⏱  ${n}`;
+    await new Promise(r => setTimeout(r, 500));
+  }
   setScanning(true);
 
   const embedding = await captureEmbedding(video);
