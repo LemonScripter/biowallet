@@ -14,6 +14,17 @@ function eth() {
   return e;
 }
 
+// keyType='bip39': entropy → Mnemonic → PBKDF2 → BIP32 root (MetaMask-compatible)
+// keyType='raw':   seed bytes → BIP32 root directly (BioWallet native)
+function _getRoot(e, seedBytes, keyType) {
+  const hex = '0x' + Array.from(seedBytes).map(b => b.toString(16).padStart(2,'0')).join('');
+  if (keyType === 'bip39') {
+    const mnem = e.Mnemonic.fromEntropy(hex);
+    return e.HDNodeWallet.fromSeed(mnem.computeSeed());
+  }
+  return e.HDNodeWallet.fromSeed(hex);
+}
+
 // ── BIP39 mnemonic ────────────────────────────────────────────────────────
 
 /** 32 bájt entropy → 24 szavas BIP39 mnemonic. */
@@ -33,12 +44,10 @@ export function mnemonicToSeed(phrase) {
 
 // ── BIP32 + Ethereum cím ──────────────────────────────────────────────────
 
-/** 32 bájt seed → Ethereum cím (EIP-55 checksum). Deriváció: m/44'/60'/0'/0/0 */
-export function seedToAddress(seedBytes) {
+/** seed bytes → Ethereum cím (EIP-55 checksum). Deriváció: m/44'/60'/0'/0/0 */
+export function seedToAddress(seedBytes, keyType = 'raw') {
   const e     = eth();
-  const hex   = '0x' + Array.from(seedBytes).map(b => b.toString(16).padStart(2,'0')).join('');
-  const root  = e.HDNodeWallet.fromSeed(hex);
-  const child = root.derivePath(ETH_PATH);
+  const child = _getRoot(e, seedBytes, keyType).derivePath(ETH_PATH);
   return child.address;
 }
 
@@ -48,11 +57,9 @@ export function seedToAddress(seedBytes) {
  * Tranzakció aláírása secp256k1-gyel — EIP-1559 Type 2 tx.
  * tx.maxFeePerGas + tx.maxPriorityFeePerGas kötelező (Phase 6 rpc.js adja).
  */
-export async function signEthTx(tx, seedBytes) {
+export async function signEthTx(tx, seedBytes, keyType = 'raw') {
   const e      = eth();
-  const hex    = '0x' + Array.from(seedBytes).map(b => b.toString(16).padStart(2,'0')).join('');
-  const root   = e.HDNodeWallet.fromSeed(hex);
-  const child  = root.derivePath(ETH_PATH);
+  const child  = _getRoot(e, seedBytes, keyType).derivePath(ETH_PATH);
   const wallet = new e.Wallet(child.privateKey);
 
   // BigInt mezők stringként jönnek a Worker postMessage-en keresztül
@@ -75,10 +82,9 @@ export async function signEthTx(tx, seedBytes) {
 }
 
 /** personal_sign — sign a hex or UTF-8 message (\x19Ethereum Signed Message prefix). */
-export async function signPersonal(hexMessage, seedBytes) {
+export async function signPersonal(hexMessage, seedBytes, keyType = 'raw') {
   const e      = eth();
-  const hex    = '0x' + Array.from(seedBytes).map(b => b.toString(16).padStart(2,'0')).join('');
-  const wallet = new e.Wallet(e.HDNodeWallet.fromSeed(hex).derivePath(ETH_PATH).privateKey);
+  const wallet = new e.Wallet(_getRoot(e, seedBytes, keyType).derivePath(ETH_PATH).privateKey);
   const bytes  = (typeof hexMessage === 'string' && hexMessage.startsWith('0x'))
     ? e.getBytes(hexMessage)
     : hexMessage;
@@ -86,10 +92,9 @@ export async function signPersonal(hexMessage, seedBytes) {
 }
 
 /** eth_signTypedData_v4 — EIP-712 typed data signing. */
-export async function signTypedData(typedDataJson, seedBytes) {
+export async function signTypedData(typedDataJson, seedBytes, keyType = 'raw') {
   const e      = eth();
-  const hex    = '0x' + Array.from(seedBytes).map(b => b.toString(16).padStart(2,'0')).join('');
-  const wallet = new e.Wallet(e.HDNodeWallet.fromSeed(hex).derivePath(ETH_PATH).privateKey);
+  const wallet = new e.Wallet(_getRoot(e, seedBytes, keyType).derivePath(ETH_PATH).privateKey);
 
   const { domain, types, message, primaryType } = JSON.parse(typedDataJson);
 

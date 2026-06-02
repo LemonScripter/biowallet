@@ -19,7 +19,7 @@
 
 import { CausalChain, DCCError } from './causal_chain.js?v=11';
 import { fuzzyExtract, fuzzyCommit, fuzzyCommitDeterministic, fuzzyExtractDeterministic } from './fuzzy_extractor.js?v=12';
-import { seedToAddress, signEthTx, signPersonal, signTypedData, mnemonicToSeed, seedToMnemonic } from './wallet.js?v=12';
+import { seedToAddress, signEthTx, signPersonal, signTypedData, mnemonicToSeed, seedToMnemonic } from './wallet.js?v=13';
 import {
   entropyToIndices, fetchRandomOffsets, computeRawPaper,
 } from './recovery_formula.js?v=11';
@@ -173,7 +173,7 @@ class BioVault {
     return { gen, hash: toHex(new Uint8Array(hash)), ts, method };
   }
 
-  static async _encryptSeedV5(seedBytes, embedding, devicePrf, credentialId, prfSalt) {
+  static async _encryptSeedV5(seedBytes, embedding, devicePrf, credentialId, prfSalt, keyType = 'raw') {
     const vaultId = crypto.randomUUID();
     const ts      = Date.now();
     const { R, P } = await fuzzyCommit(embedding);
@@ -193,7 +193,9 @@ class BioVault {
     const vaultKeyRaw = crypto.getRandomValues(new Uint8Array(32));
     try {
       const vaultKey  = await importRawKey(vaultKeyRaw);
-      const plaintext = encode({ seed: toHex(seedBytes), accounts: [], vaultId, created: ts });
+      const plain = { seed: toHex(seedBytes), accounts: [], vaultId, created: ts };
+      if (keyType !== 'raw') plain.keyType = keyType;
+      const plaintext = encode(plain);
       const { iv, ciphertext } = await aesEncrypt(vaultKey, plaintext);
 
       // SSS: face(x=1) + paper(x=3) only — device is a SEPARATE direct K-wrap.
@@ -265,7 +267,7 @@ class BioVault {
   static async importFromMnemonicV5(mnemonic, embedding, devicePrf = null, credentialId = null, prfSalt = null) {
     const seedBytes = mnemonicToSeed(mnemonic);
     try {
-      return await BioVault._encryptSeedV5(seedBytes, embedding, devicePrf, credentialId, prfSalt);
+      return await BioVault._encryptSeedV5(seedBytes, embedding, devicePrf, credentialId, prfSalt, 'bip39');
     } finally { seedBytes.fill(0); }
   }
 
@@ -372,7 +374,7 @@ class BioVault {
           } catch { this.lock(); throw new DCCError('BIO_MISMATCH', 'OPEN'); }
 
           const seedBytes = fromHex(this.#vaultData.seed);
-          const address   = await seedToAddress(seedBytes);
+          const address   = await seedToAddress(seedBytes, this.#vaultData.keyType ?? 'raw');
           seedBytes.fill(0);
 
           // When opened via device, also check if face share still decodes (drift detection).
@@ -449,7 +451,7 @@ class BioVault {
         }
 
         const seedBytes2 = fromHex(this.#vaultData.seed);
-        const address2   = await seedToAddress(seedBytes2);
+        const address2   = await seedToAddress(seedBytes2, this.#vaultData.keyType ?? 'raw');
         seedBytes2.fill(0);
 
         if (v2.v === 5 && v2.genesis) this.#genesis = v2.genesis;
@@ -504,7 +506,7 @@ class BioVault {
       }
 
       const seedBytes = fromHex(this.#vaultData.seed);
-      const address   = await seedToAddress(seedBytes);
+      const address   = await seedToAddress(seedBytes, this.#vaultData.keyType ?? 'raw');
       seedBytes.fill(0);
 
       return { address, hasDevice: !!v2.deviceWrap, usedDevice };
@@ -522,7 +524,7 @@ class BioVault {
       }
 
       const seedBytes = fromHex(this.#vaultData.seed);
-      const address   = await seedToAddress(seedBytes);
+      const address   = await seedToAddress(seedBytes, this.#vaultData.keyType ?? 'raw');
       seedBytes.fill(0);
 
       return { address, hasDevice: false, usedDevice: false };
@@ -630,7 +632,7 @@ class BioVault {
     this.#chain.gate('SIGN', this.#vaultId, txHash);
     this.#pendingTxHash = null;
     const seed   = fromHex(this.#vaultData.seed);
-    const signed = await signEthTx(tx, seed);
+    const signed = await signEthTx(tx, seed, this.#vaultData.keyType ?? 'raw');
     seed.fill(0);
     this.lock();
     return signed;
@@ -641,7 +643,7 @@ class BioVault {
     await this._checkGenesis('PERSONAL_SIGN');
     this.#chain.gate('SIGN', this.#vaultId);
     const seed = fromHex(this.#vaultData.seed);
-    const sig  = await signPersonal(message, seed);
+    const sig  = await signPersonal(message, seed, this.#vaultData.keyType ?? 'raw');
     seed.fill(0);
     this.lock();
     return sig;
@@ -652,7 +654,7 @@ class BioVault {
     await this._checkGenesis('SIGN_TYPED_DATA');
     this.#chain.gate('SIGN', this.#vaultId);
     const seed = fromHex(this.#vaultData.seed);
-    const sig  = await signTypedData(typedDataJson, seed);
+    const sig  = await signTypedData(typedDataJson, seed, this.#vaultData.keyType ?? 'raw');
     seed.fill(0);
     this.lock();
     return sig;
