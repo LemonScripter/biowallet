@@ -79,7 +79,7 @@ export async function signEthTx(tx, seedBytes, keyType = 'raw') {
   };
 
   const signed = await wallet.signTransaction(fullTx);
-  return { tx: fullTx, from: child.address, signed };
+  return { tx: fullTx, from: wallet.address, signed };
 }
 
 /** personal_sign — sign a hex or UTF-8 message (\x19Ethereum Signed Message prefix). */

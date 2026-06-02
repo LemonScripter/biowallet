@@ -19,7 +19,7 @@
 
 import { CausalChain, DCCError } from './causal_chain.js?v=11';
 import { fuzzyExtract, fuzzyCommit, fuzzyCommitDeterministic, fuzzyExtractDeterministic } from './fuzzy_extractor.js?v=12';
-import { seedToAddress, signEthTx, signPersonal, signTypedData, mnemonicToSeed, seedToMnemonic } from './wallet.js?v=14';
+import { seedToAddress, signEthTx, signPersonal, signTypedData, mnemonicToSeed, seedToMnemonic } from './wallet.js?v=15';
 import {
   entropyToIndices, fetchRandomOffsets, computeRawPaper,
 } from './recovery_formula.js?v=11';

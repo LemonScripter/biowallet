@@ -6,7 +6,7 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v34.3';
+const APP_VERSION = 'v34.4';
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
 import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=11';
@@ -23,11 +23,11 @@ import {
   ethToWei, weiToEth, isValidAddress, resolveENS,
   getTokenBalance, formatToken, fetchTxHistory,
   tokenToRaw, encodeTransfer, getAllowance,
-} from '../core/rpc.js?v=22';
+} from '../core/rpc.js?v=23';
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
-const worker  = new Worker('./vault_worker.js?v=27', { type: 'module' });
+const worker  = new Worker('./vault_worker.js?v=28', { type: 'module' });
 let _nextId   = 0;
 const _pending = new Map();
 
