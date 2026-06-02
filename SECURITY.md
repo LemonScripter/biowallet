@@ -4,8 +4,9 @@
 
 | Version | Status |
 |---|---|
-| v31 (current, `main` branch) | ✅ Actively maintained |
-| v30 and below | ❌ No security fixes |
+| v35 (current, `main` branch) | ✅ Actively maintained |
+| v34 | ✅ Security fixes backported if critical |
+| v33 and below | ❌ No security fixes |
 
 ---
 
@@ -60,16 +61,28 @@ BioWallet is appropriate for daily spending amounts. For significant holdings, c
 ## Security architecture summary
 
 ```
-Enrollment:
-  face_video  →  FaceNet  →  embedding (Float32[128])
-  embedding   →  BCH fuzzy extractor  →  vault_key
-  vault_key   →  AES-256-GCM encrypt (BIP39 seed)  →  .biowallet
+Enrollment (native):
+  face_video   →  FaceNet  →  embedding (Float32[128])
+  embedding    →  BCH fuzzy extractor  →  face_R
+  face_R       →  SSS(2,3): faceShare(x=1) + [deviceShare] + paperShare(x=3)
+  vault_key    →  AES-256-GCM encrypt (seed)  →  vault JSON
+  vault JSON   →  genesis.dna + dna_chain + genesis_hmac (HMAC-SHA256)
+
+Import (seed phrase):
+  mnemonic(12–24 words)  →  Mnemonic.fromEntropy().computeSeed()
+  →  HDNodeWallet.fromSeed()  →  m/44'/60'/0'/0/0  →  private key
+  (keyType: 'bip39' stored in vault — identical derivation to MetaMask)
+
+Import (private key):
+  raw 32-byte private key  →  stored as vault seed (keyType: 'privkey')
+  →  ethers.Wallet(privkey)  →  address + signing
 
 Authentication:
   face_video  →  FaceNet  →  embedding'
-  embedding'  →  BCH correct + verify (Hamming ≤ t=6)  →  vault_key
-  vault_key   →  AES-256-GCM decrypt  →  BIP39 seed  →  private key
-  private key →  (used once, then zeroed)
+  embedding'  →  BCH correct + verify (Hamming ≤ t=6)  →  face_R
+  face_R      →  unwrap faceShare  →  vault_key
+  vault_key   →  verify genesis_hmac  →  AES-256-GCM decrypt  →  seed
+  seed        →  private key (used once, then zeroed)
 ```
 
 ---
@@ -138,8 +151,11 @@ A fully validated BioWallet + BioOS joint deployment remains experimental — se
 | BCH fuzzy extractor | ✅ 4 Z3 properties | ✅ Internal | — |
 | GF(2⁸) SSS arithmetic | ✅ 13/13 PASS, 196 608 cases | ✅ Internal | — |
 | Vault encryption (AES-256-GCM) | Standard algorithm | ✅ Internal | — |
+| Genesis HMAC (v35+) | HMAC-SHA256 via WebCrypto HKDF | ✅ Internal | — |
+| BIP39/BIP44 key derivation | Standard — matches MetaMask derivation | ✅ Internal | — |
 | Worker isolation | CSP `worker-src 'self'` | ✅ Internal | — |
 | WalletConnect v2 | — | ✅ Internal | — |
+| Paraswap swap integration | — | ✅ Internal | — |
 | External audit | ❌ Not yet performed | | |
 
 We invite independent security researchers to audit the codebase and the formal verification tests.

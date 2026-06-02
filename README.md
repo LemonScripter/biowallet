@@ -22,6 +22,8 @@
 
 BioWallet is a self-sovereign, biometric Ethereum wallet that runs entirely in the browser. There is no server that handles your key, no account to create, no password to forget. A scan of your face derives the encryption key locally — and that key is discarded after every single operation.
 
+**Import options:** create a new wallet with face enrollment, import an existing wallet from a 12–24-word BIP39 seed phrase, or import a raw private key (e.g. a MetaMask imported account). All three are stored under the same biometric vault — face scan is always required to open.
+
 **Multi-network EVM support:** Ethereum, BNB Chain, Polygon, Arbitrum, Base, Optimism, Avalanche, Sepolia — plus any custom EVM network.
 
 ---
@@ -42,6 +44,8 @@ Most wallets tell you they are secure. BioWallet shows you the proof.
 | No third-party code fetched at runtime | All vendors bundled locally, SHA-256 build fingerprint, SRI integrity attributes | [src/vendor/](src/vendor/) |
 | Offline recovery without exposing the seed | Two-step paper formula — P value never enters the app | [recovery\_tool.html](recovery_tool.html) |
 | DCC constitution tamper-evident | SHA-256 of `spec/biowallet.bio` anchored on Arbitrum One blockchain | [CONSTITUTION.md](CONSTITUTION.md) |
+| Genesis identity chain tamper-evident | `genesis_hmac` = HMAC-SHA256(HKDF(vault\_key, "biowallet-genesis-hmac-v1"), JSON(genesis + dna\_chain)); verified on every vault open | [src/core/vault.js](src/core/vault.js) |
+| MetaMask-compatible address derivation | Three key types: `raw` (native), `bip39` (BIP39 PBKDF2 → BIP32, matches MetaMask HD accounts), `privkey` (raw 32-byte key, matches MetaMask imported accounts) | [src/core/wallet.js](src/core/wallet.js) |
 
 ### Formal verification results
 
@@ -155,6 +159,9 @@ Full analysis with data tables and bar charts: <a href="https://biowallet.metasp
 | v30 | Mobile compatibility: vault file picker fix (user gesture preserved), `visibilitychange` camera restart, vault pre-validation (`salt` + `vaultId` check) |
 | v31 | Security comparison pages (radar chart + EN/HU bar-chart analyses), header comparison link |
 | v32 | Vault v5: genesis.dna identity anchor, dna_chain re-enrollment history, genesis_backup (face-only emergency recovery); mandatory face re-enrollment after SSS paper+device open (`re_enrollment_via_sss` chain entry); annual re-enrollment reminder banner (365 / 730 day thresholds) |
+| v33 | Paraswap swap integration (ERC-20 → any token, approve+swap, gas speed selector Slow/Normal/Fast, 5-4-3-2-1 countdown camera overlay, USD price display via DeFi Llama, 0.15% protocol fee) |
+| v34 | **MetaMask import fix:** correct BIP39 seed derivation for HD accounts (`keyType: bip39`); **private key import** for MetaMask imported accounts (`keyType: privkey`); bilingual import UI (12–24-word tab / Private key tab); full i18n on import panel |
+| v35 | **Genesis HMAC:** `genesis_hmac` field in vault JSON — HMAC-SHA256(HKDF(vault\_key), genesis+dna\_chain) verified on every open; `ignoreChecks` removed from Paraswap — balance verified before broadcast; **production-ready** |
 
 ---
 
@@ -211,10 +218,13 @@ Both scripts are self-contained and produce human-readable PASS/FAIL output for 
 ## Roadmap
 
 - [ ] **Argon2id KDF** — replace PBKDF2 with memory-hard KDF (vault format v4)
-- [ ] **Multi-account** — BIP44 `m/44'/60'/0'/0/n`, multiple addresses
+- [ ] **Multi-wallet UI** — manage multiple vaults (architecture already supports `vaultId`)
 - [x] **Phase 10 SSS(2,3)** — face + WebAuthn hardware key + paper, any 2-of-3 sufficient *(LIVE since v29)*
+- [x] **MetaMask import** — BIP39 seed phrase (12–24 words) and raw private key, correct HD derivation *(LIVE since v34)*
+- [x] **Paraswap swap** — ERC-20 token swaps with gas speed selector, balance-checked *(LIVE since v35)*
+- [x] **Genesis HMAC** — tamper-evident identity chain, verified on every vault open *(LIVE since v35)*
 - [ ] **Single-file build** — air-gapped `biowallet.html` (~11 MB, all assets inlined)
-- [ ] **Protocol fee** — optional 0.1 % developer fee on direct sends
+- [ ] **External security audit** — independent third-party review
 
 ---
 
