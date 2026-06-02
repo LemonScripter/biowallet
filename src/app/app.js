@@ -6,7 +6,7 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v33.7';
+const APP_VERSION = 'v33.8';
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
 import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=11';
@@ -2817,8 +2817,23 @@ async function _showSwapPanel() {
         <div id="_sw_output" style="flex:2;background:#1e1e24;border:1px solid #2a2a35;border-radius:8px;padding:0.6rem 0.8rem;font-size:0.85rem;color:#6b6b80;display:flex;align-items:center;">—</div>
       </div>
 
-      <div id="_sw_details" style="display:none;font-size:0.72rem;color:#6b6b80;background:#1e1e24;border:1px solid #2a2a35;border-radius:8px;padding:0.6rem 0.8rem;margin-bottom:0.75rem;line-height:1.8;"></div>
+      <div id="_sw_details" style="display:none;font-size:0.72rem;color:#6b6b80;background:#1e1e24;border:1px solid #2a2a35;border-radius:8px;padding:0.6rem 0.8rem;margin-bottom:0.6rem;line-height:1.8;"></div>
       <div id="_sw_err" style="display:none;font-size:0.72rem;color:#ff4757;background:#2b0a0a;border:1px solid #5a2020;border-radius:6px;padding:0.5rem 0.7rem;margin-bottom:0.6rem;"></div>
+
+      <div id="_sw_gasrow" style="display:none;margin-bottom:0.75rem;">
+        <div style="font-size:0.72rem;color:#6b6b80;margin-bottom:0.35rem;">${isHu ? 'Sebesség' : 'Speed'}</div>
+        <div style="display:flex;gap:0.4rem;">
+          <button id="_gas_slow" style="flex:1;padding:0.4rem 0;border-radius:8px;font-size:0.75rem;cursor:pointer;border:1px solid #2a2a35;background:#1e1e24;color:#6b6b80;">
+            🐢 ${isHu ? 'Lassú' : 'Slow'}
+          </button>
+          <button id="_gas_normal" style="flex:1;padding:0.4rem 0;border-radius:8px;font-size:0.75rem;cursor:pointer;border:1px solid #6c63ff;background:#6c63ff;color:#fff;font-weight:600;">
+            ⚡ Normal
+          </button>
+          <button id="_gas_fast" style="flex:1;padding:0.4rem 0;border-radius:8px;font-size:0.75rem;cursor:pointer;border:1px solid #2a2a35;background:#1e1e24;color:#6b6b80;">
+            🚀 ${isHu ? 'Gyors' : 'Fast'}
+          </button>
+        </div>
+      </div>
 
       <div style="display:flex;gap:0.5rem;">
         <button id="_sw_quote" style="flex:1;padding:0.65rem;border-radius:10px;border:1px solid #6c63ff;background:transparent;color:#6c63ff;font-size:0.82rem;font-weight:600;cursor:pointer;">
@@ -2845,6 +2860,22 @@ async function _showSwapPanel() {
 
   let pendingSwapTx    = null;
   let pendingApproveTx = null;
+  let selectedGasSpeed = 'normal';
+
+  const gasRow    = ov.querySelector('#_sw_gasrow');
+  const gasBtns   = { slow: ov.querySelector('#_gas_slow'), normal: ov.querySelector('#_gas_normal'), fast: ov.querySelector('#_gas_fast') };
+
+  const _setGasSpeed = (speed) => {
+    selectedGasSpeed = speed;
+    const ON  = 'border:1px solid #6c63ff;background:#6c63ff;color:#fff;font-weight:600;';
+    const OFF = 'border:1px solid #2a2a35;background:#1e1e24;color:#6b6b80;font-weight:normal;';
+    gasBtns.slow.style.cssText   += speed === 'slow'   ? ON : OFF;
+    gasBtns.normal.style.cssText += speed === 'normal' ? ON : OFF;
+    gasBtns.fast.style.cssText   += speed === 'fast'   ? ON : OFF;
+  };
+  gasBtns.slow.addEventListener('click',   () => _setGasSpeed('slow'));
+  gasBtns.normal.addEventListener('click', () => _setGasSpeed('normal'));
+  gasBtns.fast.addEventListener('click',   () => _setGasSpeed('fast'));
 
   ov.querySelector('#_sw_cancel').addEventListener('click', () => ov.remove());
 
@@ -2911,6 +2942,7 @@ async function _showSwapPanel() {
         ? (isHu ? '⚡ Approve + Swap (2 scan)' : '⚡ Approve + Swap (2 scans)')
         : (isHu ? '⚡ Csere (1 scan)' : '⚡ Swap (1 scan)');
       execBtn.disabled = false; execBtn.style.opacity = '1';
+      gasRow.style.display = '';
     } catch (e) {
       errEl.textContent = _swapApiMsg(e.message, isHu);
       errEl.style.display = 'block';
@@ -2922,11 +2954,26 @@ async function _showSwapPanel() {
     if (!pendingSwapTx || cooldownMs() > 0) return;
     ov.remove();
     if (pendingApproveTx) {
-      await _executeApproveAndSwap(pendingApproveTx, pendingSwapTx);
+      await _executeApproveAndSwap(pendingApproveTx, pendingSwapTx, selectedGasSpeed);
     } else {
-      await _executeSwap(pendingSwapTx);
+      await _executeSwap(pendingSwapTx, selectedGasSpeed);
     }
   });
+}
+
+// ── Gas speed helper ──────────────────────────────────────────────────────
+function _applyGasSpeed(feeData, speed) {
+  if (speed === 'normal') return feeData;
+  const base = feeData.maxFeePerGas >= feeData.maxPriorityFeePerGas
+    ? feeData.maxFeePerGas - feeData.maxPriorityFeePerGas
+    : 0n;
+  const prio = speed === 'slow'
+    ? feeData.maxPriorityFeePerGas / 2n
+    : feeData.maxPriorityFeePerGas * 2n;
+  return {
+    maxPriorityFeePerGas: prio,
+    maxFeePerGas: speed === 'fast' ? base * 15n / 10n + prio : base + prio,
+  };
 }
 
 // ── Sign helper (shared by approve and swap steps) ─────────────────────────
@@ -2976,7 +3023,7 @@ async function _reopenVaultForSwap(meta, stepLabel) {
   setScanning(false);
 }
 
-async function _executeApproveAndSwap(approveResult, swapResult) {
+async function _executeApproveAndSwap(approveResult, swapResult, gasSpeed = 'normal') {
   const isHu = document.documentElement.lang !== 'en';
   try {
     const meta = JSON.parse(localStorage.getItem('biowallet_meta'));
@@ -2988,7 +3035,7 @@ async function _executeApproveAndSwap(approveResult, swapResult) {
         isHu ? 'Vault újranyitás (P7-lock)…' : 'Re-opening vault (P7 lock)…');
     }
 
-    const feeData   = await getFeeData(currentNetwork.rpc);
+    const feeData   = _applyGasSpeed(await getFeeData(currentNetwork.rpc), gasSpeed);
     const baseNonce = await getNonce(ethAddress.textContent, currentNetwork.rpc);
 
     // 1/3 — Approve TX (nonce N)
@@ -3037,7 +3084,7 @@ async function _executeApproveAndSwap(approveResult, swapResult) {
   }
 }
 
-async function _executeSwap(swapResult) {
+async function _executeSwap(swapResult, gasSpeed = 'normal') {
   const isHu = document.documentElement.lang !== 'en';
   try {
     const meta = JSON.parse(localStorage.getItem('biowallet_meta'));
@@ -3049,7 +3096,7 @@ async function _executeSwap(swapResult) {
         isHu ? 'Vault újranyitás (P7-lock)…' : 'Re-opening vault (P7 lock)…');
     }
 
-    const feeData = await getFeeData(currentNetwork.rpc);
+    const feeData = _applyGasSpeed(await getFeeData(currentNetwork.rpc), gasSpeed);
     const tx = {
       to:                   swapResult.tx.to,
       value:                swapResult.tx.value ?? '0',
