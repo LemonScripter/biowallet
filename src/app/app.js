@@ -6,7 +6,7 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v33.6';
+const APP_VERSION = 'v33.7';
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
 import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=11';
@@ -2939,7 +2939,7 @@ async function _signAndBroadcast(tx, meta, label) {
   // Görget a kamerához, majd 3-2-1 visszaszámlálás a kamera overlay-en
   await _ensureCameraForScan();
   setMsg(isHu ? '⏱ Közelítsen a kamerához…' : '⏱ Move closer to camera…', '');
-  for (const n of ['3', '2', '1']) {
+  for (const n of ['5', '4', '3', '2', '1']) {
     scanHint.textContent = `⏱  ${n}`;
     await new Promise(r => setTimeout(r, 500));
   }
@@ -2958,7 +2958,7 @@ async function _reopenVaultForSwap(meta, stepLabel) {
   const isHu = document.documentElement.lang !== 'en';
   setMsg(stepLabel, '');
   await _ensureCameraForScan();
-  for (const n of ['2', '1']) {
+  for (const n of ['5', '4', '3', '2', '1']) {
     scanHint.textContent = `⏱  ${n}`;
     await new Promise(r => setTimeout(r, 500));
   }
