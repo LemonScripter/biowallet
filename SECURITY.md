@@ -181,9 +181,9 @@ A fully validated BioWallet + BioOS joint deployment remains experimental — se
 
 | Component | Formal verification | Manual audit | Penetration test |
 |---|---|---|---|
-| DCC protocol | ✅ 7 Z3 properties, 56/56 PASS total | ✅ Internal | — |
-| BCH fuzzy extractor | ✅ 4 Z3 properties | ✅ Internal | — |
-| GF(2⁸) SSS arithmetic | ✅ 13/13 PASS, 196 608 cases | ✅ Internal | — |
+| DCC protocol | ✅ 7 Z3 properties, 56/56 PASS · [DOI 10.5281/zenodo.20517347](https://doi.org/10.5281/zenodo.20517347) | ✅ Internal | — |
+| BCH fuzzy extractor | ✅ 4 Z3 properties · [DOI 10.5281/zenodo.20517347](https://doi.org/10.5281/zenodo.20517347) | ✅ Internal | — |
+| GF(2⁸) SSS arithmetic | ✅ 13/13 PASS, 196 608 cases · [DOI 10.5281/zenodo.20517347](https://doi.org/10.5281/zenodo.20517347) | ✅ Internal | — |
 | Vault encryption (AES-256-GCM) | Standard algorithm | ✅ Internal | — |
 | Genesis HMAC (v35+) | HMAC-SHA256 via WebCrypto HKDF | ✅ Internal | — |
 | BIP39/BIP44 key derivation | Standard — matches MetaMask derivation | ✅ Internal | — |
