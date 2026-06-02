@@ -20,7 +20,7 @@
   <img src="https://img.shields.io/badge/CDN%20dependencies-zero-blue" alt="No CDN" />
   <a href="THREAT_MODEL.md"><img src="https://img.shields.io/badge/threat%20model-published-informational" alt="Threat model" /></a>
   <a href="../../releases/latest"><img src="https://img.shields.io/badge/air--gap%20build-11.5%20MB-success" alt="Air-gap build" /></a>
-  <a href="https://doi.org/10.5281/zenodo.20517347"><img src="https://img.shields.io/badge/DOI-10.5281%2Fzenodo.20517347-blue" alt="DOI" /></a>
+  <a href="https://doi.org/10.5281/zenodo.20517348"><img src="https://img.shields.io/badge/DOI-10.5281%2Fzenodo.20517348-blue" alt="DOI" /></a>
 </p>
 
 ---
@@ -45,7 +45,7 @@ Most wallets tell you they are secure. BioWallet shows you the proof.
 | Vault cannot open without a fresh biometric token | Token TTL = 30 s, single-use, Z3-verified | [DCC-1, DCC-2](tests/verify_biowallet.py) |
 | Cross-device open requires face + PIN | v3 vault: `PBKDF2(face_R ‖ PIN, salt, 300k)` — wrong PIN = wrong key, indistinguishable from wrong face | [src/core/vault.js](src/core/vault.js) |
 | Enrolled device opens without PIN | WebAuthn PRF: `HKDF(face_R ‖ device_prf, salt)` — device factor is additional, not instead of biometric | [src/core/vault.js](src/core/vault.js) |
-| Shamir GF(2⁸) arithmetic is provably correct | Z3 BitVec, 196 608 exhaustive cases verified | [tests/verify_sss_gf256.py](tests/verify_sss_gf256.py) · [DOI 10.5281/zenodo.20517347](https://doi.org/10.5281/zenodo.20517347) |
+| Shamir GF(2⁸) arithmetic is provably correct | Z3 BitVec, 196 608 exhaustive cases verified | [tests/verify_sss_gf256.py](tests/verify_sss_gf256.py) · [DOI 10.5281/zenodo.20517348](https://doi.org/10.5281/zenodo.20517348) |
 | No third-party code fetched at runtime | All vendors bundled locally, SHA-256 build fingerprint, SRI integrity attributes | [src/vendor/](src/vendor/) |
 | No XSS via dApp metadata | All WalletConnect-provided strings (dApp name, symbol, image URL, chain name) HTML-escaped via `h()` before DOM injection; `javascript:` URIs blocked in image sources | [src/app/app.js](src/app/app.js) |
 | Offline recovery without exposing the seed | Two-step paper formula — P value never enters the app | [recovery\_tool.html](recovery_tool.html) |
@@ -244,7 +244,7 @@ python tests/verify_sss_gf256.py
 
 Both scripts are self-contained and produce human-readable PASS/FAIL output for every property.
 
-**Citable archive:** [DOI 10.5281/zenodo.20517347](https://doi.org/10.5281/zenodo.20517347)
+**Citable archive:** [DOI 10.5281/zenodo.20517348](https://doi.org/10.5281/zenodo.20517348)
 
 ---
 
