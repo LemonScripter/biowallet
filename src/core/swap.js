@@ -12,7 +12,8 @@ export const TREASURY = '0x4368F0bF9201118bD19b62fB68bFcbaC4B61B7Eb';
 const FEE_BPS         = 15;   // 0.15%
 const MAX_SLIPPAGE    = 1;    // 1% hard cap
 
-const SUPPORTED = new Set([1, 56, 137, 42161, 8453, 10, 43114]);
+const SUPPORTED  = new Set([1, 56, 137, 42161, 8453, 10, 43114]);
+const L2_CHAINS  = new Set([42161, 8453, 10]);  // Arbitrum, Base, Optimism — higher gas fallback
 export function isSwapSupported(chainId) { return SUPPORTED.has(chainId); }
 
 // Cache: Paraswap TokenTransferProxy per chain
@@ -81,33 +82,54 @@ export async function buildSwapTx(chainId, fromToken, toToken, amountWei, fromAd
     body.partnerFeeBps  = FEE_BPS;
   }
 
-  const txUrl = new URL(`${PARASWAP}/transactions/${chainId}`);
-  txUrl.searchParams.set('ignoreGasEstimate', 'true');
-  txUrl.searchParams.set('ignoreChecks',      'true');
-
-  const txRes = await fetch(txUrl, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(body),
-  });
-  if (!txRes.ok) {
-    const e = await txRes.json().catch(() => ({}));
-    throw new Error(e.error ?? `Paraswap build TX: ${txRes.status}`);
+  // Try with partner fee; if the partner is not registered, retry without it.
+  let d;
+  try {
+    d = await _paraswapTx(chainId, body);
+  } catch (e) {
+    if (TREASURY && body.partner) {
+      const bodyNoFee = { ...body };
+      delete bodyNoFee.partner;
+      delete bodyNoFee.partnerAddress;
+      delete bodyNoFee.partnerFeeBps;
+      d = await _paraswapTx(chainId, bodyNoFee);
+    } else {
+      throw e;
+    }
   }
-  const d = await txRes.json();
+
+  const gasLimit = d.gas
+    ? Math.ceil(Number(d.gas) * 1.25).toString()
+    : (L2_CHAINS.has(chainId) ? '600000' : '400000');
 
   return {
     tx: {
       to:       d.to,
       value:    d.value ?? '0',
       data:     d.data,
-      gasLimit: d.gas ? Math.ceil(Number(d.gas) * 1.25).toString() : '400000',
+      gasLimit,
     },
     outputAmount:   priceRoute.destAmount,
     outputSymbol:   priceRoute.destToken?.symbol   ?? '?',
     outputDecimals: priceRoute.destDecimals         ?? 18,
     spender:        isNative ? null : priceRoute.contractAddress ?? null,
   };
+}
+
+async function _paraswapTx(chainId, body) {
+  const txUrl = new URL(`${PARASWAP}/transactions/${chainId}`);
+  txUrl.searchParams.set('ignoreGasEstimate', 'true');
+  txUrl.searchParams.set('ignoreChecks',      'true');
+  const res = await fetch(txUrl, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.error ?? `Paraswap TX: ${res.status}`);
+  }
+  return res.json();
 }
 
 export function formatOutput(amountWei, decimals) {

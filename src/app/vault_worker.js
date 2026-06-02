@@ -33,7 +33,7 @@
 import * as _ethersLib from '../vendor/ethers.bundle.js';
 self.ethers = _ethersLib;
 
-import { BioVault } from '../core/vault.js?v=16';
+import { BioVault } from '../core/vault.js?v=17';
 
 let vault = null;
 
@@ -252,7 +252,10 @@ async function handle(type, p) {
     }
 
     case 'STATUS': {
-      return vault ? vault.chainStatus() : { state: 'NO_VAULT' };
+      if (!vault) return { state: 'NO_VAULT' };
+      const st = vault.chainStatus();
+      st.vaultOpen = vault.isOpen();
+      return st;
     }
 
     default:

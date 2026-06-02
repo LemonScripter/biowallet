@@ -6,7 +6,7 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v33';
+const APP_VERSION = 'v33.2';
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
 import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=11';
@@ -26,7 +26,7 @@ import {
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
-const worker  = new Worker('./vault_worker.js?v=24', { type: 'module' });
+const worker  = new Worker('./vault_worker.js?v=25', { type: 'module' });
 let _nextId   = 0;
 const _pending = new Map();
 
@@ -2751,9 +2751,10 @@ async function _showSwapPanel() {
     `<option value="${ETH_ADDR}" data-sym="${sym}" data-dec="18">${sym}</option>`,
     ...tokens.map(t => `<option value="${t.address}" data-sym="${t.symbol}" data-dec="${t.decimals}">${t.symbol}</option>`),
   ].join('');
-  const toOptions = tokens.map(t =>
-    `<option value="${t.address}" data-sym="${t.symbol}" data-dec="${t.decimals}">${t.symbol}</option>`
-  ).join('');
+  const toOptions = [
+    `<option value="${ETH_ADDR}" data-sym="${sym}" data-dec="18">${sym}</option>`,
+    ...tokens.map(t => `<option value="${t.address}" data-sym="${t.symbol}" data-dec="${t.decimals}">${t.symbol}</option>`),
+  ].join('');
 
   const ov = document.createElement('div');
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;overflow-y:auto;';
@@ -2865,7 +2866,7 @@ async function _showSwapPanel() {
         : (isHu ? '⚡ Csere (1 scan)' : '⚡ Swap (1 scan)');
       execBtn.disabled = false; execBtn.style.opacity = '1';
     } catch (e) {
-      errEl.textContent = e.message;
+      errEl.textContent = _swapApiMsg(e.message, isHu);
       errEl.style.display = 'block';
       outputEl.textContent = '—';
     }
@@ -2888,6 +2889,10 @@ async function _signAndBroadcast(tx, meta, label) {
   const { fingerprint } = await callWorker('COMMIT_TX', { tx });
   const userInput = await _showSwapConfirm(tx, null, fingerprint, label);
   if (!userInput) { await callWorker('CANCEL_TX'); return null; }
+
+  // 1.5s: felhasználónak legyen ideje a kamerához pozicionálni
+  setMsg(isHu ? '⏱ Arc-scan 1.5s múlva — nézzen a kamerába…' : '⏱ Face scan in 1.5s — look at the camera…', '');
+  await new Promise(r => setTimeout(r, 1500));
 
   await _ensureCameraForScan();
   setScanning(true);
@@ -2922,7 +2927,15 @@ async function _reopenVaultForSwap(meta, stepLabel) {
 async function _executeApproveAndSwap(approveResult, swapResult) {
   const isHu = document.documentElement.lang !== 'en';
   try {
-    const meta      = JSON.parse(localStorage.getItem('biowallet_meta'));
+    const meta = JSON.parse(localStorage.getItem('biowallet_meta'));
+
+    // P7 auto-lock check: ha az előző SIGN bezárta a vault-ot, nyissuk újra
+    const status = await callWorker('STATUS').catch(() => ({ vaultOpen: true }));
+    if (!status.vaultOpen) {
+      await _reopenVaultForSwap(meta,
+        isHu ? 'Vault újranyitás (P7-lock)…' : 'Re-opening vault (P7 lock)…');
+    }
+
     const feeData   = await getFeeData(currentNetwork.rpc);
     const baseNonce = await getNonce(ethAddress.textContent, currentNetwork.rpc);
 
@@ -2975,7 +2988,15 @@ async function _executeApproveAndSwap(approveResult, swapResult) {
 async function _executeSwap(swapResult) {
   const isHu = document.documentElement.lang !== 'en';
   try {
-    const meta    = JSON.parse(localStorage.getItem('biowallet_meta'));
+    const meta = JSON.parse(localStorage.getItem('biowallet_meta'));
+
+    // P7 auto-lock check: ha az előző SIGN bezárta a vault-ot, nyissuk újra
+    const status = await callWorker('STATUS').catch(() => ({ vaultOpen: true }));
+    if (!status.vaultOpen) {
+      await _reopenVaultForSwap(meta,
+        isHu ? 'Vault újranyitás (P7-lock)…' : 'Re-opening vault (P7 lock)…');
+    }
+
     const feeData = await getFeeData(currentNetwork.rpc);
     const tx = {
       to:                   swapResult.tx.to,
@@ -3345,6 +3366,23 @@ async function pickFile(accept) {
   });
 }
 
+// ── Swap API error → human-readable (used in swap modal errEl) ────────────
+function _swapApiMsg(m, isHu) {
+  if (!m) return isHu ? 'Ismeretlen hiba.' : 'Unknown error.';
+  const ml = m.toLowerCase();
+  if (ml.includes('no routes') || ml.includes('no route'))
+    return isHu ? 'Erre a párra nincs elérhető swap útvonal.' : 'No swap route available for this pair.';
+  if (ml.includes('liquidity'))
+    return isHu ? 'Nincs elegendő likviditás.' : 'Not enough liquidity for this swap.';
+  if (ml.includes('same token') || ml.includes('same') && ml.includes('token'))
+    return isHu ? 'Ugyanaz a token!' : 'Same token selected.';
+  if (ml.includes('paraswap') || m.match(/TX:\s*[45]\d\d/) || m.match(/quote:\s*[45]\d\d/))
+    return isHu ? 'A swap API átmenetileg nem elérhető, próbálja újra.' : 'Swap API temporarily unavailable, please retry.';
+  if (ml.includes('failed to fetch') || ml.includes('networkerror'))
+    return isHu ? 'Hálózati hiba – ellenőrizze az internetkapcsolatot.' : 'Network error – check your connection.';
+  return m;
+}
+
 // ── Friendly error messages ───────────────────────────────────────────────
 function friendlyError(m) {
   if (!m) return t('err.unknown');
@@ -3364,6 +3402,15 @@ function friendlyError(m) {
       m.toLowerCase().includes('invalid phrase') ||
       m.toLowerCase().includes('invalid word'))
     return t('err.mnemonic');
+  // Swap API errors (execution path — same translations as _swapApiMsg)
+  const isHu = document.documentElement.lang !== 'en';
+  const ml = m.toLowerCase();
+  if (ml.includes('no routes') || ml.includes('no route'))
+    return isHu ? 'Erre a párra nincs elérhető swap útvonal.' : 'No swap route available for this pair.';
+  if (ml.includes('liquidity'))
+    return isHu ? 'Nincs elegendő likviditás.' : 'Not enough liquidity for this swap.';
+  if (ml.includes('paraswap') || m.match(/TX:\s*[45]\d\d/) || m.match(/quote:\s*[45]\d\d/))
+    return isHu ? 'A swap API átmenetileg nem elérhető, próbálja újra.' : 'Swap API temporarily unavailable, please retry.';
   return m;
 }
 

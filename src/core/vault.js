@@ -940,6 +940,8 @@ class BioVault {
     if (this.#faceR)       { this.#faceR.fill(0);       this.#faceR = null; }
   }
 
+  isOpen() { return this.#cryptoKey !== null && this.#vaultData !== null; }
+
   chainStatus() { return this.#chain.status(); }
 }
 
