@@ -36,7 +36,7 @@ const STRINGS = {
 
     /* ── Import panel ──────────────────────────────────────────────── */
     'import.info1': '<strong style="color:#ffa502;font-size:0.75rem;">Mikor érdemes importálni?</strong><br>Ha meglévő MetaMask / Ledger wallet-ját szeretné arc-scannel védeni. Az importálás után a seed phrase biometriailag titkosítva tárolódik — az eredeti szavak azonnal törölhetők.',
-    'import.info2': '<strong style="color:#4CAF50;">Miért biztonságos?</strong><br>A 24 szó soha nem hagyja el a böngészőt — ellenőrizhető:<br><span style="color:#6b6b80;">DevTools → Network → nincs kérés beírás közben.</span><br>Ajánlott: <strong>kapcsolja le az internetet</strong> importálás előtt (PWA offline mód).',
+    'import.info2': '<strong style="color:#4CAF50;">Miért biztonságos?</strong><br>A seed phrase / privát kulcs soha nem hagyja el a böngészőt — ellenőrizhető:<br><span style="color:#6b6b80;">DevTools → Network → nincs kérés beírás közben.</span><br>Ajánlott: <strong>kapcsolja le az internetet</strong> importálás előtt (PWA offline mód).',
     'import.blur.hint': 'A szöveg homályos — kattintson bele az íráshoz / olvasáshoz.',
     'btn.import.enroll':     'Beolvasás + importálás',
     'btn.import.enroll.sub': '5 arc-scan → biometriai titkosítás · szavak azonnal törlődnek',
@@ -71,7 +71,7 @@ const STRINGS = {
     'btn.swap':           'Token csere',
     'btn.swap.sub':       'Paraswap · 0.15% fee · arc-scan',
     'btn.paper':          'Papírképlet készítése',
-    'btn.paper.sub':      'Visszafejtő kód — a 24 szó nem jelenik meg digitálisan',
+    'btn.paper.sub':      'Visszafejtő kód — a seed phrase nem jelenik meg digitálisan',
     'btn.lock':           'Azonnali zárolás',
     'btn.lock.sub':       'Privát kulcs törlése a memóriából',
     'btn.device':         'Eszköz hozzáadása',
@@ -114,7 +114,7 @@ const STRINGS = {
     'msg.restore.error':      'Visszaállítás hiba: {err}',
     'msg.invalid.pjson.ver':  'Érvénytelen .P.json fájl (rossz verzió).',
     'msg.invalid.pjson.bch':  'Érvénytelen .P.json fájl (hiányzó BCH adat).',
-    'msg.import.enter.phrase':'Adja meg a 24 szavas seed phrase-t.',
+    'msg.import.enter.phrase':'Adja meg a seed phrase-t (12–24 szó) vagy privát kulcsát.',
     'msg.import.word.count':  '{n} szót adott meg — 12, 15, 18, 21 vagy 24 szó szükséges.',
     'msg.import.scanning':    'Tartsa arcát a keretben — biometriai regisztráció...',
     'msg.open.scanning':      'Arc-scan folyamatban...',
@@ -375,7 +375,7 @@ const STRINGS = {
 
     /* ── Import panel ──────────────────────────────────────────────── */
     'import.info1': '<strong style="color:#ffa502;font-size:0.75rem;">When should I import?</strong><br>If you want to protect your existing MetaMask / Ledger wallet with face scan. After import, the seed phrase is biometrically encrypted — the original words can be deleted immediately.',
-    'import.info2': '<strong style="color:#4CAF50;">Why is this secure?</strong><br>The 24 words never leave the browser — verifiable:<br><span style="color:#6b6b80;">DevTools → Network → no request sent while typing.</span><br>Recommended: <strong>go offline</strong> before importing (PWA offline mode).',
+    'import.info2': '<strong style="color:#4CAF50;">Why is this secure?</strong><br>Your seed phrase or private key never leaves the browser — verifiable:<br><span style="color:#6b6b80;">DevTools → Network → no request sent while typing.</span><br>Recommended: <strong>go offline</strong> before importing (PWA offline mode).',
     'import.blur.hint': 'Text is blurred — click inside to read or write.',
     'btn.import.enroll':     'Scan + import',
     'btn.import.enroll.sub': '5 face scans → biometric encryption · words erased immediately',
@@ -410,7 +410,7 @@ const STRINGS = {
     'btn.swap':           'Token Swap',
     'btn.swap.sub':       'Paraswap · 0.15% fee · face scan',
     'btn.paper':          'Generate paper recovery',
-    'btn.paper.sub':      'Recovery code — the 24 words never appear digitally',
+    'btn.paper.sub':      'Recovery code — seed phrase never appears digitally',
     'btn.lock':           'Lock immediately',
     'btn.lock.sub':       'Erase private key from memory',
     'btn.device':         'Add this device',
@@ -453,7 +453,7 @@ const STRINGS = {
     'msg.restore.error':      'Restore error: {err}',
     'msg.invalid.pjson.ver':  'Invalid .P.json file (wrong version).',
     'msg.invalid.pjson.bch':  'Invalid .P.json file (missing BCH data).',
-    'msg.import.enter.phrase':'Enter your 24-word seed phrase.',
+    'msg.import.enter.phrase':'Enter your seed phrase (12–24 words) or private key.',
     'msg.import.word.count':  '{n} words entered — 12, 15, 18, 21 or 24 words required.',
     'msg.import.scanning':    'Keep your face in the frame — biometric enrollment...',
     'msg.open.scanning':      'Face scan in progress...',
@@ -696,7 +696,7 @@ const INFO_CONTENT = {
     import: {
       title: 'Wallet importálása',
       body: `<p>Ha már van meglévő Ethereum tárcád (MetaMask, Ledger, Trezor stb.), itt áthozhatod BioWallet-be.</p>
-<ol><li>Add meg a <strong>24 szavas seed phrase-t</strong> a mezőbe.</li><li>Kattints a Regisztráció gombra — a kamera bekapcsol.</li><li>5 arc-scan után a seed phrase arc-biometriával titkosítva tárolódik.</li><li>A seed phrase ezután csak az arcoddal nyitható meg.</li></ol>
+<ol><li>Add meg a <strong>12–24 szavas seed phrase-t vagy privát kulcsodat</strong> a mezőbe.</li><li>Kattints a Regisztráció gombra — a kamera bekapcsol.</li><li>5 arc-scan után a titkos adat arc-biometriával titkosítva tárolódik.</li><li>A wallet ezután csak az arcoddal nyitható meg.</li></ol>
 <p style="color:#ffa502;font-size:0.8rem;">Importálás után töröld a seed phrase-t minden más helyről!</p>`,
     },
     restore: {
@@ -774,7 +774,7 @@ const INFO_CONTENT = {
     import: {
       title: 'Import wallet',
       body: `<p>If you already have an Ethereum wallet (MetaMask, Ledger, Trezor etc.), you can bring it into BioWallet.</p>
-<ol><li>Enter your <strong>24-word seed phrase</strong> in the text area.</li><li>Click the Enroll button — the camera activates.</li><li>After 5 face scans, the seed phrase is biometrically encrypted.</li><li>The seed phrase can only be unlocked with your face from now on.</li></ol>
+<ol><li>Enter your <strong>12–24-word seed phrase or private key</strong> in the text area.</li><li>Click the Enroll button — the camera activates.</li><li>After 5 face scans, your secret is biometrically encrypted.</li><li>The wallet can only be unlocked with your face from now on.</li></ol>
 <p style="color:#ffa502;font-size:0.8rem;">After import, delete the seed phrase from everywhere else!</p>`,
     },
     restore: {
@@ -898,7 +898,7 @@ const GUIDE_HTML = {
         <tr><td><code style="font-size:0.75rem">*.biowallet</code></td><td>Pendrive / titkosított felhő</td><td>NEM</td></tr>
         <tr><td><code style="font-size:0.75rem">*.P.json</code></td><td>Pendrive / titkosított felhő</td><td>NEM</td></tr>
         <tr><td>PIN-kód</td><td>Fejben — soha ne írja le digitálisan</td><td>SOHA</td></tr>
-        <tr><td>Seed phrase (24 szó)</td><td>Papír, páncélszekrény</td><td>SOHA</td></tr>
+        <tr><td>Seed phrase / privát kulcs</td><td>Papír, páncélszekrény</td><td>SOHA</td></tr>
         <tr><td>Ethereum cím</td><td>Bárhol</td><td>Igen</td></tr>
       </tbody></table>
       <div class="guide-note" style="margin-top:0.6rem">⚠ Elfelejtett PIN esetén — ha nincs regisztrált eszköz — a vault csak a seed phrase importálásával (+ új PIN) állítható vissza. Ezért fontos a <strong>Papírképlet</strong> biztonsági mentés (vault panel → Papírképlet készítése).</div>
@@ -1014,7 +1014,7 @@ const GUIDE_HTML = {
         <tr><td><code style="font-size:0.75rem">*.biowallet</code></td><td>USB drive / encrypted cloud</td><td>NO</td></tr>
         <tr><td><code style="font-size:0.75rem">*.P.json</code></td><td>USB drive / encrypted cloud</td><td>NO</td></tr>
         <tr><td>PIN code</td><td>In your head — never write it digitally</td><td>NEVER</td></tr>
-        <tr><td>Seed phrase (24 words)</td><td>Paper, fireproof safe</td><td>NEVER</td></tr>
+        <tr><td>Seed phrase / private key</td><td>Paper, fireproof safe</td><td>NEVER</td></tr>
         <tr><td>Ethereum address</td><td>Anywhere</td><td>Yes</td></tr>
       </tbody></table>
       <div class="guide-note" style="margin-top:0.6rem">⚠ Forgotten PIN: without an enrolled device, the vault is only recoverable by re-importing the seed phrase with a new PIN. This is why creating a <strong>Paper recovery</strong> backup is important (vault panel → Generate paper recovery).</div>

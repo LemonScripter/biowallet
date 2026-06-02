@@ -6,7 +6,7 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v34.1';
+const APP_VERSION = 'v34.2';
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
 import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=11';
@@ -80,14 +80,16 @@ const btnImportTabPhrase  = document.getElementById('import-tab-phrase');
 const btnImportTabPrivkey = document.getElementById('import-tab-privkey');
 function _setImportMode(mode) {
   _importMode = mode;
-  btnImportTabPhrase.className  = 'btn ' + (mode === 'phrase'  ? 'btn-primary' : 'btn-ghost');
-  btnImportTabPrivkey.className = 'btn ' + (mode === 'privkey' ? 'btn-primary' : 'btn-ghost');
-  btnImportTabPhrase.style.cssText  = 'flex:1;padding:0.4rem 0.5rem;font-size:0.8rem;';
-  btnImportTabPrivkey.style.cssText = 'flex:1;padding:0.4rem 0.5rem;font-size:0.8rem;';
-  importPhrase.placeholder = mode === 'privkey'
-    ? '0x1234…abcd  (64 hex karakter)'
-    : 'word1 word2 word3 … word24';
-  importPhrase.rows = mode === 'privkey' ? 2 : 5;
+  if (btnImportTabPhrase)  btnImportTabPhrase.className  = 'btn ' + (mode === 'phrase'  ? 'btn-primary' : 'btn-ghost');
+  if (btnImportTabPrivkey) btnImportTabPrivkey.className = 'btn ' + (mode === 'privkey' ? 'btn-primary' : 'btn-ghost');
+  if (btnImportTabPhrase)  btnImportTabPhrase.style.cssText  = 'flex:1;padding:0.4rem 0.5rem;font-size:0.8rem;';
+  if (btnImportTabPrivkey) btnImportTabPrivkey.style.cssText = 'flex:1;padding:0.4rem 0.5rem;font-size:0.8rem;';
+  if (importPhrase) {
+    importPhrase.placeholder = mode === 'privkey'
+      ? '0x1234...abcd  (64 hex karakter)'
+      : 'word1 word2 word3 ... word12/24';
+    importPhrase.rows = mode === 'privkey' ? 2 : 5;
+  }
   const hint = document.getElementById('import-blur-hint');
   if (hint) hint.style.display = mode === 'privkey' ? 'none' : '';
   const sub = document.getElementById('import-enroll-sub');
