@@ -6,7 +6,7 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v34.6';
+const APP_VERSION = 'v34.7';
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
 import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=11';
@@ -23,7 +23,7 @@ import {
   ethToWei, weiToEth, isValidAddress, resolveENS,
   getTokenBalance, formatToken, fetchTxHistory,
   tokenToRaw, encodeTransfer, getAllowance,
-} from '../core/rpc.js?v=25';
+} from '../core/rpc.js?v=26';
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
