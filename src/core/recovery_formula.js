@@ -110,48 +110,50 @@ export function reconstructIndices(codes, rOffsets, pOffsets) {
   return codes.map((c, j) => mod(c + rOffsets[j] + pOffsets[j], 2048));
 }
 
-// ── BIP39 entropy → 24 szóindex (wordlist-mentes) ───────────────────────
+// ── BIP39 entropy → szóindex tömb (wordlist-mentes) ─────────────────────
 
 /**
- * 32 bájt BIP39 entropy → 24 darab 11-bites szóindex (0..2047).
- * A BIP39 spec szerint:
- *   - 256 bit entropy + 8 bit checksum (SHA-256(entropy) első 8 bitje)
- *   - összesen 264 bit → 24 darab 11-bites darab
+ * BIP39 entropy → 11-bites szóindexek (0..2047).
  *
- * Nem kell wordlist a kódoláshoz — a számítás tisztán bitekkel megy.
- * A wordlist csak akkor kell, amikor a felhasználó papíron visszafejt.
+ * Támogatott méretek (BIP39 spec):
+ *   16 bájt (128 bit) → 12 szó  (128 + 4 bit checksum = 132 bit = 12 × 11)
+ *   32 bájt (256 bit) → 24 szó  (256 + 8 bit checksum = 264 bit = 24 × 11)
  *
- * @param {Uint8Array} entropyBytes — 32 bájt
- * @returns {Promise<number[]>} 24 elemű tömb, mindegyik 0..2047
+ * A 3-bájtos ablak utolsó iterációban bits[len+1]-et olvas (OOB).
+ * Uint8Array OOB → undefined → bitwise OR-ban 0; és shift ≥ 8, szóval irreleváns.
+ *
+ * @param {Uint8Array} entropyBytes — 16 vagy 32 bájt
+ * @returns {Promise<number[]>} 12 vagy 24 elemű tömb, mindegyik 0..2047
  */
 export async function entropyToIndices(entropyBytes) {
-  if (entropyBytes.length !== 32) {
-    throw new Error(`Csak 32 bájt entropy támogatott (24 szó), kapott: ${entropyBytes.length}`);
+  const len = entropyBytes.length;
+  if (len !== 16 && len !== 32) {
+    throw new Error(`Csak 16 bájt (12 szó) vagy 32 bájt (24 szó) entropy támogatott, kapott: ${len}`);
   }
+  const n = len === 16 ? 12 : 24;
 
   const hashBuf   = await crypto.subtle.digest('SHA-256', entropyBytes);
   const hashBytes = new Uint8Array(hashBuf);
 
-  // bits = entropy (32 B) || checksum_byte (1 B, csak első 8 bitje használt)
-  const bits = new Uint8Array(33);
+  // bits = entropy || checksum_byte
+  // 12-szó: top 4 bit a checksum; 24-szó: mind a 8 bit.
+  const bits = new Uint8Array(len + 1);
   bits.set(entropyBytes, 0);
-  bits[32] = hashBytes[0];
+  bits[len] = hashBytes[0];
 
-  // 24 darab 11-bites darab kinyerése
-  const indices = new Array(24);
-  for (let i = 0; i < 24; i++) {
+  const indices = new Array(n);
+  for (let i = 0; i < n; i++) {
     const bitOffset = i * 11;
     const byteOff   = bitOffset >> 3;
     const bitInByte = bitOffset & 7;
 
-    // 24 bites ablak (3 bájt), majd shift+mask
     const combined =
       (bits[byteOff]     << 16) |
       (bits[byteOff + 1] <<  8) |
        bits[byteOff + 2];
 
     const shift = 24 - bitInByte - 11;
-    indices[i] = (combined >> shift) & 0x7FF;     // 0x7FF = 2047
+    indices[i] = (combined >> shift) & 0x7FF;
   }
 
   return indices;

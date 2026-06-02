@@ -22,7 +22,7 @@ import { fuzzyExtract, fuzzyCommit, fuzzyCommitDeterministic, fuzzyExtractDeterm
 import { seedToAddress, signEthTx, signPersonal, signTypedData, mnemonicToSeed, seedToMnemonic } from './wallet.js?v=15';
 import {
   entropyToIndices, fetchRandomOffsets, computeRawPaper,
-} from './recovery_formula.js?v=11';
+} from './recovery_formula.js?v=12';
 import { split as sssSplit, combine as sssCombine } from './sss.js?v=1';
 
 const AES_MODE            = 'AES-GCM';
@@ -965,11 +965,16 @@ class BioVault {
 
   async makeRecoveryFormula() {
     if (!this.#vaultData) throw new DCCError('VAULT_LOCKED', 'EXPORT');
+    // privkey vault-nál nincs BIP39 entropy → papírképlet nem alkalmazható.
+    // A check a DCC gate ELŐTT fut, így a token megmarad és a vault nyitva marad.
+    if ((this.#vaultData.keyType ?? 'raw') === 'privkey') {
+      throw new Error('PRIVKEY_NO_FORMULA');
+    }
     this.#chain.gate('EXPORT', this.#vaultId);
     const entropy = fromHex(this.#vaultData.seed);
     try {
-      const indices = await entropyToIndices(entropy);
-      const r       = await fetchRandomOffsets(24, false);
+      const indices = await entropyToIndices(entropy);       // 12 vagy 24 elem
+      const r       = await fetchRandomOffsets(indices.length, false);
       const rawA    = computeRawPaper(indices, r);
       return { rawA, r };
     } finally {

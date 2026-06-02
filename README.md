@@ -162,6 +162,7 @@ Full analysis with data tables and bar charts: <a href="https://biowallet.metasp
 | v33 | Paraswap swap integration (ERC-20 → any token, approve+swap, gas speed selector Slow/Normal/Fast, 5-4-3-2-1 countdown camera overlay, USD price display via DeFi Llama, 0.15% protocol fee) |
 | v34 | **MetaMask import fix:** correct BIP39 seed derivation for HD accounts (`keyType: bip39`); **private key import** for MetaMask imported accounts (`keyType: privkey`); bilingual import UI (12–24-word tab / Private key tab); full i18n on import panel |
 | v35 | **Genesis HMAC:** `genesis_hmac` field in vault JSON — HMAC-SHA256(HKDF(vault\_key), genesis+dna\_chain) verified on every open; `ignoreChecks` removed from Paraswap — balance verified before broadcast; **production-ready** |
+| v35.1 | **Paper formula fix:** `entropyToIndices` now supports 16-byte (12-word) entropy; `fetchRandomOffsets(n)` receives correct word count dynamically; `privkey` vaults blocked before DCC gate (vault stays open, friendly error); `btnPaper` split try-catch — BIO\_CAPTURE failures leave vault open, RECOVERY\_FORMULA failures always navigate to lock panel |
 
 ---
 

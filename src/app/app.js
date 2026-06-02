@@ -6,7 +6,7 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v35.0';
+const APP_VERSION = 'v35.1';
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
 import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=11';
@@ -1445,27 +1445,43 @@ btnSign.addEventListener('click', async () => {
 // ── Paper recovery (Phase 9.1b — P never enters the app) ─────────────────
 btnPaper.addEventListener('click', async () => {
   if (cooldownMs() > 0) return;
+
+  const meta = JSON.parse(localStorage.getItem('biowallet_meta'));
+
+  // Privát kulccsal importált tárca: nincs BIP39 seed, arcszken sem kell.
+  try { if (JSON.parse(meta?.vaultJson ?? 'null')?.keyType === 'privkey') {
+    setMsg(t('err.paper.privkey'), 'error');
+    return;
+  } } catch { /* JSON parse fail — folytatás, a vault.js majd elkapja */ }
+
   await _ensureCameraForScan();
   setScanning(true);
   setMsg(t('msg.paper.scanning'), '');
 
+  // BIO_CAPTURE hibánál a vault nyitva marad — user próbálhat újra.
   try {
-    const meta      = JSON.parse(localStorage.getItem('biowallet_meta'));
     const embedding = await captureEmbedding(video);
     await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
     bioSuccess();
-
-    const { rawA, r } = await callWorker('RECOVERY_FORMULA', {});
-
-    setScanning(false);
-    await showRecoveryPaperModal(rawA, r);
-    setMsg(t('msg.paper.done'), 'ok');
-    showPanel('lock');
   } catch (e) {
     setScanning(false);
     if (e.message.includes('BIO_MISMATCH')) bioFail();
     setMsg(friendlyError(e.message) + bioFailHint(), 'error');
+    return;
   }
+
+  // RECOVERY_FORMULA után a vault MINDIG zárolódik (finally blokk) —
+  // siker és hiba esetén egyaránt a lock panelre navigálunk.
+  try {
+    const { rawA, r } = await callWorker('RECOVERY_FORMULA', {});
+    setScanning(false);
+    await showRecoveryPaperModal(rawA, r);
+    setMsg(t('msg.paper.done'), 'ok');
+  } catch (e) {
+    setScanning(false);
+    setMsg(friendlyError(e.message) + bioFailHint(), 'error');
+  }
+  showPanel('lock');
 });
 
 // ── Lock ──────────────────────────────────────────────────────────────────
@@ -3574,7 +3590,8 @@ function friendlyError(m) {
   if (m.includes('EXPIRED'))         return t('err.expired');
   if (m.includes('NO_TOKEN'))        return t('err.no.token');
   if (m.includes('VAULT_ID_MISMATCH')) return t('err.vault.mismatch');
-  if (m.includes('ALREADY_CONSUMED')) return t('err.consumed');
+  if (m.includes('ALREADY_CONSUMED'))   return t('err.consumed');
+  if (m.includes('PRIVKEY_NO_FORMULA')) return t('err.paper.privkey');
   if (m.toLowerCase().includes('invalid mnemonic') ||
       m.toLowerCase().includes('invalid phrase') ||
       m.toLowerCase().includes('invalid word'))
