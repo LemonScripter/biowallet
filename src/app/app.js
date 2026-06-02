@@ -6,7 +6,7 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v33.4';
+const APP_VERSION = 'v33.5';
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
 import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=11';
@@ -959,7 +959,8 @@ btnImportCancel.addEventListener('click', () => {
 
 btnImportEnroll.addEventListener('click', async () => {
   const words = importPhrase.value.trim().split(/\s+/).filter(Boolean);
-  if (words.length !== 24) {
+  const VALID_LENGTHS = [12, 15, 18, 21, 24];
+  if (!VALID_LENGTHS.includes(words.length)) {
     setMsg(t('msg.import.word.count', { n: words.length }), 'error');
     return;
   }
@@ -2953,7 +2954,8 @@ async function _signAndBroadcast(tx, meta, label) {
 async function _reopenVaultForSwap(meta, stepLabel) {
   // P7 auto-lock után újra kell nyitni a vault-ot a swap TX aláírásához.
   const isHu = document.documentElement.lang !== 'en';
-  setMsg(stepLabel, '');
+  setMsg(isHu ? `${stepLabel} — nézzen a kamerába…` : `${stepLabel} — look at camera…`, '');
+  await new Promise(r => setTimeout(r, 1000));
   await _ensureCameraForScan();
   setScanning(true);
 
