@@ -69,7 +69,7 @@ const STRINGS = {
     'btn.wc':             'dApp kapcsolat',
     'btn.wc.sub':         'WalletConnect v2 — Uniswap, OpenSea stb.',
     'btn.swap':           'Token csere',
-    'btn.swap.sub':       '1inch aggregátor · 0.15% fee · arc-scan szükséges',
+    'btn.swap.sub':       'Paraswap · 0.15% fee · arc-scan',
     'btn.paper':          'Papírképlet készítése',
     'btn.paper.sub':      'Visszafejtő kód — a 24 szó nem jelenik meg digitálisan',
     'btn.lock':           'Azonnali zárolás',
@@ -408,7 +408,7 @@ const STRINGS = {
     'btn.wc':             'dApp connection',
     'btn.wc.sub':         'WalletConnect v2 — Uniswap, OpenSea etc.',
     'btn.swap':           'Token Swap',
-    'btn.swap.sub':       '1inch aggregator · 0.15% fee · face scan required',
+    'btn.swap.sub':       'Paraswap · 0.15% fee · face scan',
     'btn.paper':          'Generate paper recovery',
     'btn.paper.sub':      'Recovery code — the 24 words never appear digitally',
     'btn.lock':           'Lock immediately',
@@ -743,6 +743,25 @@ const INFO_CONTENT = {
 <p>Ezután ezen az eszközön <strong>PIN-kód nélkül</strong>, csak arc-scannel nyitható meg a vault.</p>
 <p style="color:#6b6b80;font-size:0.8rem;">Az eszközadat az adott eszközhöz kötött — más eszközre nem vihető át. Eltávolításhoz: Eszköz eltávolítása gomb.</p>`,
     },
+    swap: {
+      title: 'Token Swap — hogyan működik?',
+      body: `<p>A BioWallet a <strong>Paraswap</strong> aggregátort használja — a legjobb árfolyamot keresi az összes nagy DEX-en (Uniswap, Curve, Balancer stb.).</p>
+<table class="guide-table">
+  <tr><th>Funkció</th><th></th></tr>
+  <tr><td>Fee</td><td><strong>0.15%</strong> a BioWallet treasury-nek (output tokenben)</td></tr>
+  <tr><td>Slippage</td><td>max 1% (automatikus)</td></tr>
+  <tr><td>Hálózatok</td><td>Ethereum, BSC, Polygon, Arbitrum, Base, Optimism, Avalanche</td></tr>
+</table>
+<div class="guide-h2" style="margin-top:0.8rem;">Használat</div>
+<ol>
+  <li>Válaszd ki a <strong>küldendő</strong> és <strong>kapandó</strong> tokent.</li>
+  <li>Add meg az összeget → kattints az <strong>Árfolyam</strong> gombra.</li>
+  <li>Ellenőrizd a várható kimenetet (USD értékkel együtt).</li>
+  <li>Kattints a <strong>Csere</strong> gombra → erősítsd meg a TX ujjlenyomatot → arc-scan.</li>
+</ol>
+<div class="guide-note">ERC-20 tokenek cseréjéhez (pl. USDC → ETH) egy <strong>Approve lépés</strong> is szükséges — összesen 3 arc-scan: jóváhagyás, vault-újranyitás, csere.</div>
+<div class="guide-ok" style="margin-top:0.5rem;">Az árfolyam 30 másodpercig érvényes — utána kérd le újra az <em>Árfolyam</em> gombbal.</div>`,
+    },
   },
 
   en: {
@@ -801,6 +820,25 @@ const INFO_CONTENT = {
 <ol><li>Open the vault, then click the <strong>Add this device</strong> button.</li><li>Complete the platform biometric authentication (Windows Hello / Touch ID / fingerprint).</li><li>Download the <strong>new .biowallet file</strong> — it now includes the device credential.</li></ol>
 <p>On this device the vault will open with <strong>face scan only — no PIN required</strong>.</p>
 <p style="color:#6b6b80;font-size:0.8rem;">The device credential is device-bound — it cannot be transferred to another device. To remove: use the Remove device button.</p>`,
+    },
+    swap: {
+      title: 'Token Swap — how it works',
+      body: `<p>BioWallet uses the <strong>Paraswap</strong> aggregator — it finds the best rate across all major DEXes (Uniswap, Curve, Balancer etc.).</p>
+<table class="guide-table">
+  <tr><th>Feature</th><th></th></tr>
+  <tr><td>Fee</td><td><strong>0.15%</strong> to BioWallet treasury (in the output token)</td></tr>
+  <tr><td>Slippage</td><td>max 1% (automatic)</td></tr>
+  <tr><td>Networks</td><td>Ethereum, BSC, Polygon, Arbitrum, Base, Optimism, Avalanche</td></tr>
+</table>
+<div class="guide-h2" style="margin-top:0.8rem;">How to use</div>
+<ol>
+  <li>Select the <strong>token to spend</strong> and the <strong>token to receive</strong>.</li>
+  <li>Enter the amount → click <strong>Quote</strong>.</li>
+  <li>Review the expected output (with USD estimate).</li>
+  <li>Click <strong>Swap</strong> → confirm the TX fingerprint → face scan.</li>
+</ol>
+<div class="guide-note">Swapping ERC-20 tokens (e.g. USDC → ETH) requires an <strong>Approve step</strong> first — 3 face scans total: approve, vault re-open, swap.</div>
+<div class="guide-ok" style="margin-top:0.5rem;">The quote is valid for ~30 seconds — click <em>Quote</em> again if it expires.</div>`,
     },
   },
 };

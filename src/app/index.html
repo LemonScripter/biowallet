@@ -937,6 +937,15 @@
       <div id="tx-history-list"></div>
     </div>
 
+    <!-- Token Swap (before dApp) -->
+    <div class="btn-row" id="swap-row" style="display:none">
+      <button class="btn btn-ghost" id="btn-swap">
+        <span data-i18n="btn.swap">Token csere</span>
+        <small data-i18n="btn.swap.sub">Paraswap · 0.15% fee · arc-scan</small>
+      </button>
+      <button class="help-btn" data-info="swap" data-i18n-title="btn.info.title" title="Token Swap info">ℹ</button>
+    </div>
+
     <!-- WalletConnect status bar -->
     <div class="wc-bar" id="wc-bar">
       <span class="wc-dot"></span>
@@ -951,21 +960,6 @@
       <button class="help-btn" data-info="wc" data-i18n-title="btn.info.title" title="Hogyan működik?">ℹ</button>
     </div>
 
-    <div class="btn-row" id="swap-row" style="display:none">
-      <button class="btn btn-ghost" id="btn-swap">
-        <span data-i18n="btn.swap">Token csere</span>
-        <small data-i18n="btn.swap.sub">1inch aggregátor · 0.15% fee · arc-scan</small>
-      </button>
-    </div>
-
-    <div class="btn-row" id="device-row" style="display:none">
-      <button class="btn btn-ghost" id="btn-device">
-        <span data-i18n="btn.device">Eszköz hozzáadása</span>
-        <small data-i18n="btn.device.sub">Ez az eszköz legyen második faktor a megnyitáshoz</small>
-      </button>
-      <button class="help-btn" data-info="device" data-i18n-title="btn.info.title" title="Hogyan működik?">ℹ</button>
-    </div>
-
     <div class="btn-row" id="sss-row" style="display:none">
       <button class="btn btn-ghost" id="btn-sss">
         <span data-i18n="btn.sss">2-of-3 védelem</span>
@@ -974,23 +968,38 @@
       <button class="help-btn" id="btn-sss-info" title="Mi ez?">ℹ</button>
     </div>
 
-    <details id="reenroll-row" style="display:none;margin-top:0.25rem;">
+    <!-- Security tools (collapsible) -->
+    <details id="security-tools-row" style="display:none;margin-top:0.25rem;">
       <summary style="font-size:0.73rem;color:var(--accent);cursor:pointer;user-select:none;" data-i18n="btn.security.advanced">⚙ Biztonsági eszközök</summary>
-      <div class="btn-row" style="margin-top:0.4rem;">
-        <button class="btn btn-ghost" id="btn-reenroll">
-          <span data-i18n="btn.reenroll">Arc profil frissítése</span>
-          <small data-i18n="btn.reenroll.sub">Új arc-beolvasás regisztrálása (pl. böngészőváltás után)</small>
+
+      <!-- Device: add/remove (app.js controls visibility) -->
+      <div class="btn-row" id="device-row" style="margin-top:0.4rem;display:none">
+        <button class="btn btn-ghost" id="btn-device">
+          <span data-i18n="btn.device">Eszköz hozzáadása</span>
+          <small data-i18n="btn.device.sub">Ez az eszköz legyen második faktor a megnyitáshoz</small>
         </button>
+        <button class="help-btn" data-info="device" data-i18n-title="btn.info.title" title="Hogyan működik?">ℹ</button>
+      </div>
+
+      <!-- Paper recovery -->
+      <div class="btn-row" style="margin-top:0.4rem;">
+        <button class="btn btn-ghost" id="btn-paper">
+          <span data-i18n="btn.paper">Papírképlet készítése</span>
+          <small data-i18n="btn.paper.sub">Visszafejtő kód — a 24 szó nem jelenik meg digitálisan</small>
+        </button>
+        <button class="help-btn" data-info="paper" data-i18n-title="btn.info.title" title="Hogyan működik?">ℹ</button>
+      </div>
+
+      <!-- Re-enroll face (v5 only, app.js controls visibility) -->
+      <div id="reenroll-row" style="margin-top:0.4rem;display:none">
+        <div class="btn-row">
+          <button class="btn btn-ghost" id="btn-reenroll">
+            <span data-i18n="btn.reenroll">Arc profil frissítése</span>
+            <small data-i18n="btn.reenroll.sub">Új arc-beolvasás regisztrálása (pl. böngészőváltás után)</small>
+          </button>
+        </div>
       </div>
     </details>
-
-    <div class="btn-row">
-      <button class="btn btn-ghost" id="btn-paper">
-        <span data-i18n="btn.paper">Papírképlet készítése</span>
-        <small data-i18n="btn.paper.sub">Visszafejtő kód — a 24 szó nem jelenik meg digitálisan</small>
-      </button>
-      <button class="help-btn" data-info="paper" data-i18n-title="btn.info.title" title="Hogyan működik?">ℹ</button>
-    </div>
 
     <div class="btn-row">
       <button class="btn btn-danger" id="btn-lock">

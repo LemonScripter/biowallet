@@ -6,7 +6,7 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v33.2';
+const APP_VERSION = 'v33.4';
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
 import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=11';
@@ -15,6 +15,7 @@ import {
   wcRespondOk, wcRespondError, wcGetSessions, wcDisconnect, wcReady,
 } from '../core/wc2.js';
 import { isSwapSupported, buildSwapTx, buildApproveTx, getParaswapSpender, formatOutput, ETH_ADDR } from '../core/swap.js';
+import { fetchPricesUsd, fmtUsd, PRICE_NATIVE_ADDR } from '../core/prices.js';
 import {
   BUILTIN_NETWORKS, getAllNetworks, saveCustomNetwork, deleteCustomNetwork,
   getBalance, getNonce,
@@ -120,6 +121,7 @@ let selectedToken       = null;
 const tokenBalanceCache = new Map();
 let pendingWCReq        = null;
 let _currentMsgKey    = null;  // i18n key of the last status bar message
+let _prices           = {};    // { lowercaseAddr → usdPrice } for current network
 
 // ── i18n init ─────────────────────────────────────────────────────────────
 applyI18n();
@@ -1185,6 +1187,8 @@ btnScan.addEventListener('click', async () => {
     swapRow.style.display   = isSwapSupported(currentNetwork.chainId) ? '' : 'none';
     const sssRow = document.getElementById('sss-row');
     if (sssRow) sssRow.style.display = (isV4 || isV5) ? 'none' : '';
+    const securityToolsRow = document.getElementById('security-tools-row');
+    if (securityToolsRow) securityToolsRow.style.display = '';
     const reenrollRow = document.getElementById('reenroll-row');
     if (reenrollRow) reenrollRow.style.display = isV5 ? '' : 'none';
 
@@ -1272,7 +1276,9 @@ btnSign.addEventListener('click', async () => {
       setMsg(t('msg.invalid.amount'), 'error');
       return;
     }
-    confirmAmount = (amountStr || '0') + ' ' + currentNetwork.nativeSymbol;
+    const _amtUsd = fmtUsd(amountStr, _prices[PRICE_NATIVE_ADDR]);
+    confirmAmount = (amountStr || '0') + ' ' + currentNetwork.nativeSymbol +
+                   (_amtUsd ? `  ≈ ${_amtUsd}` : '');
   } else {
     let tokenAmount;
     try {
@@ -1290,7 +1296,8 @@ btnSign.addEventListener('click', async () => {
     }
     txTo          = selectedToken.address;
     txData        = encodeTransfer(recipient, tokenAmount);
-    confirmAmount = `${amountStr} ${selectedToken.symbol}`;
+    const _tokUsd = fmtUsd(amountStr, _prices[(selectedToken.address ?? '').toLowerCase()]);
+    confirmAmount = `${amountStr} ${selectedToken.symbol}` + (_tokUsd ? `  ≈ ${_tokUsd}` : '');
   }
   sendAmountInput.classList.remove('error');
 
@@ -1336,10 +1343,13 @@ btnSign.addEventListener('click', async () => {
   // Commit tx to Worker: Worker stores hash(txPayload), returns 8-char fingerprint
   const { fingerprint } = await callWorker('COMMIT_TX', { tx: txPayload });
 
+  const _gasCost  = gasLimit * feeData.maxFeePerGas;
+  const _gasEth   = weiToEth(_gasCost);
+  const _gasUsd   = fmtUsd(_gasEth, _prices[PRICE_NATIVE_ADDR]);
   const { confirmed, userInput } = await showConfirm({
     to:          recipient,
     amount:      confirmAmount,
-    gas:         `~${weiToEth(gasLimit * feeData.maxFeePerGas)} ETH`,
+    gas:         `~${_gasEth} ${currentNetwork.nativeSymbol}` + (_gasUsd ? `  ≈ ${_gasUsd}` : ''),
     network:     currentNetwork.name,
     fingerprint,
   });
@@ -2202,7 +2212,7 @@ async function fetchBalance(address) {
   } catch {
     ethBalance.textContent = '?';
   }
-  fetchTokenBalances(address);
+  fetchTokenBalances(address).then(() => _refreshUsdDisplay().catch(() => {}));
   renderTxHistory(address);
 }
 
@@ -2284,12 +2294,43 @@ async function fetchTokenBalances(address) {
       const row = document.createElement('div');
       row.className = 'balance-row';
       row.style.marginTop = '0.3rem';
+      const tokUsdId = `_usd_tok_${tok.address.slice(-8).toLowerCase()}`;
       row.innerHTML =
         `<span class="balance-label">${tok.symbol}:</span>` +
-        `<span class="balance-value" style="color:#a78bfa">${formatToken(raw, tok.decimals)}</span>`;
+        `<span class="balance-value" style="color:#a78bfa">${formatToken(raw, tok.decimals)}</span>` +
+        `<span id="${tokUsdId}" style="color:#6b6b80;font-size:0.72rem;margin-left:0.4rem;"></span>`;
       tokenBalances.appendChild(row);
     } catch { /* unknown token or RPC error — skip */ }
   }));
+}
+
+// ── USD price display ─────────────────────────────────────────────────────
+
+async function _refreshUsdDisplay() {
+  const tokens = TOKEN_LIST[currentNetwork.key] ?? [];
+  try {
+    _prices = await fetchPricesUsd(currentNetwork.chainId, tokens.map(t => t.address));
+  } catch { return; }
+
+  // Native balance (ETH / BNB / AVAX / etc.)
+  const sym    = currentNetwork.nativeSymbol ?? 'ETH';
+  const rawTxt = ethBalance.textContent;
+  const bal    = rawTxt.split(' ')[0]; // "0.001" from "0.001 ETH"
+  const nUsd   = fmtUsd(bal, _prices[PRICE_NATIVE_ADDR]);
+  if (nUsd && bal && bal !== '?' && bal !== '…') {
+    ethBalance.textContent = `${bal} ${sym}  ≈ ${nUsd}`;
+  }
+
+  // Token balance USD spans
+  for (const tok of tokens) {
+    const el = document.getElementById(`_usd_tok_${tok.address.slice(-8).toLowerCase()}`);
+    if (!el) continue;
+    const raw = tokenBalanceCache.get(tok.symbol);
+    if (!raw) continue;
+    const amt = Number(raw) / 10 ** tok.decimals;
+    const usd = fmtUsd(amt, _prices[tok.address.toLowerCase()]);
+    if (usd) el.textContent = `≈ ${usd}`;
+  }
 }
 
 // ── WalletConnect v2 ──────────────────────────────────────────────────────
@@ -2847,8 +2888,12 @@ async function _showSwapPanel() {
         if (needsApprove) pendingApproveTx = buildApproveTx(fromAddr, spender, amountWei);
       }
 
-      const outFmt = formatOutput(result.outputAmount, result.outputDecimals);
-      outputEl.textContent = `${outFmt} ${result.outputSymbol}`;
+      const outFmt    = formatOutput(result.outputAmount, result.outputDecimals);
+      const outPriceK = toAddr.toLowerCase() === ETH_ADDR.toLowerCase()
+        ? PRICE_NATIVE_ADDR
+        : toAddr.toLowerCase();
+      const outUsd    = fmtUsd(outFmt, _prices[outPriceK]);
+      outputEl.textContent = `${outFmt} ${result.outputSymbol}` + (outUsd ? `  ≈ ${outUsd}` : '');
       outputEl.style.color = '#4CAF50';
 
       const approveNote = needsApprove
