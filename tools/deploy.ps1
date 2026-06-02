@@ -117,8 +117,8 @@ if (-not $SkipPreflight) {
     if ($dirty) {
         Write-Warn "Uncommitted változások a BioWallet könyvtárban:"
         $dirty | ForEach-Object { Write-Warn "    $_" }
-        Write-Warn "Folytatod? (Enter = igen, Ctrl+C = megszakít)"
-        Read-Host | Out-Null
+        Write-Warn "Folytatod? (Enter = igen, Ctrl+C = megszakít) — auto-folytat 5s utan..."
+        Start-Sleep -Seconds 5
     } else {
         Write-Ok "Working tree tiszta"
     }
