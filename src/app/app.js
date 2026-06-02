@@ -38,12 +38,36 @@ worker.onmessage = ({ data: { id, ok, result, error } }) => {
   ok ? p.resolve(result) : p.reject(new Error(error));
 };
 
-worker.onerror = (e) => console.error('[Worker]', e.message);
+// Worker crash: reject minden ragadt promise-t, ne maradjon örök freeze
+worker.onerror = (e) => {
+  console.error('[Worker crash]', e.message);
+  for (const { reject } of _pending.values()) reject(new Error('WORKER_CRASH'));
+  _pending.clear();
+};
+worker.onmessageerror = () => {
+  for (const { reject } of _pending.values()) reject(new Error('WORKER_CRASH'));
+  _pending.clear();
+};
 
+// Váratlan unhandled rejection → mindig állítsuk le a scanning UI-t
+window.addEventListener('unhandledrejection', e => {
+  console.error('[Unhandled rejection]', e.reason);
+  setScanning(false);
+});
+
+// callWorker timeout: ha a Worker 30s-on belül nem válaszol → reject (ne fagyjon)
+const WORKER_TIMEOUT_MS = 30_000;
 function callWorker(type, payload = {}, transfer = []) {
   return new Promise((resolve, reject) => {
     const id = _nextId++;
-    _pending.set(id, { resolve, reject });
+    const timer = setTimeout(() => {
+      _pending.delete(id);
+      reject(new Error('WORKER_TIMEOUT'));
+    }, WORKER_TIMEOUT_MS);
+    _pending.set(id, {
+      resolve: v => { clearTimeout(timer); resolve(v); },
+      reject:  e => { clearTimeout(timer); reject(e);  },
+    });
     worker.postMessage({ id, type, payload }, transfer);
   });
 }
@@ -849,12 +873,13 @@ function showRecoveryPaperModal(rawA, r) {
                            border-radius:0 !important; }
           .paper-cut { display:block !important; }
         }
-        .paper-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:0.3rem; }
-        .paper-row { display:flex; gap:0.4rem; align-items:baseline;
-                     padding:0.2rem 0.3rem; border-bottom:1px dotted #2a2a35; }
-        .paper-idx { color:#6b6b80; font-size:0.7rem; width:1.6rem; flex-shrink:0; }
-        .paper-val { color:#e8e8f0; font-family:monospace; font-size:0.88rem;
-                     font-weight:600; }
+        .paper-grid { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:0.3rem; }
+        .paper-row { display:flex; gap:0.3rem; align-items:baseline;
+                     padding:0.2rem 0.25rem; border-bottom:1px dotted #2a2a35;
+                     min-width:0; overflow:hidden; }
+        .paper-idx { color:#6b6b80; font-size:0.65rem; width:1.4rem; flex-shrink:0; }
+        .paper-val { color:#e8e8f0; font-family:monospace; font-size:0.82rem;
+                     font-weight:600; min-width:0; overflow:hidden; }
         .paper-cut { display:none; text-align:center; padding:0.5rem;
                      border-top:1px dashed #000; border-bottom:1px dashed #000;
                      font-size:0.8rem; margin:0.5cm 0; }
@@ -3594,6 +3619,8 @@ function friendlyError(m) {
   if (m.includes('VAULT_ID_MISMATCH')) return t('err.vault.mismatch');
   if (m.includes('ALREADY_CONSUMED'))   return t('err.consumed');
   if (m.includes('PRIVKEY_NO_FORMULA')) return t('err.paper.privkey');
+  if (m.includes('WORKER_CRASH'))   return t('err.worker.crash');
+  if (m.includes('WORKER_TIMEOUT')) return t('err.worker.timeout');
   if (m.toLowerCase().includes('invalid mnemonic') ||
       m.toLowerCase().includes('invalid phrase') ||
       m.toLowerCase().includes('invalid word'))
