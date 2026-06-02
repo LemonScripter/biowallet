@@ -55,6 +55,11 @@ window.addEventListener('unhandledrejection', e => {
   setScanning(false);
 });
 
+// HTML escape — minden külső adat (WC metadata, user input) innerHTML-be kerülés előtt
+const h = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+// Kép URL: csak http/https engedélyezett (javascript: URI-k kizárva)
+const safeImgSrc = url => /^https?:\/\//i.test(url ?? '') ? h(url) : '';
+
 // callWorker timeout: ha a Worker 30s-on belül nem válaszol → reject (ne fagyjon)
 const WORKER_TIMEOUT_MS = 30_000;
 function callWorker(type, payload = {}, transfer = []) {
@@ -575,11 +580,11 @@ function showSaveModal(vaultData, pJsonStr, context, existingName) {
       <div style="background:#16161a;border:1px solid #2a2a35;border-radius:16px;width:100%;max-width:380px;padding:1.5rem;margin-top:1rem;">
         <div style="font-size:1rem;font-weight:700;color:#6c63ff;margin-bottom:1rem;">${t('save.title')}</div>
         <div style="font-size:0.72rem;color:#a0a0b0;margin-bottom:0.3rem;">${t('save.name.label')}</div>
-        <input id="_sn" type="text" style="${inpS}" placeholder="${t('save.name.ph')}" value="${dfltName}" autocomplete="off" spellcheck="false">
+        <input id="_sn" type="text" style="${inpS}" placeholder="${t('save.name.ph')}" value="${h(dfltName)}" autocomplete="off" spellcheck="false">
         <div style="${rowS}">
           <div style="flex:1;min-width:0;">
             <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">
-              <span id="_fn_v" style="font-size:0.82rem;font-weight:600;color:#e8e8f0;word-break:break-all;">${dfltName}.biowallet</span>
+              <span id="_fn_v" style="font-size:0.82rem;font-weight:600;color:#e8e8f0;word-break:break-all;">${h(dfltName)}.biowallet</span>
               <span style="${keepS}">${t('save.vault.keep')}</span>
             </div>
             <div style="${descS}">${t('save.vault.desc')}</div>
@@ -1903,7 +1908,7 @@ function _showWalletBadge(meta) {
   const dna = _genesisFromMeta(meta);
   if (!dna) return;
   const fp   = dna.slice(0, 8) + '…' + dna.slice(-4);
-  const name = (meta.walletName || 'BioWallet').replace(/</g, '&lt;');
+  const name = h(meta.walletName || 'BioWallet');
 
   const lockPanel = document.getElementById('panel-lock');
   if (lockPanel) {
@@ -2635,10 +2640,10 @@ function showWCAddChainModal(p) {
       <div style="background:#16161a;border:1px solid #6c63ff;border-radius:16px;width:100%;max-width:380px;padding:1.5rem;">
         <div style="font-size:1rem;font-weight:700;color:#6c63ff;margin-bottom:0.75rem;">${t('wc.addchain.title')}</div>
         <div style="background:#1e1e24;border:1px solid #2a2a35;border-radius:10px;padding:0.75rem;margin-bottom:0.9rem;font-size:0.82rem;">
-          <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem"><span style="color:#888">${t('wc.addchain.name')}</span><span style="color:#e8e8f0;font-weight:600">${p.chainName ?? '—'}</span></div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem"><span style="color:#888">Chain ID</span><span style="color:#e8e8f0;font-family:monospace">${chainId}</span></div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem"><span style="color:#888">${t('wc.addchain.symbol')}</span><span style="color:#e8e8f0">${p.nativeCurrency?.symbol ?? '—'}</span></div>
-          <div style="color:#888;margin-top:0.4rem;font-size:0.7rem;word-break:break-all">${p.rpcUrls?.[0] ?? ''}</div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem"><span style="color:#888">${t('wc.addchain.name')}</span><span style="color:#e8e8f0;font-weight:600">${h(p.chainName ?? '—')}</span></div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem"><span style="color:#888">Chain ID</span><span style="color:#e8e8f0;font-family:monospace">${h(String(chainId))}</span></div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem"><span style="color:#888">${t('wc.addchain.symbol')}</span><span style="color:#e8e8f0">${h(p.nativeCurrency?.symbol ?? '—')}</span></div>
+          <div style="color:#888;margin-top:0.4rem;font-size:0.7rem;word-break:break-all">${h(p.rpcUrls?.[0] ?? '')}</div>
         </div>
         <div style="display:flex;gap:0.75rem;">
           <button id="_wcac_rej" style="flex:1;padding:0.7rem;border-radius:10px;border:1px solid #2a2a35;background:#1e1e24;color:#e8e8f0;font-size:0.85rem;font-weight:600;cursor:pointer;">${t('wc.sign.reject')}</button>
@@ -2655,14 +2660,15 @@ function showWCWatchAssetModal({ address, symbol, decimals, image }) {
   return new Promise(resolve => {
     const ov = document.createElement('div');
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;';
-    const imgHtml = image ? `<img src="${image}" style="width:32px;height:32px;border-radius:50%;margin-right:0.5rem;vertical-align:middle" onerror="this.style.display='none'">` : '';
+    const _imgSrc = safeImgSrc(image);
+    const imgHtml = _imgSrc ? `<img src="${_imgSrc}" style="width:32px;height:32px;border-radius:50%;margin-right:0.5rem;vertical-align:middle">` : '';
     ov.innerHTML = `
       <div style="background:#16161a;border:1px solid #4CAF50;border-radius:16px;width:100%;max-width:360px;padding:1.5rem;">
         <div style="font-size:1rem;font-weight:700;color:#4CAF50;margin-bottom:0.75rem;">${t('wc.watchasset.title')}</div>
         <div style="background:#1e1e24;border:1px solid #2a2a35;border-radius:10px;padding:0.75rem;margin-bottom:0.9rem;">
-          <div style="font-size:1rem;font-weight:700;color:#e8e8f0;margin-bottom:0.3rem;">${imgHtml}${symbol ?? '—'}</div>
-          <div style="font-size:0.72rem;color:#888;word-break:break-all">${address}</div>
-          <div style="font-size:0.72rem;color:#888;margin-top:0.2rem">${t('wc.watchasset.decimals')}: ${decimals}</div>
+          <div style="font-size:1rem;font-weight:700;color:#e8e8f0;margin-bottom:0.3rem;">${imgHtml}${h(symbol ?? '—')}</div>
+          <div style="font-size:0.72rem;color:#888;word-break:break-all">${h(address)}</div>
+          <div style="font-size:0.72rem;color:#888;margin-top:0.2rem">${t('wc.watchasset.decimals')}: ${h(String(decimals))}</div>
         </div>
         <div style="display:flex;gap:0.75rem;">
           <button id="_wcwa_rej" style="flex:1;padding:0.7rem;border-radius:10px;border:1px solid #2a2a35;background:#1e1e24;color:#e8e8f0;font-size:0.85rem;font-weight:600;cursor:pointer;">${t('wc.sign.reject')}</button>
@@ -2876,9 +2882,9 @@ function showWCProposalModal(meta) {
     ov.innerHTML = `
       <div style="background:#16161a;border:1px solid #2a2a35;border-radius:16px;width:100%;max-width:400px;padding:1.5rem;">
         <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#ffa502;margin-bottom:0.3rem;">${t('wc.proposal.label')}</div>
-        <div style="font-size:1rem;font-weight:700;color:#e8e8f0;margin-bottom:0.25rem;">${meta.name ?? t('wc.proposal.unknown')}</div>
-        <div style="font-size:0.75rem;color:#6b6b80;margin-bottom:0.25rem;">${meta.url ?? ''}</div>
-        <div style="font-size:0.78rem;color:#a0a0b0;margin-bottom:1rem;line-height:1.5;">${meta.description ?? ''}</div>
+        <div style="font-size:1rem;font-weight:700;color:#e8e8f0;margin-bottom:0.25rem;">${h(meta.name ?? t('wc.proposal.unknown'))}</div>
+        <div style="font-size:0.75rem;color:#6b6b80;margin-bottom:0.25rem;">${h(meta.url ?? '')}</div>
+        <div style="font-size:0.78rem;color:#a0a0b0;margin-bottom:1rem;line-height:1.5;">${h(meta.description ?? '')}</div>
         <div style="font-size:0.75rem;color:#6b6b80;padding:0.5rem 0.7rem;background:#1e1e24;border-radius:8px;margin-bottom:0.75rem;line-height:1.5;">
           ${t('wc.proposal.info')}
         </div>
@@ -2912,11 +2918,11 @@ async function _showSwapPanel() {
   // From options: native + ERC-20 tokens
   const fromOptions = [
     `<option value="${ETH_ADDR}" data-sym="${sym}" data-dec="18">${sym}</option>`,
-    ...tokens.map(t => `<option value="${t.address}" data-sym="${t.symbol}" data-dec="${t.decimals}">${t.symbol}</option>`),
+    ...tokens.map(t => `<option value="${h(t.address)}" data-sym="${h(t.symbol)}" data-dec="${h(String(t.decimals))}">${h(t.symbol)}</option>`),
   ].join('');
   const toOptions = [
-    `<option value="${ETH_ADDR}" data-sym="${sym}" data-dec="18">${sym}</option>`,
-    ...tokens.map(t => `<option value="${t.address}" data-sym="${t.symbol}" data-dec="${t.decimals}">${t.symbol}</option>`),
+    `<option value="${ETH_ADDR}" data-sym="${h(sym)}" data-dec="18">${h(sym)}</option>`,
+    ...tokens.map(t => `<option value="${h(t.address)}" data-sym="${h(t.symbol)}" data-dec="${h(String(t.decimals))}">${h(t.symbol)}</option>`),
   ].join('');
 
   const ov = document.createElement('div');
@@ -3701,8 +3707,8 @@ function showNetworkModal() {
     info.style.flex = '1';
     const testnetLabel = net.testnet ? t('net.testnet') : '';
     info.innerHTML =
-      `<div style="font-size:0.85rem;font-weight:${isCurrent ? '700' : '600'};color:#e8e8f0;">${net.name}</div>` +
-      `<div style="font-size:0.68rem;color:#6b6b80;">ChainID: ${net.chainId} · ${net.nativeSymbol ?? 'ETH'}${testnetLabel}</div>`;
+      `<div style="font-size:0.85rem;font-weight:${isCurrent ? '700' : '600'};color:#e8e8f0;">${h(net.name)}</div>` +
+      `<div style="font-size:0.68rem;color:#6b6b80;">ChainID: ${h(String(net.chainId))} · ${h(net.nativeSymbol ?? 'ETH')}${h(testnetLabel)}</div>`;
     row.appendChild(info);
 
     if (isCurrent) {
