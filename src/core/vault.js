@@ -25,8 +25,9 @@ import {
 } from './recovery_formula.js?v=11';
 import { split as sssSplit, combine as sssCombine } from './sss.js?v=1';
 
-const AES_MODE        = 'AES-GCM';
-const DEVICE_PRF_INFO = new TextEncoder().encode('biowallet-device-v2');
+const AES_MODE            = 'AES-GCM';
+const DEVICE_PRF_INFO     = new TextEncoder().encode('biowallet-device-v2');
+const GENESIS_HMAC_INFO   = new TextEncoder().encode('biowallet-genesis-hmac-v1');
 
 class BioVault {
   #chain;
@@ -166,6 +167,18 @@ class BioVault {
     );
   }
 
+  // HMAC-SHA256(HKDF(vaultKeyRaw, "biowallet-genesis-hmac-v1"), JSON({genesis, dna_chain}))
+  static async _computeGenesisHmac(vaultKeyRaw, genesis, dna_chain) {
+    const ikm = await crypto.subtle.importKey('raw', vaultKeyRaw, 'HKDF', false, ['deriveKey']);
+    const hmacKey = await crypto.subtle.deriveKey(
+      { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: GENESIS_HMAC_INFO },
+      ikm, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+    );
+    const data = new TextEncoder().encode(JSON.stringify({ genesis, dna_chain }));
+    const sig  = await crypto.subtle.sign('HMAC', hmacKey, data);
+    return toHex(new Uint8Array(sig));
+  }
+
   // SHA-256(prevHash + genesisDna + ts.toString())
   static async _buildChainEntry(prevHash, genesisDna, ts, gen, method) {
     const input = new TextEncoder().encode(prevHash + genesisDna + ts.toString());
@@ -219,9 +232,14 @@ class BioVault {
           };
         }
 
+        const genesisHmac = await BioVault._computeGenesisHmac(
+          vaultKeyRaw, { dna: genesisDna, ts }, [chainEntry]
+        );
+
         const vault = {
           v: 5, vaultId,
           ...(keyType !== 'raw' && { keyType }),
+          genesis_hmac: genesisHmac,
           salt:      toHex(salt),
           iv:        toHex(iv),
           ct:        toHex(new Uint8Array(ciphertext)),
@@ -384,6 +402,14 @@ class BioVault {
             );
             this.#vaultData = decode(plaintext);
           } catch { this.lock(); throw new DCCError('BIO_MISMATCH', 'OPEN'); }
+
+          if (v2.genesis_hmac) {
+            const expected = await BioVault._computeGenesisHmac(vaultKeyRaw, v2.genesis, v2.dna_chain);
+            if (expected !== v2.genesis_hmac) {
+              this.lock();
+              throw new DCCError('GENESIS_HMAC_MISMATCH', 'OPEN');
+            }
+          }
 
           const seedBytes = fromHex(this.#vaultData.seed);
           const address   = await seedToAddress(seedBytes, this.#vaultData.keyType ?? 'raw');
@@ -847,6 +873,9 @@ class BioVault {
       vault.sss            = { faceShare, paperX: 3 };
       vault.deviceWrap     = deviceWrap;
       vault.genesis_backup = { gbSalt: toHex(gbSalt), gbIv: toHex(gbIv), gbCt: toHex(new Uint8Array(gbCtBuf)) };
+      if (vault.genesis_hmac !== undefined) {
+        vault.genesis_hmac = await BioVault._computeGenesisHmac(this.#vaultKeyRaw, vault.genesis, vault.dna_chain);
+      }
 
       this.#faceR = newR.slice();
 
@@ -926,6 +955,9 @@ class BioVault {
       prevHash, vault.genesis.dna, ts, chain.length, method
     );
     chain.push(entry);
+    if (vault.genesis_hmac !== undefined && this.#vaultKeyRaw) {
+      vault.genesis_hmac = await BioVault._computeGenesisHmac(this.#vaultKeyRaw, vault.genesis, vault.dna_chain);
+    }
     return new TextEncoder().encode(JSON.stringify(vault)).buffer;
   }
 

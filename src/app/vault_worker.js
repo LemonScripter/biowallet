@@ -33,7 +33,7 @@
 import * as _ethersLib from '../vendor/ethers.bundle.js';
 self.ethers = _ethersLib;
 
-import { BioVault } from '../core/vault.js?v=20';
+import { BioVault } from '../core/vault.js?v=21';
 
 let vault = null;
 
