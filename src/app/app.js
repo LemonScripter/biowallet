@@ -6,7 +6,7 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v34.0';
+const APP_VERSION = 'v34.1';
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
 import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=11';
@@ -27,7 +27,7 @@ import {
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
-const worker  = new Worker('./vault_worker.js?v=26', { type: 'module' });
+const worker  = new Worker('./vault_worker.js?v=27', { type: 'module' });
 let _nextId   = 0;
 const _pending = new Map();
 
@@ -74,6 +74,29 @@ const btnImportCancel= document.getElementById('btn-import-cancel');
 const importPhrase   = document.getElementById('import-phrase');
 importPhrase.addEventListener('focus', () => { importPhrase.style.filter = 'none'; });
 importPhrase.addEventListener('blur',  () => { importPhrase.style.filter = 'blur(4px)'; });
+
+let _importMode = 'phrase';
+const btnImportTabPhrase  = document.getElementById('import-tab-phrase');
+const btnImportTabPrivkey = document.getElementById('import-tab-privkey');
+function _setImportMode(mode) {
+  _importMode = mode;
+  btnImportTabPhrase.className  = 'btn ' + (mode === 'phrase'  ? 'btn-primary' : 'btn-ghost');
+  btnImportTabPrivkey.className = 'btn ' + (mode === 'privkey' ? 'btn-primary' : 'btn-ghost');
+  btnImportTabPhrase.style.cssText  = 'flex:1;padding:0.4rem 0.5rem;font-size:0.8rem;';
+  btnImportTabPrivkey.style.cssText = 'flex:1;padding:0.4rem 0.5rem;font-size:0.8rem;';
+  importPhrase.placeholder = mode === 'privkey'
+    ? '0x1234…abcd  (64 hex karakter)'
+    : 'word1 word2 word3 … word24';
+  importPhrase.rows = mode === 'privkey' ? 2 : 5;
+  const hint = document.getElementById('import-blur-hint');
+  if (hint) hint.style.display = mode === 'privkey' ? 'none' : '';
+  const sub = document.getElementById('import-enroll-sub');
+  if (sub) sub.textContent = mode === 'privkey'
+    ? '5 arc-scan → biometriai titkosítás · privát kulcs azonnal törlődik'
+    : '5 arc-scan → biometriai titkosítás · szavak azonnal törlődnek';
+}
+btnImportTabPhrase?.addEventListener('click',  () => _setImportMode('phrase'));
+btnImportTabPrivkey?.addEventListener('click', () => _setImportMode('privkey'));
 const btnScan        = document.getElementById('btn-scan');
 const btnSign        = document.getElementById('btn-sign');
 const btnPaper       = document.getElementById('btn-paper');
@@ -945,6 +968,7 @@ btnRestore.addEventListener('click', async () => {
 // ── Import ────────────────────────────────────────────────────────────────
 btnImport.addEventListener('click', () => {
   importPhrase.value = '';
+  _setImportMode('phrase');
   showPanel('import');
   setMsg(t('msg.import.enter.phrase'), '');
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -958,11 +982,24 @@ btnImportCancel.addEventListener('click', () => {
 });
 
 btnImportEnroll.addEventListener('click', async () => {
-  const words = importPhrase.value.trim().split(/\s+/).filter(Boolean);
-  const VALID_LENGTHS = [12, 15, 18, 21, 24];
-  if (!VALID_LENGTHS.includes(words.length)) {
-    setMsg(t('msg.import.word.count', { n: words.length }), 'error');
-    return;
+  // ── Validate secret input ──────────────────────────────────────────────
+  let importSecret;
+  if (_importMode === 'privkey') {
+    const raw = importPhrase.value.trim();
+    const stripped = (raw.startsWith('0x') || raw.startsWith('0X')) ? raw.slice(2) : raw;
+    if (!/^[0-9a-fA-F]{64}$/.test(stripped)) {
+      setMsg('Érvénytelen privát kulcs — 64 hex karakter szükséges (0x…)', 'error');
+      return;
+    }
+    importSecret = { type: 'privkey', value: '0x' + stripped };
+  } else {
+    const words = importPhrase.value.trim().split(/\s+/).filter(Boolean);
+    const VALID_LENGTHS = [12, 15, 18, 21, 24];
+    if (!VALID_LENGTHS.includes(words.length)) {
+      setMsg(t('msg.import.word.count', { n: words.length }), 'error');
+      return;
+    }
+    importSecret = { type: 'phrase', value: words.join(' ') };
   }
 
   importPhrase.value = '';
@@ -995,9 +1032,13 @@ btnImportEnroll.addEventListener('click', async () => {
   // Step 2: optional device factor
   const wa = await _offerDeviceEnroll();
 
+  const workerMsg = importSecret.type === 'privkey'
+    ? { type: 'IMPORT_PK_V5', payload: { privKey: importSecret.value } }
+    : { type: 'IMPORT_V5',    payload: { mnemonic: importSecret.value } };
+
   try {
-    const { vaultId, P, encryptedVault, paperShareY } = await callWorker('IMPORT_V5', {
-      mnemonic: words.join(' '),
+    const { vaultId, P, encryptedVault, paperShareY } = await callWorker(workerMsg.type, {
+      ...workerMsg.payload,
       embedding,
       ...(wa ? { devicePrf: wa.devicePrf, credentialId: wa.credentialId, prfSalt: wa.prfSalt } : {}),
     }, [embedding.buffer]);
@@ -1590,6 +1631,39 @@ function showGenesisRecoverModal(mnemonic) {
   });
 }
 
+// ── Genesis recover modal — privát kulcs verzió ───────────────────────────
+function showPrivkeyRecoverModal(privkey) {
+  return new Promise(resolve => {
+    const masked = privkey.slice(0, 8) + '…' + privkey.slice(-6);
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;';
+    ov.innerHTML = `
+      <div style="background:#1a1a2e;border:2px solid #ff4757;border-radius:16px;padding:1.5rem;max-width:480px;width:100%;">
+        <div style="font-size:0.88rem;font-weight:600;color:#ff4757;margin-bottom:0.9rem;">⚠️ Privát kulcs — soha ne oszd meg!</div>
+        <div style="font-family:monospace;font-size:0.8rem;word-break:break-all;background:#0e0e1a;padding:0.8rem;border-radius:8px;color:#e8e8f0;margin-bottom:1rem;" id="_pk_val">${privkey}</div>
+        <div style="font-size:0.72rem;color:#ffa502;margin-bottom:1rem;">Mentsd biztonságos helyre, majd zárd be ezt az ablakot.</div>
+        <div style="display:flex;gap:0.75rem;">
+          <button id="_pk_copy" style="flex:1;padding:0.6rem;border:1px solid #6c63ff;background:transparent;color:#6c63ff;border-radius:8px;cursor:pointer;font-size:0.9rem;">Másolás</button>
+          <button id="_pk_close" style="flex:1;padding:0.6rem;border:1px solid #ff4757;background:#2b0a0a;color:#ff4757;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;">Bezárás</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    const copyBtn = ov.querySelector('#_pk_copy');
+    copyBtn.onclick = async () => {
+      try { await navigator.clipboard.writeText(privkey); }
+      catch { /* silent */ }
+      copyBtn.textContent = 'Másolva!';
+      copyBtn.style.borderColor = '#4CAF50';
+      copyBtn.style.color = '#4CAF50';
+    };
+    ov.querySelector('#_pk_close').onclick = () => {
+      ov.remove();
+      navigator.clipboard?.writeText('').catch(() => {});
+      resolve();
+    };
+  });
+}
+
 // ── btn-genesis-recover: face → 24 words (emergency recovery) ────────────
 document.getElementById('btn-genesis-recover')?.addEventListener('click', async () => {
   const meta = JSON.parse(localStorage.getItem('biowallet_meta') ?? 'null');
@@ -1627,12 +1701,16 @@ document.getElementById('btn-genesis-recover')?.addEventListener('click', async 
 
   try {
     const encBuf = new TextEncoder().encode(meta.vaultJson).buffer;
-    const { mnemonic } = await callWorker(
+    const result = await callWorker(
       'GENESIS_RECOVER',
       { encryptedVault: encBuf, embedding, P: meta.P },
       [encBuf, embedding.buffer]
     );
-    await showGenesisRecoverModal(mnemonic);
+    if (result.privkey) {
+      await showPrivkeyRecoverModal(result.privkey);
+    } else {
+      await showGenesisRecoverModal(result.mnemonic);
+    }
     setMsg(t('msg.genesis.recover.done'), 'ok');
   } catch (e) {
     if (e.message.includes('GENESIS_DECODE_FAIL') || e.message.includes('GENESIS_MISMATCH')) {

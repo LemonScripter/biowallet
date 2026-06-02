@@ -775,7 +775,7 @@
     <div class="btn-row">
       <button class="btn btn-ghost" id="btn-import">
         <span data-i18n="btn.import">Wallet importálása</span>
-        <small data-i18n="btn.import.sub">24 szavas seed phrase → biometriai titkosítás</small>
+        <small data-i18n="btn.import.sub">12–24 szavas seed phrase vagy privát kulcs → biometriai titkosítás</small>
       </button>
       <button class="help-btn" data-info="import" data-i18n-title="btn.info.title" title="Hogyan működik?">ℹ</button>
     </div>
@@ -805,6 +805,13 @@
       Ajánlott: <strong>kapcsolja le az internetet</strong> importálás előtt (PWA offline mód).
     </div>
 
+    <div style="display:flex;gap:0.5rem;margin-bottom:0.6rem;">
+      <button id="import-tab-phrase" class="btn btn-primary"
+        style="flex:1;padding:0.4rem 0.5rem;font-size:0.8rem;">12/24 szó</button>
+      <button id="import-tab-privkey" class="btn btn-ghost"
+        style="flex:1;padding:0.4rem 0.5rem;font-size:0.8rem;">Privát kulcs (0x…)</button>
+    </div>
+
     <div style="position:relative;">
       <textarea class="tx-input" id="import-phrase" rows="5"
         placeholder="word1 word2 word3 … word24"
@@ -816,13 +823,13 @@
                    color:#6b6b80;pointer-events:none;">👁</span>
     </div>
     <div style="font-size:0.7rem;color:#6b6b80;margin-top:-0.5rem;margin-bottom:0.2rem;"
-         data-i18n="import.blur.hint">
+         id="import-blur-hint">
       A szöveg homályos — kattintson bele az íráshoz / olvasáshoz.
     </div>
 
     <button class="btn btn-primary" id="btn-import-enroll">
-      <span data-i18n="btn.import.enroll">Beolvasás + importálás</span>
-      <small data-i18n="btn.import.enroll.sub">5 arc-scan → biometriai titkosítás · szavak azonnal törlődnek</small>
+      <span id="import-enroll-label">Beolvasás + importálás</span>
+      <small id="import-enroll-sub">5 arc-scan → biometriai titkosítás · szavak azonnal törlődnek</small>
     </button>
     <button class="btn btn-ghost" id="btn-import-cancel" data-i18n="btn.import.cancel">
       Vissza

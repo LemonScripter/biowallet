@@ -33,7 +33,7 @@
 import * as _ethersLib from '../vendor/ethers.bundle.js';
 self.ethers = _ethersLib;
 
-import { BioVault } from '../core/vault.js?v=18';
+import { BioVault } from '../core/vault.js?v=19';
 
 let vault = null;
 
@@ -128,6 +128,20 @@ async function handle(type, p) {
       const cId   = p.credentialId ? new Uint8Array(p.credentialId) : null;
       const pSalt = p.prfSalt      ? new Uint8Array(p.prfSalt)      : null;
       const res = await BioVault.importFromMnemonicV5(p.mnemonic, p.embedding, dPrf, cId, pSalt);
+      vault = new BioVault(res.vaultId);
+      return {
+        vaultId:        res.vaultId,
+        P:              res.P,
+        encryptedVault: res.encryptedVault,
+        paperShareY:    Array.from(res.paperShareY),
+      };
+    }
+
+    case 'IMPORT_PK_V5': {
+      const dPrf  = p.devicePrf    ? new Uint8Array(p.devicePrf)    : null;
+      const cId   = p.credentialId ? new Uint8Array(p.credentialId) : null;
+      const pSalt = p.prfSalt      ? new Uint8Array(p.prfSalt)      : null;
+      const res = await BioVault.importFromPrivKeyV5(p.privKey, p.embedding, dPrf, cId, pSalt);
       vault = new BioVault(res.vaultId);
       return {
         vaultId:        res.vaultId,
@@ -242,8 +256,8 @@ async function handle(type, p) {
     }
 
     case 'GENESIS_RECOVER': {
-      const { mnemonic } = await BioVault.genesisRecover(p.encryptedVault, p.embedding, p.P);
-      return { mnemonic };
+      const res = await BioVault.genesisRecover(p.encryptedVault, p.embedding, p.P);
+      return res; // { mnemonic } or { privkey }
     }
 
     case 'LOCK': {

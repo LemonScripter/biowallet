@@ -14,15 +14,18 @@ function eth() {
   return e;
 }
 
-// keyType='bip39': entropy → Mnemonic → PBKDF2 → BIP32 root (MetaMask-compatible)
-// keyType='raw':   seed bytes → BIP32 root directly (BioWallet native)
-function _getRoot(e, seedBytes, keyType) {
+// Returns the private key hex for the given seed bytes and keyType.
+// 'privkey': seedBytes IS the 32-byte private key (MetaMask imported account)
+// 'bip39':   entropy → Mnemonic → PBKDF2 → BIP32 m/44'/60'/0'/0/0 (MetaMask HD account)
+// 'raw':     seed bytes → BIP32 seed directly (BioWallet native)
+function _privkeyHex(e, seedBytes, keyType) {
   const hex = '0x' + Array.from(seedBytes).map(b => b.toString(16).padStart(2,'0')).join('');
+  if (keyType === 'privkey') return hex;
   if (keyType === 'bip39') {
     const mnem = e.Mnemonic.fromEntropy(hex);
-    return e.HDNodeWallet.fromSeed(mnem.computeSeed());
+    return e.HDNodeWallet.fromSeed(mnem.computeSeed()).derivePath(ETH_PATH).privateKey;
   }
-  return e.HDNodeWallet.fromSeed(hex);
+  return e.HDNodeWallet.fromSeed(hex).derivePath(ETH_PATH).privateKey;
 }
 
 // ── BIP39 mnemonic ────────────────────────────────────────────────────────
@@ -44,11 +47,10 @@ export function mnemonicToSeed(phrase) {
 
 // ── BIP32 + Ethereum cím ──────────────────────────────────────────────────
 
-/** seed bytes → Ethereum cím (EIP-55 checksum). Deriváció: m/44'/60'/0'/0/0 */
+/** seed bytes → Ethereum cím (EIP-55 checksum). */
 export function seedToAddress(seedBytes, keyType = 'raw') {
-  const e     = eth();
-  const child = _getRoot(e, seedBytes, keyType).derivePath(ETH_PATH);
-  return child.address;
+  const e = eth();
+  return new e.Wallet(_privkeyHex(e, seedBytes, keyType)).address;
 }
 
 // ── ECDSA aláírás (EIP-1559 Type 2) ──────────────────────────────────────
@@ -59,8 +61,7 @@ export function seedToAddress(seedBytes, keyType = 'raw') {
  */
 export async function signEthTx(tx, seedBytes, keyType = 'raw') {
   const e      = eth();
-  const child  = _getRoot(e, seedBytes, keyType).derivePath(ETH_PATH);
-  const wallet = new e.Wallet(child.privateKey);
+  const wallet = new e.Wallet(_privkeyHex(e, seedBytes, keyType));
 
   // BigInt mezők stringként jönnek a Worker postMessage-en keresztül
   const toBN = v => (v === undefined || v === null) ? undefined : BigInt(v);
@@ -84,7 +85,7 @@ export async function signEthTx(tx, seedBytes, keyType = 'raw') {
 /** personal_sign — sign a hex or UTF-8 message (\x19Ethereum Signed Message prefix). */
 export async function signPersonal(hexMessage, seedBytes, keyType = 'raw') {
   const e      = eth();
-  const wallet = new e.Wallet(_getRoot(e, seedBytes, keyType).derivePath(ETH_PATH).privateKey);
+  const wallet = new e.Wallet(_privkeyHex(e, seedBytes, keyType));
   const bytes  = (typeof hexMessage === 'string' && hexMessage.startsWith('0x'))
     ? e.getBytes(hexMessage)
     : hexMessage;
@@ -94,7 +95,7 @@ export async function signPersonal(hexMessage, seedBytes, keyType = 'raw') {
 /** eth_signTypedData_v4 — EIP-712 typed data signing. */
 export async function signTypedData(typedDataJson, seedBytes, keyType = 'raw') {
   const e      = eth();
-  const wallet = new e.Wallet(_getRoot(e, seedBytes, keyType).derivePath(ETH_PATH).privateKey);
+  const wallet = new e.Wallet(_privkeyHex(e, seedBytes, keyType));
 
   const { domain, types, message, primaryType } = JSON.parse(typedDataJson);
 

@@ -19,7 +19,7 @@
 
 import { CausalChain, DCCError } from './causal_chain.js?v=11';
 import { fuzzyExtract, fuzzyCommit, fuzzyCommitDeterministic, fuzzyExtractDeterministic } from './fuzzy_extractor.js?v=12';
-import { seedToAddress, signEthTx, signPersonal, signTypedData, mnemonicToSeed, seedToMnemonic } from './wallet.js?v=13';
+import { seedToAddress, signEthTx, signPersonal, signTypedData, mnemonicToSeed, seedToMnemonic } from './wallet.js?v=14';
 import {
   entropyToIndices, fetchRandomOffsets, computeRawPaper,
 } from './recovery_formula.js?v=11';
@@ -221,6 +221,7 @@ class BioVault {
 
         const vault = {
           v: 5, vaultId,
+          ...(keyType !== 'raw' && { keyType }),
           salt:      toHex(salt),
           iv:        toHex(iv),
           ct:        toHex(new Uint8Array(ciphertext)),
@@ -268,6 +269,17 @@ class BioVault {
     const seedBytes = mnemonicToSeed(mnemonic);
     try {
       return await BioVault._encryptSeedV5(seedBytes, embedding, devicePrf, credentialId, prfSalt, 'bip39');
+    } finally { seedBytes.fill(0); }
+  }
+
+  static async importFromPrivKeyV5(privKeyHex, embedding, devicePrf = null, credentialId = null, prfSalt = null) {
+    const stripped = privKeyHex.startsWith('0x') || privKeyHex.startsWith('0X')
+      ? privKeyHex.slice(2) : privKeyHex;
+    if (!/^[0-9a-fA-F]{64}$/.test(stripped))
+      throw new Error('INVALID_PRIVATE_KEY');
+    const seedBytes = new Uint8Array(stripped.match(/../g).map(x => parseInt(x, 16)));
+    try {
+      return await BioVault._encryptSeedV5(seedBytes, embedding, devicePrf, credentialId, prfSalt, 'privkey');
     } finally { seedBytes.fill(0); }
   }
 
@@ -886,6 +898,12 @@ class BioVault {
       throw new Error('GENESIS_DECODE_FAIL');
     }
 
+    const keyType  = vault.keyType ?? 'raw';
+    if (keyType === 'privkey') {
+      const privkey = '0x' + Array.from(seedBytes).map(b => b.toString(16).padStart(2,'0')).join('');
+      seedBytes.fill(0);
+      return { privkey };
+    }
     const mnemonic = seedToMnemonic(seedBytes);
     seedBytes.fill(0);
     return { mnemonic };

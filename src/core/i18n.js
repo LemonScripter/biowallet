@@ -30,7 +30,7 @@ const STRINGS = {
     'btn.enroll':       'Wallet létrehozása',
     'btn.enroll.sub':   '5 arc-scan → BIP39 seed generálás',
     'btn.import':       'Wallet importálása',
-    'btn.import.sub':   '24 szavas seed phrase → biometriai titkosítás',
+    'btn.import.sub':   '12–24 szavas seed phrase vagy privát kulcs → biometriai titkosítás',
     'btn.restore':      'Meglévő wallet visszaállítása',
     'btn.restore.sub':  '.P.json fájl betöltése → arc-scannel megnyitható',
 
@@ -52,7 +52,7 @@ const STRINGS = {
     'btn.scan':              'Megnyitás arc-scannel',
     'btn.scan.sub':          'Sikeres scan után 30 mp-es nyitva tartás',
     'btn.switch.wallet':     'Másik wallet / importálás',
-    'btn.switch.wallet.sub': 'Új wallet létrehozása vagy 24 szó importálása',
+    'btn.switch.wallet.sub': 'Új wallet létrehozása vagy 12–24 szó / privát kulcs importálása',
 
     /* ── Vault panel ───────────────────────────────────────────────── */
     "card.address.label": "Ethereum cím (m/44'/60'/0'/0/0)",
@@ -369,7 +369,7 @@ const STRINGS = {
     'btn.enroll':       'Create wallet',
     'btn.enroll.sub':   '5 face scans → BIP39 seed generation',
     'btn.import':       'Import wallet',
-    'btn.import.sub':   '24-word seed phrase → biometric encryption',
+    'btn.import.sub':   '12–24-word seed phrase or private key → biometric encryption',
     'btn.restore':      'Restore existing wallet',
     'btn.restore.sub':  'Load .P.json file → open with face scan',
 
@@ -391,7 +391,7 @@ const STRINGS = {
     'btn.scan':              'Unlock with face scan',
     'btn.scan.sub':          'Vault stays open 30 s after successful scan',
     'btn.switch.wallet':     'Switch wallet / import',
-    'btn.switch.wallet.sub': 'Create new wallet or import 24 words',
+    'btn.switch.wallet.sub': 'Create new wallet or import 12–24 words / private key',
 
     /* ── Vault panel ───────────────────────────────────────────────── */
     "card.address.label": "Ethereum address (m/44'/60'/0'/0/0)",
