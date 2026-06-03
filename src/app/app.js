@@ -7,7 +7,7 @@
  */
 
 const APP_VERSION = 'v35.4';              // s = stable (GAP-2/3/4 javításokkal)
-const SW_CACHE_VERSION = 'biowallet-v97';  // egyezzen a sw.js CACHE értékével
+const SW_CACHE_VERSION = 'biowallet-v98';  // egyezzen a sw.js CACHE értékével
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
 import { openCamera, enrollEmbedding, captureEmbedding, performLivenessChallenge } from '../core/bio_capture.js?v=13';
@@ -4178,14 +4178,22 @@ function _selfHealReset() {
   }, 5000);
 }
 
-// Camera freeze detector — video.currentTime must advance every 4 s when stream is live
+// Camera freeze detector — video.currentTime must advance every 5 s when stream is live
 {
   let _lastCamTime = 0;
   let _frozenTicks = 0;
-  const _CAM_CHECK_MS  = 4000;
-  const _CAM_MAX_FROZEN = 2; // 2 ticks (~8 s) before restart attempt
+  const _CAM_CHECK_MS  = 5000;
+  const _CAM_MAX_FROZEN = 3; // 3 ticks (~15 s) before restart attempt
+
+  // Reset counter when tab becomes visible again — avoids false positives after
+  // OS suspends the camera while the tab is in the background
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) { _frozenTicks = 0; _lastCamTime = 0; }
+  });
 
   setInterval(async () => {
+    // Skip if tab is hidden (OS may suspend camera — not a real freeze)
+    if (document.hidden) return;
     // Skip if scanning or camera intentionally off
     if (faceGuide.classList.contains('scanning')) { _frozenTicks = 0; return; }
     if (!stream || !video.srcObject) { _frozenTicks = 0; _lastCamTime = 0; return; }
@@ -4203,7 +4211,7 @@ function _selfHealReset() {
         try {
           _stopCamera();
           stream = await openCamera(video, () => {});
-          // success — no message, seamless recovery
+          // success — seamless recovery, no message
         } catch {
           _showSelfHealToast('Camera frozen');
         }
