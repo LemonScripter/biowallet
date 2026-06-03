@@ -83,7 +83,7 @@ on-chain anchor transaction. The calldata to submit on Arbitrum One:
 | **Data**     | `0x42696f57616c6c657420436f6e737469747574696f6e2076322e30207c20737065632f62696f77616c6c65742e62696f205348412d3235363a2064663630646536653361316164623763383961643362633230626462396464303664313139393463346139633130396130323733656139636464383064383466` |
 | **Decoded**  | `BioWallet Constitution v2.0 \| spec/biowallet.bio SHA-256: df60de6e3a1adb7c89ad3bc20bdb9dd06d11994c4a9c109a0273ea9cdd80d84f` |
 
-Submit via MetaMask → Advanced → Hex Data field, from the same `0xcd6317f...` address.
+Submit via **BioWallet** (as the v1 anchor was) — Send ETH to self, 0 value, paste the hex above as the transaction data field.
 
 ---
 
