@@ -40,7 +40,7 @@
       color: var(--accent); padding: 0.25rem 0.7rem; border-radius: 99px;
       font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
       cursor: pointer; transition: all 0.15s; flex-shrink: 0; margin-top: 0.1rem;
-      white-space: nowrap;
+      white-space: nowrap; width: auto;
     }
     #btn-lang:hover { background: var(--accent); color: #fff; }
 
@@ -120,7 +120,7 @@
       display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap;
     }
     .mode-tab {
-      flex: 1; min-width: 0; padding: 0.75rem 0.5rem; border-radius: 10px;
+      flex: 1; min-width: 0; width: auto; padding: 0.75rem 0.5rem; border-radius: 10px;
       border: 1px solid var(--border); background: var(--surface2); color: var(--muted);
       font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
       text-align: center; word-break: break-word; line-height: 1.3;
@@ -450,22 +450,18 @@
     errEl.style.display = 'none';
     document.getElementById('encode-result').style.display = 'none';
 
+    function showErr(el, msg) { el.textContent = '⚠ ' + msg; el.style.display = 'block'; el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+
     let rawA;
     try { rawA = parseNumbers(document.getElementById('raw-paper-a').value, t('lbl.raw.a')); }
-    catch (e) { errEl.textContent = '⚠ ' + e.message; errEl.style.display = 'block'; return; }
+    catch (e) { showErr(errEl, e.message); return; }
 
     const pValue = document.getElementById('encode-p').value.trim();
-    if (pValue.length < 4) {
-      errEl.textContent = '⚠ ' + t('err.p.short');
-      errEl.style.display = 'block'; return;
-    }
+    if (pValue.length < 4) { showErr(errEl, t('err.p.short')); return; }
 
     let p;
     try { p = await personalHashOffsets(pValue, rawA.length); }
-    catch (e) {
-      errEl.textContent = '⚠ ' + t('err.p.hash', { msg: e.message });
-      errEl.style.display = 'block'; return;
-    }
+    catch (e) { showErr(errEl, t('err.p.hash', { msg: e.message })); return; }
 
     const finalA = rawA.map((raw_j, j) => mod(raw_j - p[j], 2048));
 
@@ -480,9 +476,10 @@
       grid.appendChild(row);
     });
 
-    document.getElementById('encode-result').style.display = 'block';
+    const encRes = document.getElementById('encode-result');
+    encRes.style.display = 'block';
     document.getElementById('encode-p').value = '';
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    encRes.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function clearEncode() {
@@ -498,29 +495,25 @@
     errEl.style.display = 'none';
     document.getElementById('results').style.display = 'none';
 
+    function showErrD(msg) { errEl.textContent = '⚠ ' + msg; errEl.style.display = 'block'; errEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+
     let c, r;
     try { c = parseNumbers(document.getElementById('paper-a').value, t('lbl.paper.a')); }
-    catch (e) { errEl.textContent = '⚠ ' + e.message; errEl.style.display = 'block'; return; }
+    catch (e) { showErrD(e.message); return; }
     try { r = parseNumbers(document.getElementById('paper-b').value, t('lbl.paper.b.title')); }
-    catch (e) { errEl.textContent = '⚠ ' + e.message; errEl.style.display = 'block'; return; }
+    catch (e) { showErrD(e.message); return; }
 
     const pValue = document.getElementById('personal-p').value.trim();
-    if (pValue.length < 4) {
-      errEl.textContent = '⚠ ' + t('err.p.short');
-      errEl.style.display = 'block'; return;
-    }
+    if (pValue.length < 4) { showErrD(t('err.p.short')); return; }
 
     if (c.length !== r.length) {
-      errEl.textContent = '⚠ Paper A and Paper B must have the same number of entries (' + c.length + ' vs ' + r.length + ').';
-      errEl.style.display = 'block'; return;
+      showErrD('Paper A and Paper B must have the same number of entries (' + c.length + ' vs ' + r.length + ').');
+      return;
     }
 
     let p;
     try { p = await personalHashOffsets(pValue, c.length); }
-    catch (e) {
-      errEl.textContent = '⚠ ' + t('err.p.hash', { msg: e.message });
-      errEl.style.display = 'block'; return;
-    }
+    catch (e) { showErrD(t('err.p.hash', { msg: e.message })); return; }
 
     const indices = c.map((cj, j) => mod(cj + r[j] + p[j], 2048));
 
@@ -542,9 +535,10 @@
       grid.appendChild(row);
     });
 
-    document.getElementById('results').style.display = 'block';
+    const decRes = document.getElementById('results');
+    decRes.style.display = 'block';
     document.getElementById('personal-p').value = '';
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    decRes.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function clearResults() {
