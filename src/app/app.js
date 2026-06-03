@@ -6,7 +6,7 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v35.1';
+const APP_VERSION = 'v35.2';
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
 import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=12';
@@ -1084,10 +1084,24 @@ function showWalletSwitcherModal() {
         ? `<div style="font-size:0.68rem;color:#6b6b80;font-family:monospace;">${w.address.slice(0,10)}…${w.address.slice(-6)}</div>` : '';
       const activeBadge = isActive
         ? ` <span style="font-size:0.62rem;background:#1a1a4a;color:#6c63ff;padding:1px 5px;border-radius:4px;font-weight:700;">${isHu ? 'AKTÍV' : 'ACTIVE'}</span>` : '';
+      // Wallet típus badge — keyType a tárolt meta vaultJson-jából
+      let keyType = 'raw';
+      try {
+        const stored = localStorage.getItem(`biowallet_wallet_${w.vaultId}`);
+        if (stored) keyType = JSON.parse(JSON.parse(stored).vaultJson ?? '{}')?.keyType ?? 'raw';
+      } catch {}
+      const typeLabel = keyType === 'privkey' ? (isHu ? 'PRIVKULCS' : 'PRIVKEY')
+                      : keyType === 'bip39'   ? 'SEED'
+                      : (isHu ? 'NATÍV' : 'NATIVE');
+      const typeColor = keyType === 'privkey' ? '#ff6b35' : keyType === 'bip39' ? '#ffa502' : '#4CAF50';
+      const typeBadge = `<span style="font-size:0.6rem;background:transparent;border:1px solid ${typeColor};color:${typeColor};padding:1px 4px;border-radius:4px;font-weight:700;flex-shrink:0;">${typeLabel}</span>`;
       return `
         <div style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 1rem;border-bottom:1px solid #1e1e24;${isActive ? 'background:#16162a;' : ''}">
           <div style="flex:1;min-width:0;overflow:hidden;">
-            <div style="font-size:0.88rem;font-weight:${isActive ? '700':'600'};color:#e8e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${h(w.name)}${activeBadge}</div>
+            <div style="display:flex;align-items:center;gap:0.35rem;flex-wrap:wrap;">
+              <span style="font-size:0.88rem;font-weight:${isActive ? '700':'600'};color:#e8e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${h(w.name)}</span>
+              ${typeBadge}${activeBadge}
+            </div>
             ${addrStr}
           </div>
           ${!isActive ? `<button class="_sw_open" data-id="${h(w.vaultId)}" style="flex-shrink:0;padding:0.3rem 0.6rem;border-radius:7px;border:none;background:#6c63ff;color:#fff;font-size:0.75rem;font-weight:600;cursor:pointer;">${isHu ? 'Megnyitás' : 'Open'}</button>` : ''}

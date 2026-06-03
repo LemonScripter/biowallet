@@ -1,5 +1,5 @@
 // BioWallet ServiceWorker — offline cache (Phase C + WC2)
-const CACHE = 'biowallet-v71';
+const CACHE = 'biowallet-v72';
 
 const PRECACHE = [
   '/app/',
