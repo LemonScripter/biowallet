@@ -38,6 +38,18 @@ $BW_ROOT    = "$REPO_ROOT\BioWallet"
 $SSH_KEY    = "$env:USERPROFILE\.ssh\google_compute_engine"
 $SERVER     = "lszok@34.146.249.102"
 
+# Immutable (+i) védett fájlok a szerveren — unlock/lock a deploy körül
+$CHATTR_FILES = @(
+    "/var/www/biowallet/app/app.js",
+    "/var/www/biowallet/app/vault_worker.js",
+    "/var/www/biowallet/app/sw.js",
+    "/var/www/biowallet/core/vault.js",
+    "/var/www/biowallet/core/wallet.js",
+    "/var/www/biowallet/core/fuzzy_extractor.js",
+    "/var/www/biowallet/core/recovery_formula.js",
+    "/var/www/biowallet/checksums.txt"
+)
+
 # Fájl → szerver célútvonal (src\ relatív a BW_ROOT-hoz)
 $DEPLOY_MAP = [ordered]@{
     "src\app\sw.js"          = "/var/www/biowallet/app/sw.js"   # KRITIKUS: /app/ alkönyvtár!
@@ -132,6 +144,16 @@ if (-not $SkipPreflight) {
     Write-Ok "SSH kulcs: $SSH_KEY"
 }
 
+# ── chattr -i: immutable zárak levétele deploy előtt ─────────────────────────
+Write-Step "CHATTR -i (immutable zárak levétele)"
+$unlockCmd = "sudo chattr -i " + ($CHATTR_FILES -join " ")
+$sshResult = ssh -i $SSH_KEY -o StrictHostKeyChecking=no $SERVER $unlockCmd 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Fail "chattr -i sikertelen: $sshResult"
+    exit 1
+}
+Write-Ok "Fájlok feloldva (chattr -i)"
+
 # ── SCP Deploy ────────────────────────────────────────────────────────────────
 Write-Step "SCP DEPLOY → $SERVER"
 
@@ -155,8 +177,21 @@ foreach ($entry in $DEPLOY_MAP.GetEnumerator()) {
 
 if ($errors -gt 0) {
     Write-Fail "$errors fajl SCP-je sikertelen - ellenorizd a kapcsolatot!"
+    # Visszazárjuk amit tudunk, majd kilépünk
+    ssh -i $SSH_KEY -o StrictHostKeyChecking=no $SERVER ("sudo chattr +i " + ($CHATTR_FILES -join " ")) 2>&1 | Out-Null
     exit 1
 }
+
+# ── chattr +i: immutable zárak visszaállítása deploy után ────────────────────
+Write-Step "CHATTR +i (immutable zárak visszaállítása)"
+$lockCmd = "sudo chattr +i " + ($CHATTR_FILES -join " ")
+$sshResult = ssh -i $SSH_KEY -o StrictHostKeyChecking=no $SERVER $lockCmd 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Fail "chattr +i sikertelen: $sshResult"
+    Write-Warn "FIGYELEM: A fájlok NINCSENEK zárva! Futtasd manuálisan: ssh ... 'sudo chattr +i ...'"
+    exit 1
+}
+Write-Ok "Fájlok visszazárva (chattr +i)"
 
 # ── GitHub subtree push ───────────────────────────────────────────────────────
 if (-not $SkipGitPush) {

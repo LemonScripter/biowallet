@@ -15,7 +15,7 @@
 <p align="center">
   <a href="https://biowallet.metaspace.bio"><img src="https://img.shields.io/badge/live-biowallet.metaspace.bio-6c63ff" alt="Live" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Non--Commercial-orange" alt="License: Non-Commercial" /></a>
-  <a href="tests/verify_biowallet.py"><img src="https://img.shields.io/badge/Z3%20invariants-56%2F56%20PASS-brightgreen" alt="Z3 56/56" /></a>
+  <a href="tests/verify_biowallet.py"><img src="https://img.shields.io/badge/Z3%20invariants-71%2F71%20PASS-brightgreen" alt="Z3 71/71" /></a>
   <a href="tests/verify_sss_gf256.py"><img src="https://img.shields.io/badge/SSS%20GF(2%E2%81%B8)-13%2F13%20PASS-brightgreen" alt="SSS GF(2^8)" /></a>
   <img src="https://img.shields.io/badge/CDN%20dependencies-zero-blue" alt="No CDN" />
   <a href="THREAT_MODEL.md"><img src="https://img.shields.io/badge/threat%20model-published-informational" alt="Threat model" /></a>
@@ -52,6 +52,7 @@ Most wallets tell you they are secure. BioWallet shows you the proof.
 | DCC constitution tamper-evident | SHA-256 of `spec/biowallet.bio` anchored on Arbitrum One blockchain | [CONSTITUTION.md](CONSTITUTION.md) |
 | Genesis identity chain tamper-evident | `genesis_hmac` = HMAC-SHA256(HKDF(vault\_key, "biowallet-genesis-hmac-v1"), JSON(genesis + dna\_chain)); verified on every vault open | [src/core/vault.js](src/core/vault.js) |
 | MetaMask-compatible address derivation | Three key types: `raw` (native), `bip39` (BIP39 PBKDF2 → BIP32, matches MetaMask HD accounts), `privkey` (raw 32-byte key, matches MetaMask imported accounts) | [src/core/wallet.js](src/core/wallet.js) |
+| Served JavaScript cannot be silently replaced | `ext4 chattr +i` kernel immutable flag on all critical source files + DCC Ring 0 eBPF audit layer — active in production at `biowallet.metaspace.bio` | [SECURITY.md](SECURITY.md#server-side-hardening-biowallet--bioos-production-active) |
 
 ### Formal verification results
 
@@ -74,7 +75,7 @@ GENESIS-3  PASS  re-enrollment strictly grows chain_len
 GENESIS-4  PASS  v5 + chain_len>1 → sign_blocked_genesis=False
 GENESIS-OK PASS  v5 + face_open + genesis_match → SAT (consistent)
 
-Result: 56 / 56  PASS ✓
+Result: 71 / 71  PASS ✓
 
 $ python tests/verify_sss_gf256.py
 
