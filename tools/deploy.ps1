@@ -4,18 +4,20 @@
     BioWallet deploy script — SCP + GitHub subtree push
 
 .DESCRIPTION
-    Preflight ellenőrzések:
-      1. sw.js CACHE verziója megegyezik-e a legutóbbi PRECACHE-módosítás utáni bumppal
-      2. Nincsenek-e staged/unstaged változások a BioWallet könyvtárban
+    Preflight checks:
+      1. sw.js CACHE version matches the latest post-PRECACHE-change bump
+      2. No staged/unstaged changes in the BioWallet directory
     Deploy:
-      3. SCP minden érintett fájlt /var/www/biowallet/ alá (helyes útvonalakra)
-      4. Git subtree split → push origin biowallet-deploy:main --force
+      3. chattr -i unlock on protected server files
+      4. SCP all changed files to /var/www/biowallet/ (correct paths)
+      5. chattr +i re-lock on protected server files
+      6. Git subtree split → push origin biowallet-deploy:main --force
 
 .PARAMETER SkipGitPush
-    Csak SCP, subtree push nélkül (ha GitHub-ot nem kell frissíteni)
+    SCP only, without subtree push (when GitHub does not need updating)
 
 .PARAMETER SkipPreflight
-    Kihagyja az előzetes ellenőrzéseket (vészhelyzeti deploy esetén)
+    Skip preflight checks (emergency deploy only)
 
 .EXAMPLE
     cd C:\Users\lszok\Documents\_MetaSpace_CPU
@@ -32,13 +34,13 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# ── Konfiguráció ──────────────────────────────────────────────────────────────
+# ── Configuration ─────────────────────────────────────────────────────────────
 $REPO_ROOT  = "C:\Users\lszok\Documents\_MetaSpace_CPU"
 $BW_ROOT    = "$REPO_ROOT\BioWallet"
 $SSH_KEY    = "$env:USERPROFILE\.ssh\google_compute_engine"
 $SERVER     = "lszok@34.146.249.102"
 
-# Immutable (+i) védett fájlok a szerveren — unlock/lock a deploy körül
+# Immutable (+i) protected files on the server — unlocked before SCP, re-locked after
 $CHATTR_FILES = @(
     "/var/www/biowallet/app/app.js",
     "/var/www/biowallet/app/vault_worker.js",
@@ -50,7 +52,7 @@ $CHATTR_FILES = @(
     "/var/www/biowallet/checksums.txt"
 )
 
-# Fájl → szerver célútvonal (src\ relatív a BW_ROOT-hoz)
+# File → server destination path (src\ relative to BW_ROOT)
 $DEPLOY_MAP = [ordered]@{
     "src\app\sw.js"          = "/var/www/biowallet/app/sw.js"   # KRITIKUS: /app/ alkönyvtár!
     "src\app\app.js"         = "/var/www/biowallet/app/app.js"
@@ -71,7 +73,7 @@ $DEPLOY_MAP = [ordered]@{
     "recovery_tool.html"     = "/var/www/biowallet/recovery_tool.html"
 }
 
-# PRECACHE-ben lévő fájlok (sw.js változásakor ezeket figyeli a preflight)
+# Files in PRECACHE list — preflight checks these when sw.js changes
 $PRECACHE_FILES = @(
     "src\app\app.js", "src\app\vault_worker.js", "src\app\index.html",
     "src\core\vault.js", "src\core\wallet.js", "src\core\wc2.js",
@@ -80,7 +82,7 @@ $PRECACHE_FILES = @(
     "dapp-guide.html", "dapp-guide.js", "recovery_tool.html"
 )
 
-# ── Segédfüggvények ───────────────────────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────────
 function Write-Step { param($msg) Write-Host "`n>> $msg" -ForegroundColor Cyan }
 function Write-Ok   { param($msg) Write-Host "  OK  $msg" -ForegroundColor Green }
 function Write-Warn { param($msg) Write-Host "  !!  $msg" -ForegroundColor Yellow }
@@ -106,7 +108,7 @@ if (-not $SkipPreflight) {
         Select-Object -First 1
     Write-Ok "Utolsó SW bump: $swBumpCommit"
 
-    # 3. PRECACHE fájlok változtak-e a SW bump óta?
+    # 3. Have PRECACHE files changed since the SW bump?
     $swBumpHash = ($swBumpCommit -split ' ')[0]
     $changedAfterBump = @()
     foreach ($f in $PRECACHE_FILES) {
@@ -116,43 +118,43 @@ if (-not $SkipPreflight) {
     }
 
     if ($changedAfterBump.Count -gt 0) {
-        Write-Fail "PRECACHE fájlok változtak a v$swVersion bump ($swBumpHash) UTÁN:"
+        Write-Fail "PRECACHE files changed after v$swVersion bump ($swBumpHash):"
         $changedAfterBump | ForEach-Object { Write-Fail "    $_" }
-        Write-Fail "-> Bumold a SW verziót, majd futtasd újra a deploy-t!"
-        Write-Fail "  (Kihagyáshoz: -SkipPreflight, de csak ha tudod mit csinálsz)"
+        Write-Fail "-> Bump the SW version, then re-run the deploy!"
+        Write-Fail "  (To skip: -SkipPreflight — only if you know what you're doing)"
         exit 1
     } else {
-        Write-Ok "Nincs PRECACHE változás a SW bump után - rendben"
+        Write-Ok "No PRECACHE changes since SW bump — OK"
     }
 
-    # 4. Munkafa tiszta?
+    # 4. Is the working tree clean?
     $dirty = git -C $REPO_ROOT status --short -- BioWallet/
     if ($dirty) {
-        Write-Warn "Uncommitted változások a BioWallet könyvtárban:"
+        Write-Warn "Uncommitted changes in the BioWallet directory:"
         $dirty | ForEach-Object { Write-Warn "    $_" }
-        Write-Warn "Folytatod? (Enter = igen, Ctrl+C = megszakit) - auto-folytat 5s utan..."
+        Write-Warn "Continue? (Enter = yes, Ctrl+C = abort) — auto-continues in 5s..."
         Start-Sleep -Seconds 5
     } else {
-        Write-Ok "Working tree tiszta"
+        Write-Ok "Working tree clean"
     }
 
     # 5. SSH kulcs megléte
     if (-not (Test-Path $SSH_KEY)) {
-        Write-Fail "SSH kulcs nem található: $SSH_KEY"
+        Write-Fail "SSH key not found: $SSH_KEY"
         exit 1
     }
     Write-Ok "SSH kulcs: $SSH_KEY"
 }
 
-# ── chattr -i: immutable zárak levétele deploy előtt ─────────────────────────
-Write-Step "CHATTR -i (immutable zárak levétele)"
+# ── chattr -i: unlock immutable files before deploy ──────────────────────────
+Write-Step "CHATTR -i (unlocking immutable files)"
 $unlockCmd = "sudo chattr -i " + ($CHATTR_FILES -join " ")
 $sshResult = ssh -i $SSH_KEY -o StrictHostKeyChecking=no $SERVER $unlockCmd 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Fail "chattr -i sikertelen: $sshResult"
     exit 1
 }
-Write-Ok "Fájlok feloldva (chattr -i)"
+Write-Ok "Files unlocked (chattr -i)"
 
 # ── SCP Deploy ────────────────────────────────────────────────────────────────
 Write-Step "SCP DEPLOY → $SERVER"
@@ -162,13 +164,13 @@ foreach ($entry in $DEPLOY_MAP.GetEnumerator()) {
     $srcFull = Join-Path $BW_ROOT $entry.Key
     $dst     = $entry.Value
     if (-not (Test-Path $srcFull)) {
-        Write-Warn "Kihagyva (nem létezik): $($entry.Key)"
+        Write-Warn "Skipped (not found): $($entry.Key)"
         continue
     }
     Write-Host "  $($entry.Key) → $dst" -NoNewline
     scp -i $SSH_KEY -o StrictHostKeyChecking=no -q "$srcFull" "${SERVER}:${dst}"
     if ($LASTEXITCODE -ne 0) {
-        Write-Fail " HIBA"
+        Write-Fail " FAILED"
         $errors++
     } else {
         Write-Ok " OK"
@@ -176,48 +178,48 @@ foreach ($entry in $DEPLOY_MAP.GetEnumerator()) {
 }
 
 if ($errors -gt 0) {
-    Write-Fail "$errors fajl SCP-je sikertelen - ellenorizd a kapcsolatot!"
-    # Visszazárjuk amit tudunk, majd kilépünk
+    Write-Fail "$errors file(s) SCP failed — check the connection!"
+    # Re-lock what we can before exiting
     ssh -i $SSH_KEY -o StrictHostKeyChecking=no $SERVER ("sudo chattr +i " + ($CHATTR_FILES -join " ")) 2>&1 | Out-Null
     exit 1
 }
 
-# ── chattr +i: immutable zárak visszaállítása deploy után ────────────────────
-Write-Step "CHATTR +i (immutable zárak visszaállítása)"
+# ── chattr +i: re-lock immutable files after deploy ──────────────────────────
+Write-Step "CHATTR +i (re-locking immutable files)"
 $lockCmd = "sudo chattr +i " + ($CHATTR_FILES -join " ")
 $sshResult = ssh -i $SSH_KEY -o StrictHostKeyChecking=no $SERVER $lockCmd 2>&1
 if ($LASTEXITCODE -ne 0) {
-    Write-Fail "chattr +i sikertelen: $sshResult"
-    Write-Warn "FIGYELEM: A fájlok NINCSENEK zárva! Futtasd manuálisan: ssh ... 'sudo chattr +i ...'"
+    Write-Fail "chattr +i failed: $sshResult"
+    Write-Warn "WARNING: Files are NOT locked! Run manually: ssh server 'sudo chattr +i ...'"
     exit 1
 }
-Write-Ok "Fájlok visszazárva (chattr +i)"
+Write-Ok "Files re-locked (chattr +i)"
 
 # ── GitHub subtree push ───────────────────────────────────────────────────────
 if (-not $SkipGitPush) {
     Write-Step "GITHUB SUBTREE PUSH"
 
-    Write-Host "  subtree split folyamatban..." -NoNewline
+    Write-Host "  subtree split in progress..." -NoNewline
     $splitOut = git -C $REPO_ROOT subtree split --prefix=BioWallet -b biowallet-deploy 2>&1
     if ($LASTEXITCODE -ne 0) {
-        Write-Fail " HIBA`n$splitOut"
+        Write-Fail " FAILED`n$splitOut"
         exit 1
     }
-    Write-Ok " kész"
+    Write-Ok " done"
 
     Write-Host "  push origin biowallet-deploy:main --force..." -NoNewline
     git -C $REPO_ROOT push origin biowallet-deploy:main --force 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) {
-        Write-Fail " HIBA"
+        Write-Fail " FAILED"
         git -C $REPO_ROOT branch -D biowallet-deploy 2>$null
         exit 1
     }
-    Write-Ok " kész"
+    Write-Ok " done"
 
     git -C $REPO_ROOT branch -D biowallet-deploy | Out-Null
-    Write-Ok "Temp branch törölve"
+    Write-Ok "Temp branch deleted"
 } else {
-    Write-Warn "GitHub push kihagyva (-SkipGitPush)"
+    Write-Warn "GitHub push skipped (-SkipGitPush)"
 }
 
-Write-Host "`nDeploy kesz!" -ForegroundColor Green
+Write-Host "`nDeploy complete!" -ForegroundColor Green

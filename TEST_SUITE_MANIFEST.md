@@ -1,19 +1,18 @@
-# BioWallet v32 — Test Suite Manifest
+# BioWallet v35.4 — Test Suite Manifest
 
-**Version:** v32-stable  
-**Date:** 2026-05-31  
-**Scope:** Manual browser test checklist — all v32 features  
+**Version:** v35.4  
+**Date:** 2026-06-03  
+**Scope:** Manual browser test checklist — all v35.4 features  
 **Environment:** Chrome 124+ / Firefox 125+ / Safari 17+ / iPhone SE / Android
 
 ---
 
 ## Pre-test Checklist
 
-- [ ] `checksums.txt` — 16/16 PASS (run: `sha256sum -c checksums.txt`)
-- [ ] `python tests/verify_z3_audit.py` — 56/56 PASS
+- [ ] `checksums.txt` — all PASS (run: `sha256sum -c checksums.txt`)
+- [ ] `python tests/verify_biowallet.py` — 71/71 PASS
 - [ ] `python tests/verify_sss_gf256.py` — 13/13 PASS
-- [ ] `python tests/verify_biowallet.py` — all assertions PASS
-- [ ] SW cache version = `biowallet-v24` (DevTools → Application → Service Workers)
+- [ ] SW cache version = `biowallet-v97` (DevTools → Application → Service Workers)
 - [ ] No console errors on fresh load
 
 ---
@@ -23,20 +22,21 @@
 ### 1.1 Happy Path — Face + Device + Paper
 
 - [ ] Open `/app/`, no existing wallet → Setup panel shown
-- [ ] Click **"Új tárca létrehozása"**
-- [ ] Camera activates, face scan runs (liveness check passes)
-- [ ] **Device enroll modal** appears ("Ujjlenyomat / Face ID regisztrálása")
-- [ ] Click **"Regisztrálás most"** → WebAuthn dialog appears → complete enrollment
+- [ ] Click **"Create new wallet"**
+- [ ] Liveness challenge: head-turn detected within 8 s
+- [ ] Camera activates, face scan runs (liveness passes first)
+- [ ] **Device enroll modal** appears ("Register fingerprint / Face ID")
+- [ ] Click **"Register now"** → WebAuthn dialog appears → complete enrollment
 - [ ] **Paper formula modal** appears immediately after device enroll
 - [ ] Modal shows 4-word seed (Shamir x=3 share Y)
-- [ ] Click **"Lemásoltam"** confirmation checkbox → close modal enabled
+- [ ] Click **"I've copied it"** confirmation checkbox → close modal enabled
 - [ ] **Save wallet modal** appears → save `.json` file
 - [ ] Lock panel shown with wallet name, genesis badge (5×5 colored identicon), fingerprint icon
 - [ ] Genesis badge is visually distinct and consistent across reloads
 
 ### 1.2 Happy Path — Face + Paper Only (Device Skipped)
 
-- [ ] Repeat 1.1 but click **"Kihagyás"** on device enroll modal
+- [ ] Repeat 1.1 but click **"Skip"** on device enroll modal
 - [ ] Paper formula modal still appears (mandatory)
 - [ ] Save + lock panel works correctly
 - [ ] Badge shown on lock panel
@@ -52,8 +52,9 @@
 
 ### 2.1 Import v5 Wallet File
 
-- [ ] Setup panel → **"Meglévő wallet visszaállítása"**
+- [ ] Setup panel → **"Restore existing wallet"**
 - [ ] File picker → load v5 `.json` file
+- [ ] Liveness challenge runs before face scan
 - [ ] Camera activates, face scan runs
 - [ ] **Device enroll modal** appears (import also offers device enrollment)
 - [ ] After device (or skip) → **Paper formula modal** appears (mandatory for import too)
@@ -63,13 +64,26 @@
 
 - [ ] Load a v3 vault file → handled gracefully (no crash, appropriate message)
 
+### 2.3 Import BIP39 Seed Phrase (12–24 words)
+
+- [ ] Setup panel → import → enter 12-word or 24-word BIP39 mnemonic
+- [ ] Address matches MetaMask HD wallet (`m/44'/60'/0'/0/0`)
+- [ ] Vault saved successfully, face required to reopen
+
+### 2.4 Import Raw Private Key
+
+- [ ] Setup panel → import → enter 64-char hex private key
+- [ ] Address matches MetaMask imported account
+- [ ] Vault saved, face required to reopen
+
 ---
 
 ## 3. Unlock (Face Open)
 
 ### 3.1 Standard Unlock
 
-- [ ] Lock panel shown → click **"Arcazonosítás"**
+- [ ] Lock panel shown → click **"Face scan"**
+- [ ] Liveness challenge: head-turn detected before scan
 - [ ] Camera activates, face scan succeeds
 - [ ] Vault panel shown with address, balance, token list
 - [ ] Badge (32px) shown on vault panel header
@@ -78,11 +92,16 @@
 
 - [ ] Deliberately present wrong face → error shown, vault stays locked
 
-### 3.3 SSS 2-of-3 Paper Open
+### 3.3 Liveness — Static Photo Blocked
 
-- [ ] On lock panel → click **"Papíros visszaállítás"**
+- [ ] Hold a static photo in front of camera during liveness challenge
+- [ ] Challenge times out (LIVENESS_TIMEOUT) → vault does NOT open
+
+### 3.4 SSS 2-of-3 Paper Open
+
+- [ ] On lock panel → click **"Paper recovery"**
 - [ ] Enter 4-word paper share
-- [ ] Camera activates (face scan = second factor)
+- [ ] Liveness challenge + camera activates (face scan = second factor)
 - [ ] Vault opens on 2-of-3 PASS
 
 ---
@@ -91,32 +110,36 @@
 
 ### 4.1 Paper Formula Button
 
-- [ ] In vault panel → click **"Papírképlet"**
+- [ ] In vault panel → click **"Paper formula"**
+- [ ] Liveness challenge runs
 - [ ] Camera restarts AND screen scrolls to top
 - [ ] Face scan runs successfully
 - [ ] Paper share displayed after confirm
 
 ### 4.2 Sign Transaction
 
-- [ ] Build a test transaction → click **"Aláír"**
+- [ ] Build a test transaction → click **"Sign"**
+- [ ] Liveness challenge runs
 - [ ] Camera restarts AND screen scrolls to top before face scan
 - [ ] After face confirm → transaction signed (dry run / testnet)
 
 ### 4.3 Re-enrollment
 
-- [ ] Click **"Újraregisztráció"** (btn-reenroll)
+- [ ] Click **"Re-enroll"** (btn-reenroll)
+- [ ] Liveness challenge runs
 - [ ] Camera restarts AND screen scrolls to top
 - [ ] New face embedding enrolled, vault re-saved
 
 ### 4.4 Genesis Recovery
 
 - [ ] Click genesis recovery button (if present)
+- [ ] Liveness challenge runs
 - [ ] Camera restarts AND screen scrolls to top
 
 ### 4.5 WalletConnect Sign
 
 - [ ] Connect via WalletConnect QR
-- [ ] Incoming sign request triggers camera restart + scroll
+- [ ] Incoming sign request triggers liveness + camera restart + scroll
 - [ ] Face approval → sign proceeds
 
 ---
@@ -126,13 +149,13 @@
 ### 5.1 Device Relink Hint
 
 - [ ] Import wallet that has device share, but device factor is absent on current browser
-- [ ] After face open: hint message "⚡ A tárca tartalmaz eszközfaktort" appears
-- [ ] Click **"Eszköz"** → WebAuthn registration completes
+- [ ] After face open: hint message "⚡ This wallet has a device factor" appears
+- [ ] Click **"Device"** → WebAuthn registration completes
 - [ ] Hint disappears on next open
 
 ### 5.2 Device Unlock
 
-- [ ] Wallet with device factor registered → lock panel → click **"Eszköz"**
+- [ ] Wallet with device factor registered → lock panel → click **"Device"**
 - [ ] WebAuthn prompt → authenticate → vault opens (face = second factor)
 
 ---
@@ -141,7 +164,7 @@
 
 ### 6.1 Security Link Visible (Desktop)
 
-- [ ] Viewport ≥ 380px → Security/Összehasonlítás link visible in header
+- [ ] Viewport ≥ 380px → Security/Comparison link visible in header
 - [ ] Click → security comparison page opens
 
 ### 6.2 Security Link on iPhone SE (375px)
@@ -206,11 +229,16 @@
 
 ### 10.1 Service Worker
 
-- [ ] DevTools → Application → Service Workers → `biowallet-v24` active
+- [ ] DevTools → Application → Service Workers → `biowallet-v97` active
 - [ ] Simulate offline → app loads from cache
 - [ ] All JS/HTML/models available offline
 
-### 10.2 Install to Home Screen
+### 10.2 Auto-update via version.json
+
+- [ ] Deploy new SW version → `version.json` updated on server
+- [ ] On next app load: SW unregistered, caches cleared, page reloads with new version
+
+### 10.3 Install to Home Screen
 
 - [ ] Mobile browser → "Add to Home Screen" → app installs
 - [ ] Splash screen shows correctly
@@ -229,7 +257,7 @@
 ## 12. Annual Re-enrollment Reminder
 
 - [ ] Inject test enrollment timestamp > 1 year old into vault metadata
-- [ ] On load → banner "Éves arcmintacsere esedékes" visible
+- [ ] On load → banner "Annual face re-enrollment due" visible
 - [ ] Click banner → re-enrollment flow triggered
 - [ ] After re-enroll → banner disappears
 
@@ -239,8 +267,8 @@
 
 - [ ] Generate WC2 QR from vault panel
 - [ ] Connect test DApp (e.g., local test page)
-- [ ] Personal sign → camera restarts → face approve → sign delivered
-- [ ] eth_sendTransaction → camera restarts → face approve → tx sent
+- [ ] Personal sign → liveness + camera restarts → face approve → sign delivered
+- [ ] eth_sendTransaction → liveness + camera restarts → face approve → tx sent
 - [ ] Disconnect → session cleared
 
 ---
@@ -254,9 +282,12 @@
 | 1.3 | Camera deny edge case | ⬜ | |
 | 2.1 | Import v5 wallet | ⬜ | |
 | 2.2 | Import legacy v3 | ⬜ | |
+| 2.3 | Import BIP39 seed phrase | ⬜ | |
+| 2.4 | Import raw private key | ⬜ | |
 | 3.1 | Standard unlock | ⬜ | |
 | 3.2 | Wrong face | ⬜ | |
-| 3.3 | SSS paper open | ⬜ | |
+| 3.3 | Liveness — static photo blocked | ⬜ | |
+| 3.4 | SSS paper open | ⬜ | |
 | 4.1 | Camera restart — paper formula | ⬜ | |
 | 4.2 | Camera restart — sign | ⬜ | |
 | 4.3 | Camera restart — re-enroll | ⬜ | |
@@ -274,7 +305,8 @@
 | 8.1 | Recovery tool offline | ⬜ | |
 | 9.1 | Language toggle HU/EN | ⬜ | |
 | 10.1 | PWA offline cache | ⬜ | |
-| 10.2 | Install to home screen | ⬜ | |
+| 10.2 | Auto-update via version.json | ⬜ | |
+| 10.3 | Install to home screen | ⬜ | |
 | 11 | Multi-network switch | ⬜ | |
 | 12 | Annual re-enrollment banner | ⬜ | |
 | 13 | WalletConnect v2 | ⬜ | |
@@ -286,12 +318,11 @@
 ## Automated Tests Summary (run before manual tests)
 
 ```
-tests/verify_z3_audit.py      → 56/56 PASS  (invariant formal verification)
+tests/verify_biowallet.py     → 71/71 PASS  (DCC + liveness + TX + session invariants)
 tests/verify_sss_gf256.py     → 13/13 PASS  (SSS GF(2^8) shamir)
-tests/verify_biowallet.py     → all PASS    (vault API integration)
-checksums.txt                 → 16/16 PASS  (canonical file integrity)
+checksums.txt                 → all PASS    (canonical file integrity)
 ```
 
 ---
 
-*This manifest covers all BioWallet v32-stable features. Incomplete items are tracked above.*
+*This manifest covers all BioWallet v35.4 features. Incomplete items are tracked above.*
