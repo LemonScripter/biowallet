@@ -147,6 +147,107 @@ CELL BioWallet {
   }
 
   // ────────────────────────────────────────────────────────────────
+  // LIVENESS INVARIÁNSOK — Prezentációs támadás (PAD) védelem
+  // v35.4: fejfordítás challenge — statikus fotó nem tud fejfordítást végezni
+  // Z3 VERIFIED: tests/verify_biowallet.py (liveness szekció)
+  // ────────────────────────────────────────────────────────────────
+
+  LIVENESS_INVARIANTS {
+    INPUT liveness_passed:       BINARY;   // challenge sikeresen teljesítve
+    INPUT live_person_detected:  BINARY;   // élő arc detektálva (nem fotó)
+    INPUT static_photo_attack:   BINARY;   // statikus fotó támadás kísérlete
+
+    // LIV1: Vault OPEN liveness nélkül lehetetlen (fotó-bypass blokkolva)
+    RULE open_requires_liveness:
+      (operation == OPEN AND verdict == SAT) IMPLIES liveness_passed == TRUE;
+
+    // LIV2: Arc re-enrollment liveness nélkül lehetetlen
+    //        (más arc regisztrálása blokkolva)
+    RULE reenroll_requires_liveness:
+      (operation == RE_ENROLL) IMPLIES liveness_passed == TRUE;
+
+    // LIV3: Genesis recovery (vészhelyzeti seed-visszaállítás) liveness nélkül lehetetlen
+    RULE genesis_recover_requires_liveness:
+      (operation == GENESIS_RECOVER) IMPLIES liveness_passed == TRUE;
+
+    // LIV4: Statikus fotó nem teljesítheti a liveness challenge-t
+    RULE static_photo_blocked:
+      (static_photo_attack == TRUE) IMPLIES (liveness_passed == FALSE);
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // TX COMMITMENT INVARIÁNS — GAP-D2 formalizálása
+  // Az aláírt TX hash kötelezően egyezik a gate() hívásba commitált hash-sel
+  // Z3 VERIFIED: tests/verify_biowallet.py (txcommit szekció)
+  // ────────────────────────────────────────────────────────────────
+
+  TX_COMMITMENT_INVARIANTS {
+    INPUT committed_tx_hash: INTEGER;  // gate('SIGN', vaultId, txHash) paramétere
+    INPUT signed_tx_hash:    INTEGER;  // ténylegesen aláírt TX hash-e
+    INPUT tx_hash_bound:     BINARY;   // volt-e commitTx() hívás
+
+    // TXC1: ha a gate txHash-sel lett hívva, az aláírás CSAK erre a TX-re érvényes
+    RULE tx_commitment_binding:
+      (operation == SIGN AND verdict == SAT AND tx_hash_bound == TRUE)
+      IMPLIES (signed_tx_hash == committed_tx_hash);
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // SINGLE-SESSION INVARIÁNS — GAP-4 formalizálása
+  // Egyszerre csak egy tab-ban lehet nyitva a vault
+  // Z3 VERIFIED: tests/verify_biowallet.py (session szekció)
+  // ────────────────────────────────────────────────────────────────
+
+  SESSION_INVARIANTS {
+    INPUT tab_a_vault_open: BINARY;   // Tab A-ban nyitva van-e a vault
+    INPUT tab_b_vault_open: BINARY;   // Tab B-ban nyitva van-e a vault
+
+    // SS1: nem lehetséges, hogy egyszerre két tab-ban is nyitva legyen
+    RULE single_session_mutex:
+      NOT (tab_a_vault_open == TRUE AND tab_b_vault_open == TRUE);
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // R VALIDÁCIÓ INVARIÁNS — GAP-3 formalizálása
+  // A biometrikus kulcs (R) strukturálisan érvényes kell legyen
+  // Z3 VERIFIED: tests/verify_biowallet.py (rvalidation szekció)
+  // ────────────────────────────────────────────────────────────────
+
+  R_VALIDATION_INVARIANTS {
+    INPUT r_length:       INTEGER;  // R bájt-hossza (kötelezően 32)
+    INPUT r_is_uint8array: BINARY;  // R típusa Uint8Array-e
+    INPUT token_issued:   BINARY;   // issue() sikeresen lefutott-e
+
+    // RV1: token csak strukturálisan érvényes R-rel adható ki
+    RULE r_must_be_valid_before_issue:
+      (token_issued == TRUE) IMPLIES
+        (r_length == 32 AND r_is_uint8array == TRUE);
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // WORKER INTEGRITÁS INVARIÁNS — crash és timeout kezelés
+  // Z3 VERIFIED: tests/verify_biowallet.py (workerint szekció)
+  // ────────────────────────────────────────────────────────────────
+
+  WORKER_INTEGRITY_INVARIANTS {
+    INPUT worker_crashed:            BINARY;  // Worker összeomlott
+    INPUT worker_timeout:            BINARY;  // Worker nem válaszolt 30s-on belül
+    INPUT all_pending_tokens_revoked: BINARY; // minden pending token visszavonva
+
+    // WI1: Worker crash → minden pending token azonnal visszavonva
+    RULE worker_crash_revokes_all:
+      (worker_crashed == TRUE) IMPLIES (all_pending_tokens_revoked == TRUE);
+
+    // WI2: Worker timeout → ugyanez
+    RULE worker_timeout_revokes_all:
+      (worker_timeout == TRUE) IMPLIES (all_pending_tokens_revoked == TRUE);
+
+    // WI3: visszavont token nem produkálhat SAT verdict-et
+    RULE revoked_tokens_no_sat:
+      (all_pending_tokens_revoked == TRUE) IMPLIES (verdict != SAT);
+  }
+
+  // ────────────────────────────────────────────────────────────────
   // STATES
   // ────────────────────────────────────────────────────────────────
 

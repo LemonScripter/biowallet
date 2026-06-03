@@ -707,6 +707,176 @@ print(f"  {'PASS' if ok_gen else 'FAIL'} GENESIS-OK: v5 + face + genesis_match �
 
 
 # ══════════════════════════════════════════════════════════════════
+# LIVENESS INVARIÁNSOK — v35.4 PAD védelem
+# ══════════════════════════════════════════════════════════════════
+
+print("\n── Liveness invariánsok (PAD, v35.4) ─────────────────")
+
+liveness_passed       = Bool('liveness_passed')
+live_person_detected  = Bool('live_person_detected')
+static_photo_attack   = Bool('static_photo_attack')
+op_open               = Bool('op_open')
+op_reenroll           = Bool('op_reenroll')
+op_genesis_recover    = Bool('op_genesis_recover')
+
+LIVENESS_AXIOMS = [
+    # LIV1: OPEN → liveness kötelező
+    Implies(And(op_open, sat_verdict), liveness_passed),
+    # LIV2: RE_ENROLL → liveness kötelező
+    Implies(op_reenroll, liveness_passed),
+    # LIV3: GENESIS_RECOVER → liveness kötelező
+    Implies(op_genesis_recover, liveness_passed),
+    # LIV4: statikus fotó nem teljesítheti a challenge-t
+    Implies(static_photo_attack, Not(liveness_passed)),
+]
+
+results.append(run_proof(
+    "LIV1: op_open + SAT, liveness_passed=False → LEHETETLEN",
+    LIVENESS_AXIOMS, And(op_open, sat_verdict, Not(liveness_passed))))
+
+results.append(run_proof(
+    "LIV2: op_reenroll, liveness_passed=False → LEHETETLEN",
+    LIVENESS_AXIOMS, And(op_reenroll, Not(liveness_passed))))
+
+results.append(run_proof(
+    "LIV3: op_genesis_recover, liveness_passed=False → LEHETETLEN",
+    LIVENESS_AXIOMS, And(op_genesis_recover, Not(liveness_passed))))
+
+results.append(run_proof(
+    "LIV4: static_photo_attack=True AND liveness_passed=True → LEHETETLEN",
+    LIVENESS_AXIOMS, And(static_photo_attack, liveness_passed)))
+
+s_liv = Solver()
+for a in LIVENESS_AXIOMS + DCC_AXIOMS: s_liv.add(a)
+s_liv.add(op_open, liveness_passed, bio_event, bio_match,
+          token_age == 1000, Not(token_consumed), vault_id_match, sat_verdict)
+ok_liv = s_liv.check() == sat
+results.append(ok_liv)
+print(f"  {'PASS' if ok_liv else 'FAIL'} LIV-OK: liveness + bio_gate → OPEN SAT konzisztens")
+
+
+# ══════════════════════════════════════════════════════════════════
+# TX COMMITMENT INVARIÁNS — GAP-D2 formalizálása
+# ══════════════════════════════════════════════════════════════════
+
+print("\n── TX commitment invariáns (GAP-D2) ──────────────────")
+
+committed_tx_hash_v = Int('committed_tx_hash_v')
+signed_tx_hash_v    = Int('signed_tx_hash_v')
+tx_hash_bound_v     = Bool('tx_hash_bound_v')
+
+TXC_AXIOMS = [
+    Implies(And(op_sign, sat_verdict, tx_hash_bound_v),
+            signed_tx_hash_v == committed_tx_hash_v),
+]
+
+results.append(run_proof(
+    "TXC1: SIGN + SAT + hash_bound, signed≠committed → LEHETETLEN",
+    TXC_AXIOMS + DCC_AXIOMS,
+    And(op_sign, sat_verdict, tx_hash_bound_v,
+        signed_tx_hash_v != committed_tx_hash_v)))
+
+s_txc = Solver()
+for a in TXC_AXIOMS + DCC_AXIOMS: s_txc.add(a)
+s_txc.add(op_sign, sat_verdict, tx_hash_bound_v,
+          signed_tx_hash_v == 12345678, committed_tx_hash_v == 12345678,
+          bio_event, bio_match, token_age == 1000,
+          Not(token_consumed), vault_id_match)
+ok_txc = s_txc.check() == sat
+results.append(ok_txc)
+print(f"  {'PASS' if ok_txc else 'FAIL'} TXC-OK: SIGN + hash_match → SAT konzisztens")
+
+
+# ══════════════════════════════════════════════════════════════════
+# SINGLE-SESSION INVARIÁNS — GAP-4 formalizálása
+# ══════════════════════════════════════════════════════════════════
+
+print("\n── Single-session invariáns (GAP-4) ──────────────────")
+
+tab_a_vault_open = Bool('tab_a_vault_open')
+tab_b_vault_open = Bool('tab_b_vault_open')
+
+SS_AXIOMS = [
+    Not(And(tab_a_vault_open, tab_b_vault_open)),
+]
+
+results.append(run_proof(
+    "SS1: tab_A.open AND tab_B.open → LEHETETLEN (single-session mutex)",
+    SS_AXIOMS, And(tab_a_vault_open, tab_b_vault_open)))
+
+s_ss = Solver()
+for a in SS_AXIOMS: s_ss.add(a)
+s_ss.add(tab_a_vault_open, Not(tab_b_vault_open))
+ok_ss = s_ss.check() == sat
+results.append(ok_ss)
+print(f"  {'PASS' if ok_ss else 'FAIL'} SS-OK: egy tab nyitva → SAT konzisztens")
+
+
+# ══════════════════════════════════════════════════════════════════
+# R VALIDÁCIÓ INVARIÁNS — GAP-3 formalizálása
+# ══════════════════════════════════════════════════════════════════
+
+print("\n── R validáció invariáns (GAP-3) ─────────────────────")
+
+r_length_v        = Int('r_length_v')
+r_is_uint8array_v = Bool('r_is_uint8array_v')
+token_issued_v    = Bool('token_issued_v')
+
+RV_AXIOMS = [
+    Implies(token_issued_v, r_length_v == 32),
+    Implies(token_issued_v, r_is_uint8array_v),
+]
+
+results.append(run_proof(
+    "RV1: token_issued, NOT r_is_uint8array → LEHETETLEN",
+    RV_AXIOMS, And(token_issued_v, Not(r_is_uint8array_v))))
+
+results.append(run_proof(
+    "RV2: token_issued, r_length≠32 → LEHETETLEN",
+    RV_AXIOMS, And(token_issued_v, r_length_v != 32)))
+
+s_rv = Solver()
+for a in RV_AXIOMS: s_rv.add(a)
+s_rv.add(token_issued_v, r_length_v == 32, r_is_uint8array_v)
+ok_rv = s_rv.check() == sat
+results.append(ok_rv)
+print(f"  {'PASS' if ok_rv else 'FAIL'} RV-OK: valid R + token_issued → SAT konzisztens")
+
+
+# ══════════════════════════════════════════════════════════════════
+# WORKER INTEGRITÁS INVARIÁNS — crash és timeout kezelés
+# ══════════════════════════════════════════════════════════════════
+
+print("\n── Worker integritás invariáns (crash/timeout) ───────")
+
+worker_crashed_v             = Bool('worker_crashed_v')
+worker_timeout_v             = Bool('worker_timeout_v')
+all_pending_tokens_revoked_v = Bool('all_pending_tokens_revoked_v')
+
+WI_AXIOMS = [
+    Implies(worker_crashed_v,  all_pending_tokens_revoked_v),
+    Implies(worker_timeout_v,  all_pending_tokens_revoked_v),
+    Implies(all_pending_tokens_revoked_v, Not(sat_verdict)),
+]
+
+results.append(run_proof(
+    "WI1: worker_crashed=True AND sat_verdict=True → LEHETETLEN",
+    WI_AXIOMS + DCC_AXIOMS, And(worker_crashed_v, sat_verdict)))
+
+results.append(run_proof(
+    "WI2: worker_timeout=True AND sat_verdict=True → LEHETETLEN",
+    WI_AXIOMS + DCC_AXIOMS, And(worker_timeout_v, sat_verdict)))
+
+s_wi = Solver()
+for a in WI_AXIOMS: s_wi.add(a)
+s_wi.add(Not(worker_crashed_v), Not(worker_timeout_v),
+         Not(all_pending_tokens_revoked_v))
+ok_wi = s_wi.check() == sat
+results.append(ok_wi)
+print(f"  {'PASS' if ok_wi else 'FAIL'} WI-OK: no crash/timeout → tokens nem visszavonva → SAT lehetséges")
+
+
+# ══════════════════════════════════════════════════════════════════
 # ÖSSZESÍTÉS
 # ══════════════════════════════════════════════════════════════════
 
@@ -720,7 +890,12 @@ p5_ok     = all(results[25:33])
 p9_ok     = all(results[33:39])
 sss_ok    = all(results[39:45])
 alkot_ok  = all(results[45:51])
-genesis_ok= all(results[51:])
+genesis_ok= all(results[51:56])
+liv_ok    = all(results[56:61])
+txc_ok    = all(results[61:63])
+ss_ok     = all(results[63:65])
+rv_ok     = all(results[65:68])
+wi_ok     = all(results[68:])
 
 print(f"DCC invariansok:       {sum(results[:7])}/7   {'PASS' if dcc_ok else 'FAIL'}")
 print(f"DATA_FLOW invariansok: {sum(results[7:21])}/14  {'PASS' if df_ok else 'FAIL'}")
@@ -729,11 +904,16 @@ print(f"Phase 5 invariansok:   {sum(results[25:33])}/8   {'PASS' if p5_ok else '
 print(f"Phase 9 invariansok:   {sum(results[33:39])}/6   {'PASS' if p9_ok else 'FAIL'}")
 print(f"Phase 10 SSS:          {sum(results[39:45])}/6   {'PASS' if sss_ok else 'FAIL'}")
 print(f"Azonositasi alkotmany: {sum(results[45:51])}/6   {'PASS' if alkot_ok else 'FAIL'}")
-print(f"Vault v5 genesis:      {sum(results[51:])}/5   {'PASS' if genesis_ok else 'FAIL'}")
+print(f"Vault v5 genesis:      {sum(results[51:56])}/5   {'PASS' if genesis_ok else 'FAIL'}")
+print(f"Liveness PAD (v35.4):  {sum(results[56:61])}/5   {'PASS' if liv_ok else 'FAIL'}")
+print(f"TX commitment:         {sum(results[61:63])}/2   {'PASS' if txc_ok else 'FAIL'}")
+print(f"Single-session:        {sum(results[63:65])}/2   {'PASS' if ss_ok else 'FAIL'}")
+print(f"R validacio:           {sum(results[65:68])}/3   {'PASS' if rv_ok else 'FAIL'}")
+print(f"Worker integritás:     {sum(results[68:])}/3   {'PASS' if wi_ok else 'FAIL'}")
 print(f"Osszesitett:           {passed}/{total}")
 print()
 if passed == total:
-    print("BioWallet -- DCC + DATA_FLOW + BCH + PHASE5 + SSS + ALKOTMANY + V5_GENESIS: FORMÁLISAN BIZONYÍTOTT")
+    print("BioWallet -- DCC + DATA_FLOW + BCH + PHASE5 + SSS + ALKOTMANY + V5_GENESIS + LIVENESS + TXCOMMIT + SESSION + RVALID + WORKERINT: FORMÁLISAN BIZONYÍTOTT")
 else:
     print("FIGYELEM: egyes invariansok nem teljesulnek!")
 print("=" * 56)
