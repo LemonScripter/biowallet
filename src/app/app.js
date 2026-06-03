@@ -1467,8 +1467,6 @@ btnScan.addEventListener('click', async () => {
     if (securityToolsRow) securityToolsRow.style.display = '';
     const reenrollRow = document.getElementById('reenroll-row');
     if (reenrollRow) reenrollRow.style.display = (isV5 || isV6) ? '' : 'none';
-    const upgradeV6Row = document.getElementById('upgrade-v6-row');
-    if (upgradeV6Row) upgradeV6Row.style.display = isV5 ? '' : 'none';  // csak v5-nek kell upgrade
 
     // SSS paper+device nyitás v5/v6-on: kötelező arc re-enrollment
     if (!usedFace && (isV5 || isV6)) {
@@ -2224,39 +2222,6 @@ async function _mandatoryReenroll(meta) {
 }
 
 // ── btn-upgrade-v6: upgrade vault from PBKDF2 (v5) to Argon2id (v6) ─────────
-// A vault már nyitva van — nincs szükség új arc-scanre.
-// upgradeToV6() a meglévő #faceR-t használja az aktuális sessionből.
-document.getElementById('btn-upgrade-v6')?.addEventListener('click', async () => {
-  if (!confirm(t('msg.upgrade.v6.confirm'))) return;
-
-  try {
-    const { encryptedVault, paperShareY } = await callWorker('UPGRADE_V6', {});
-
-    const paperHex = _paperHexWithCrc(paperShareY);
-    await showPaperShareModal(paperHex, true);
-
-    const meta = JSON.parse(localStorage.getItem('biowallet_meta'));
-    meta.vaultJson = new TextDecoder().decode(encryptedVault);
-    meta.device    = null;
-    localStorage.setItem('biowallet_meta', JSON.stringify(meta));
-    _walletsSaveCurrent();
-
-    // P.json nem változik upgrade során; "-v6" névutótag a dupla fájlok elkerüléséhez
-    const baseName = (meta.walletName || 'biowallet').replace(/-v6$/, '');
-    const walletName = await showSaveModal(encryptedVault, meta.P ? JSON.stringify(meta.P) : null, 'upgrade', baseName + '-v6');
-    meta.walletName = walletName;
-    localStorage.setItem('biowallet_meta', JSON.stringify(meta));
-    _walletsSaveCurrent();
-
-    const upgradeV6Row = document.getElementById('upgrade-v6-row');
-    if (upgradeV6Row) upgradeV6Row.style.display = 'none';
-
-    setMsg(t('msg.upgrade.v6.done'), 'ok');
-  } catch (e) {
-    setMsg(friendlyError(e.message) || t('err.upgrade.v6.fail'), 'error');
-  }
-});
-
 // ── btn-reenroll: re-enroll face for v5 vaults ────────────────────────────
 document.getElementById('btn-reenroll')?.addEventListener('click', async () => {
   const meta = JSON.parse(localStorage.getItem('biowallet_meta') ?? 'null');

@@ -698,9 +698,9 @@ class BioVault {
     if (this.#vaultFormat?.v >= 4) {
       const salt = fromHex(this.#vaultFormat.salt);
 
-      // New v5 structure (deviceWrap field present): only update deviceWrap, SSS untouched.
+      // New v5/v6 structure (deviceWrap field present): only update deviceWrap, SSS untouched.
       // Paper code stays permanently valid — no re-split needed.
-      if (this.#vaultFormat.v === 5 && 'deviceWrap' in this.#vaultFormat) {
+      if ((this.#vaultFormat.v === 5 || this.#vaultFormat.v === 6) && 'deviceWrap' in this.#vaultFormat) {
         const devKey = await deriveKeyDevice(R, new Uint8Array(devicePrf), salt);
         const newDeviceWrap = {
           ...await wrapBytes(devKey, this.#vaultKeyRaw),

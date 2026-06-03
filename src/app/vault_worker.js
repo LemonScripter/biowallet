@@ -214,6 +214,7 @@ async function handle(type, p) {
         usedFace:   result.usedFace ?? true,
         isV4:       result.isV4 ?? false,
         isV5:       result.isV5 ?? false,
+        isV6:       result.isV6 ?? false,
         genesis:    result.genesis ?? null,
       };
     }

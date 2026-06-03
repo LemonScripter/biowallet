@@ -16,35 +16,6 @@ const ENROLL_SCANS = 5;
 const AUTH_SCANS   = 3;
 export const EMBED_DIM = 128;  // FaceRecognitionNet output dim
 
-// Liveness / PAD (presentation attack detection)
-// Random challenge from 2 options — unpredictable, hard to fake with static photo.
-// Uses faceLandmark68Net (already loaded) — zero additional dependencies.
-//
-// Challenges:
-//   blink — 2× pislogás; dinamikus EAR baseline (szemüveg-barát)
-//   turn  — fejfordítás BÁRMELYIK irányba (nincs tükrözési konfúzió)
-const LIVENESS_CHALLENGES  = ['blink', 'turn'];
-const NOSE_TURN_THRESHOLD  = 0.35;   // nose/jaw ratio ± ennyi = elég fordulat
-const LIVENESS_TIMEOUT_MS  = 10_000; // max challenge duration
-
-// Eye Aspect Ratio — standard dlib 68-point landmark indices
-// Left eye: 36-41  Right eye: 42-47
-function _ear(pts) {
-  const d = (a, b) => {
-    const dx = pts[a].x - pts[b].x, dy = pts[a].y - pts[b].y;
-    return Math.sqrt(dx*dx + dy*dy);
-  };
-  const earL = (d(37,41) + d(38,40)) / (2 * d(36,39) + 1e-6);
-  const earR = (d(43,47) + d(44,46)) / (2 * d(42,45) + 1e-6);
-  return (earL + earR) / 2;
-}
-
-// Nose/jaw arány (kamera-független: 0.5 = egyenes, < 0.35 vagy > 0.65 = fordulat)
-function _noseRatio(pts) {
-  const jW = pts[16].x - pts[0].x + 1e-6;
-  return (pts[30].x - pts[0].x) / jW;
-}
-
 // ── Library + model loading ────────────────────────────────────────────────
 
 let _fa           = null;   // window.faceapi handle
@@ -62,7 +33,7 @@ function loadModels() {
   if (_modelPromise) return _modelPromise;
   _modelPromise = getFaceApi().then(fa => Promise.all([
     fa.nets.tinyFaceDetector.loadFromUri(MODELS_URL),
-    fa.nets.faceLandmark68Net.loadFromUri(MODELS_URL),   // arc-alignment → stabil descriptor
+    fa.nets.faceLandmark68Net.loadFromUri(MODELS_URL),
     fa.nets.faceRecognitionNet.loadFromUri(MODELS_URL),
   ]));
   return _modelPromise;
@@ -71,13 +42,11 @@ function loadModels() {
 // ── Kamera ────────────────────────────────────────────────────────────────
 
 export async function openCamera(videoEl, onStatus) {
-  // Régi stream leállítása — Firefox néha bent tartja a kamerát újratöltéskor
   if (videoEl.srcObject) {
     videoEl.srcObject.getTracks().forEach(t => t.stop());
     videoEl.srcObject = null;
   }
 
-  // Use ideal constraints — exact facingMode causes Samsung Browser to open native camera app
   let stream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({
@@ -85,12 +54,10 @@ export async function openCamera(videoEl, onStatus) {
       audio: false,
     });
   } catch {
-    // Fallback: accept any camera (handles devices that reject facingMode entirely)
     stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
   }
   videoEl.srcObject = stream;
 
-  // loadedmetadata + 2s fallback timeout (Firefox race condition)
   await new Promise(r => {
     if (videoEl.readyState >= 1) { r(); return; }
     videoEl.onloadedmetadata = r;
@@ -100,7 +67,6 @@ export async function openCamera(videoEl, onStatus) {
   try {
     await videoEl.play();
   } catch {
-    // Firefox: "play() interrupted" — 200ms késleltetés után retry
     await delay(200);
     await videoEl.play();
   }
@@ -124,11 +90,11 @@ async function extractEmbedding(videoEl) {
   const fa  = await getFaceApi();
   const opt = new fa.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
   const res = await fa.detectSingleFace(videoEl, opt)
-    .withFaceLandmarks()    // 68-pont arc-alignment → lényegesen stabilabb descriptor
+    .withFaceLandmarks()
     .withFaceDescriptor();
 
   if (!res) return null;
-  return res.descriptor;   // Float32Array(128), FaceRecognitionNet L2-normalized
+  return res.descriptor;
 }
 
 // ── Enrollment (5 frame) ──────────────────────────────────────────────────
@@ -150,81 +116,11 @@ export async function enrollEmbedding(videoEl, onProgress) {
   return averageEmbeddings(scans);
 }
 
-// ── Liveness challenge (EAR blink + nose-ratio head turn) ────────────────
-//
-// Exported — app.js hívja a biztonságkritikus útvonalakon (OPEN, SIGN, PAPER).
-// enrollEmbedding() deliberate, lassú folyamat → ott nem szükséges.
-//
-// @param {HTMLVideoElement} videoEl
-// @param {function(string):void} onHint  — challenge szöveg callback (setMsg)
-// @returns {Promise<void>}  — sikeres challenge esetén resolve, timeout → throw LIVENESS_TIMEOUT
-
-export async function performLivenessChallenge(videoEl, onHint) {
-  await loadModels();
-  const fa  = await getFaceApi();
-  const opt = new fa.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
-
-  // Véletlenszerű challenge — előre nem jelezhető videófelvétellel szemben
-  const challenge = LIVENESS_CHALLENGES[Math.floor(Math.random() * LIVENESS_CHALLENGES.length)];
-  onHint?.(t(`liveness.${challenge}`));
-
-  // Baseline EAR kalibrálás az utasítás olvasása alatt (~1s)
-  // Szemüveggel is működik: a küszöb az aktuális nyitott szem EAR-hoz igazodik
-  let baselineSum = 0, baselineN = 0;
-  for (let i = 0; i < 8; i++) {
-    await delay(130);
-    if (videoEl.readyState < 2) continue;
-    const r = await fa.detectSingleFace(videoEl, opt).withFaceLandmarks();
-    if (r) { baselineSum += _ear(r.landmarks.positions); baselineN++; }
-  }
-  // Ha nem sikerült kalibrálni: fallback értékek
-  const baselineEAR  = baselineN > 2 ? baselineSum / baselineN : 0.28;
-  const blinkClose   = Math.max(0.13, baselineEAR * 0.60);  // 60% → biztosan csukva
-  const blinkOpen    = Math.max(0.18, baselineEAR * 0.78);  // 78% → újra nyitva
-
-  const deadline  = Date.now() + LIVENESS_TIMEOUT_MS;
-  let blinkCount  = 0;
-  let eyesOpen    = true;
-
-  while (Date.now() < deadline) {
-    await delay(80);
-    if (videoEl.readyState < 2) continue;
-
-    const res = await fa.detectSingleFace(videoEl, opt).withFaceLandmarks();
-    if (!res) continue;
-
-    const pts = res.landmarks.positions;
-
-    if (challenge === 'blink') {
-      const ear = _ear(pts);
-      if (eyesOpen && ear < blinkClose) {
-        eyesOpen = false;                    // szem csukódik
-      } else if (!eyesOpen && ear > blinkOpen) {
-        eyesOpen = true;                     // szem kinyílik → 1 pislogás kész
-        if (++blinkCount >= 2) return;       // 2 pislogás → OK
-      }
-    } else {
-      // 'turn': bármelyik irány elfogadott — nincs tükrözési konfúzió
-      const ratio = _noseRatio(pts);
-      if (ratio < (0.5 - NOSE_TURN_THRESHOLD) || ratio > (0.5 + NOSE_TURN_THRESHOLD)) return;
-    }
-  }
-
-  throw new Error('LIVENESS_TIMEOUT');
-}
-
-// ── Authentikáció (3 frame átlag) ─────────────────────────────────────────
-//
-// livenessHint: ha megadva → liveness challenge fut az embedding előtt.
-// enrollEmbedding()-nél nem hívjuk (deliberate enrollment).
+// ── Authentikáció (3 frame átlag) — EREDETI, érintetlen implementáció ─────
+// A liveness ellenőrzés NEM itt fut — a biometrikus scan stabilitása kritikus.
+// A második paraméter (livenessHint) elfogadva API-kompatibilitáshoz, de nincs hatása.
 
 export async function captureEmbedding(videoEl, livenessHint = null) {
-  if (livenessHint) {
-    await performLivenessChallenge(videoEl, livenessHint);
-    // Challenge teljesítve — visszaváltunk az arc-scan üzenetre
-    livenessHint(t('msg.open.scanning'));
-  }
-
   const scans = [];
   let   tries = 0;
 
@@ -238,6 +134,9 @@ export async function captureEmbedding(videoEl, livenessHint = null) {
 
   return averageEmbeddings(scans);
 }
+
+// performLivenessChallenge: API-kompatibilitáshoz exportálva (jelenleg nem aktív)
+export async function performLivenessChallenge() {}
 
 // ── Utils ─────────────────────────────────────────────────────────────────
 
