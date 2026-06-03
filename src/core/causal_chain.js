@@ -60,6 +60,11 @@ class CausalChain {
    * @param {string|null} txHash   — SHA-256 of committed tx (SIGN flow only)
    */
   issue(R, vaultId, txHash = null) {
+    // GAP-3: R strukturális validáció — fuzzyExtract már dob BCH-hibán,
+    // de programozási hiba (null/rossz típus) esetén itt kapjuk el.
+    if (!(R instanceof Uint8Array) || R.byteLength !== 32) {
+      throw new DCCError('INVALID_BIO_RESULT', 'issue');
+    }
     this.#token = new CausalToken(R, vaultId, txHash);
   }
 

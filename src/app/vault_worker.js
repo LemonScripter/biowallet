@@ -33,7 +33,20 @@
 import * as _ethersLib from '../vendor/ethers.bundle.js';
 self.ethers = _ethersLib;
 
-import { BioVault } from '../core/vault.js?v=23';
+import { BioVault } from '../core/vault.js?v=22';
+
+// GAP-2: DATA_FLOW védelme — a Worker konzolján Uint8Array/ArrayBuffer
+// (potenciális seed/kulcs) nem naplózható. Programozási hibák ellen véd.
+{
+  const _orig = { log: console.log, debug: console.debug, info: console.info };
+  const _guard = (fn) => (...args) => {
+    if (args.some(a => a instanceof Uint8Array || a instanceof ArrayBuffer)) return;
+    fn(...args);
+  };
+  console.log   = _guard(_orig.log);
+  console.debug = _guard(_orig.debug);
+  console.info  = _guard(_orig.info);
+}
 
 let vault = null;
 
@@ -151,39 +164,6 @@ async function handle(type, p) {
       };
     }
 
-    case 'CREATE_V6': {
-      const dPrf  = p.devicePrf    ? new Uint8Array(p.devicePrf)    : null;
-      const cId   = p.credentialId ? new Uint8Array(p.credentialId) : null;
-      const pSalt = p.prfSalt      ? new Uint8Array(p.prfSalt)      : null;
-      const res = await BioVault.createV6(p.embedding, dPrf, cId, pSalt);
-      vault = new BioVault(res.vaultId);
-      return { vaultId: res.vaultId, P: res.P, encryptedVault: res.encryptedVault, paperShareY: Array.from(res.paperShareY) };
-    }
-
-    case 'IMPORT_V6': {
-      const dPrf  = p.devicePrf    ? new Uint8Array(p.devicePrf)    : null;
-      const cId   = p.credentialId ? new Uint8Array(p.credentialId) : null;
-      const pSalt = p.prfSalt      ? new Uint8Array(p.prfSalt)      : null;
-      const res = await BioVault.importFromMnemonicV6(p.mnemonic, p.embedding, dPrf, cId, pSalt);
-      vault = new BioVault(res.vaultId);
-      return { vaultId: res.vaultId, P: res.P, encryptedVault: res.encryptedVault, paperShareY: Array.from(res.paperShareY) };
-    }
-
-    case 'IMPORT_PK_V6': {
-      const dPrf  = p.devicePrf    ? new Uint8Array(p.devicePrf)    : null;
-      const cId   = p.credentialId ? new Uint8Array(p.credentialId) : null;
-      const pSalt = p.prfSalt      ? new Uint8Array(p.prfSalt)      : null;
-      const res = await BioVault.importFromPrivKeyV6(p.privKey, p.embedding, dPrf, cId, pSalt);
-      vault = new BioVault(res.vaultId);
-      return { vaultId: res.vaultId, P: res.P, encryptedVault: res.encryptedVault, paperShareY: Array.from(res.paperShareY) };
-    }
-
-    case 'UPGRADE_V6': {
-      if (!vault) throw new Error('No vault initialised');
-      const { encryptedVault, paperShareY } = await vault.upgradeToV6();
-      return { encryptedVault, paperShareY: Array.from(paperShareY) };
-    }
-
     case 'OPEN': {
       if (!vault) throw new Error('No vault initialised');
       const now = Date.now();
@@ -214,7 +194,6 @@ async function handle(type, p) {
         usedFace:   result.usedFace ?? true,
         isV4:       result.isV4 ?? false,
         isV5:       result.isV5 ?? false,
-        isV6:       result.isV6 ?? false,
         genesis:    result.genesis ?? null,
       };
     }

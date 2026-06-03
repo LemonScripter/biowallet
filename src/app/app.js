@@ -6,10 +6,11 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v35.4';
+const APP_VERSION = 'v35.3s';              // s = stable (GAP-2/3/4 javításokkal)
+const SW_CACHE_VERSION = 'biowallet-v96';  // egyezzen a sw.js CACHE értékével
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
-import { openCamera, enrollEmbedding, captureEmbedding, performLivenessChallenge } from '../core/bio_capture.js?v=13';
+import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=12';
 import {
   WC_PROJECT_ID, initWC, wcPair, wcApprove, wcRejectProposal, wcEmitChainChanged,
   wcRespondOk, wcRespondError, wcGetSessions, wcDisconnect, wcReady,
@@ -54,6 +55,26 @@ window.addEventListener('unhandledrejection', e => {
   console.error('[Unhandled rejection]', e.reason);
   setScanning(false);
 });
+
+// ── GAP-4: BroadcastChannel — egyszerre csak egy tab-ban legyen nyitva a vault ──
+// Ha egy másik tab megnyitja a vaultot, ez a tab automatikusan zárolódik.
+const _vaultBC = ('BroadcastChannel' in self) ? new BroadcastChannel('biowallet-session') : null;
+if (_vaultBC) {
+  _vaultBC.onmessage = (e) => {
+    if (e.data?.type === 'VAULT_OPEN') {
+      // Másik tab megnyitotta a vaultot — zárjuk ezt
+      callWorker('LOCK').catch(() => {});
+      showPanel('lock');
+      const isHu = document.documentElement.lang !== 'en';
+      setMsg(isHu
+        ? 'A tárca egy másik lapfülön megnyílt — ez a munkamenet le lett zárva.'
+        : 'Vault opened in another tab — this session has been locked.',
+        'error');
+    }
+  };
+}
+function _bcVaultOpen(vaultId)   { _vaultBC?.postMessage({ type: 'VAULT_OPEN',   vaultId }); }
+function _bcVaultLocked(vaultId) { _vaultBC?.postMessage({ type: 'VAULT_LOCKED', vaultId }); }
 
 // ── Multi-wallet storage ──────────────────────────────────────────────────
 // biowallet_meta            = active wallet (unchanged — backward compat)
@@ -275,10 +296,43 @@ function _refreshDynamicLabels() {
   const verEl = document.getElementById('app-version');
   if (verEl) verEl.textContent = APP_VERSION;
 
+  // SW-független verzió-ellenőrzés: /version.json mindig friss (no-cache nginx)
+  // Ha a szerver verziója nem egyezik → SW unregister + cache törlés + reload
+  // sessionStorage guard: az újratöltés után ne fusson le újra (infinite loop)
+  if (sessionStorage.getItem('sw_update_done') !== SW_CACHE_VERSION) {
+    fetch('/version.json?_=' + Date.now(), { cache: 'no-store' })
+      .then(r => r.json())
+      .then(async v => {
+        if (v.v && v.v !== SW_CACHE_VERSION) {
+          sessionStorage.setItem('sw_update_done', v.v);
+          // SW unregister + cache törlés → friss telepítés reload után
+          if ('serviceWorker' in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(r => r.unregister()));
+          }
+          await caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
+          window.location.reload(true);
+        }
+      })
+      .catch(() => {});
+  }
+
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/app/sw.js').then(reg => {
-      reg.update().catch(() => {}); // azonnal ellenőrzi az új SW-t, nem vár 24 órát
+      reg.update().catch(() => {});
+      // Ha már vár egy új SW → azonnal kényszerítjük az aktiválást
+      const forceActivate = (sw) => sw?.postMessage({ type: 'SKIP_WAITING' });
+      if (reg.waiting) forceActivate(reg.waiting);
+      reg.addEventListener('updatefound', () => {
+        const sw = reg.installing;
+        sw?.addEventListener('statechange', () => {
+          if (sw.state === 'installed') forceActivate(sw);
+        });
+      });
     }).catch(() => {});
+    navigator.serviceWorker.addEventListener('message', e => {
+      if (e.data?.type === 'SW_ACTIVATED') window.location.reload();
+    });
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       const banner = document.getElementById('update-banner');
       const btn    = document.getElementById('update-reload-btn');
@@ -860,7 +914,7 @@ btnEnroll.addEventListener('click', async () => {
   const wa = await _offerDeviceEnroll();
 
   try {
-    const { vaultId, P, encryptedVault, paperShareY } = await callWorker('CREATE_V6', {
+    const { vaultId, P, encryptedVault, paperShareY } = await callWorker('CREATE_V5', {
       embedding,
       ...(wa ? { devicePrf: wa.devicePrf, credentialId: wa.credentialId, prfSalt: wa.prfSalt } : {}),
     }, [embedding.buffer]);
@@ -1251,8 +1305,8 @@ btnImportEnroll.addEventListener('click', async () => {
   const wa = await _offerDeviceEnroll();
 
   const workerMsg = importSecret.type === 'privkey'
-    ? { type: 'IMPORT_PK_V6', payload: { privKey: importSecret.value } }
-    : { type: 'IMPORT_V6',    payload: { mnemonic: importSecret.value } };
+    ? { type: 'IMPORT_PK_V5', payload: { privKey: importSecret.value } }
+    : { type: 'IMPORT_V5',    payload: { mnemonic: importSecret.value } };
 
   try {
     const { vaultId, P, encryptedVault, paperShareY } = await callWorker(workerMsg.type, {
@@ -1394,8 +1448,7 @@ btnScan.addEventListener('click', async () => {
   setMsg(t('msg.open.scanning'), '');
 
   try {
-    // Liveness csak vault-nyitáskor: ez az egyetlen pont ahol fotótámadás reális
-    const embedding = await captureEmbedding(video, m => setMsg(m, ''));
+    const embedding = await captureEmbedding(video);
     await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
 
     // Try device factor if this vault has one registered on this device
@@ -1445,7 +1498,7 @@ btnScan.addEventListener('click', async () => {
       }
     }
 
-    const { address, hasDevice, usedDevice, usedFace, isV4, isV5, isV6 } = await callWorker(
+    const { address, hasDevice, usedDevice, usedFace, isV4, isV5 } = await callWorker(
       'OPEN',
       { encryptedVault: encBuf, P: meta.P, devicePrf, pin, paperShareY },
       [encBuf]
@@ -1462,14 +1515,14 @@ btnScan.addEventListener('click', async () => {
     deviceRow.style.display = '';
     swapRow.style.display   = isSwapSupported(currentNetwork.chainId) ? '' : 'none';
     const sssRow = document.getElementById('sss-row');
-    if (sssRow) sssRow.style.display = (isV4 || isV5 || isV6) ? 'none' : '';
+    if (sssRow) sssRow.style.display = (isV4 || isV5) ? 'none' : '';
     const securityToolsRow = document.getElementById('security-tools-row');
     if (securityToolsRow) securityToolsRow.style.display = '';
     const reenrollRow = document.getElementById('reenroll-row');
-    if (reenrollRow) reenrollRow.style.display = (isV5 || isV6) ? '' : 'none';
+    if (reenrollRow) reenrollRow.style.display = isV5 ? '' : 'none';
 
-    // SSS paper+device nyitás v5/v6-on: kötelező arc re-enrollment
-    if (!usedFace && (isV5 || isV6)) {
+    // SSS paper+device nyitás v5-ön: kötelező arc re-enrollment
+    if (!usedFace && isV5) {
       await _mandatoryReenroll(meta);
       return;
     }
@@ -1480,6 +1533,7 @@ btnScan.addEventListener('click', async () => {
     }
 
     setMsg(t('msg.vault.open'), 'ok');
+    _bcVaultOpen(meta.vaultId);   // GAP-4: értesítjük a többi tabot
     showPanel('vault');
     _showWalletBadge(meta);
     ensureWCInit().catch(() => {});
@@ -1666,6 +1720,8 @@ btnSign.addEventListener('click', async () => {
 
     setTimeout(async () => {
       await callWorker('LOCK');
+      const _lMeta = JSON.parse(localStorage.getItem('biowallet_meta') ?? 'null');
+      _bcVaultLocked(_lMeta?.vaultId);   // GAP-4: értesítjük a többi tabot
       ethAddress.textContent = '—';
       ethBalance.textContent = '—';
       setScanning(false);
@@ -1725,7 +1781,9 @@ btnPaper.addEventListener('click', async () => {
 
 // ── Lock ──────────────────────────────────────────────────────────────────
 btnLock.addEventListener('click', async () => {
+  const _lkMeta = JSON.parse(localStorage.getItem('biowallet_meta') ?? 'null');
   await callWorker('LOCK');
+  _bcVaultLocked(_lkMeta?.vaultId);   // GAP-4
   ethAddress.textContent = '—';
   ethBalance.textContent = '—';
   setScanning(false);
@@ -1945,7 +2003,7 @@ document.getElementById('btn-genesis-recover')?.addEventListener('click', async 
 
   let embedding;
   try {
-    embedding = await captureEmbedding(video, m => setMsg(m, ''));
+    embedding = await captureEmbedding(video);
   } catch (e) {
     setScanning(false);
     setMsg(friendlyError(e.message), 'error');
@@ -2221,7 +2279,6 @@ async function _mandatoryReenroll(meta) {
   }
 }
 
-// ── btn-upgrade-v6: upgrade vault from PBKDF2 (v5) to Argon2id (v6) ─────────
 // ── btn-reenroll: re-enroll face for v5 vaults ────────────────────────────
 document.getElementById('btn-reenroll')?.addEventListener('click', async () => {
   const meta = JSON.parse(localStorage.getItem('biowallet_meta') ?? 'null');
@@ -2688,36 +2745,12 @@ async function ensureWCInit() {
   });
 }
 
-let _wcExpiryTimer = null;
-
-function _wcExpiryStr(expiry) {
-  if (!expiry) return '';
-  const isHu = document.documentElement.lang !== 'en';
-  const rem = expiry - Math.floor(Date.now() / 1000);
-  if (rem <= 0)    return isHu ? ' · lejárt' : ' · expired';
-  if (rem < 300)   return ` · ⚠ ${Math.ceil(rem / 60)}m`;
-  if (rem < 3600)  return ` · ${Math.ceil(rem / 60)}m`;
-  return ` · ${Math.ceil(rem / 3600)}h`;
-}
-
 function updateWCBar() {
-  if (_wcExpiryTimer) { clearInterval(_wcExpiryTimer); _wcExpiryTimer = null; }
   const sessions = wcGetSessions();
   if (sessions.length) {
-    const sess   = sessions[0];
-    const name   = sess.peer?.metadata?.name ?? 'dApp';
-    const expiry = sess.expiry ?? null;
-    const refresh = () => { wcDappName.textContent = name + _wcExpiryStr(expiry); };
-    refresh();
+    const name = sessions[0].peer?.metadata?.name ?? 'dApp';
+    wcDappName.textContent = name;
     wcBar.classList.add('visible');
-    if (expiry) {
-      _wcExpiryTimer = setInterval(() => {
-        if (Math.floor(Date.now() / 1000) >= expiry) {
-          clearInterval(_wcExpiryTimer); _wcExpiryTimer = null;
-          updateWCBar();
-        } else { refresh(); }
-      }, 60_000);
-    }
   } else {
     wcBar.classList.remove('visible');
   }
@@ -3866,7 +3899,6 @@ function friendlyError(m) {
   if (m.includes('ALREADY_CONSUMED'))   return t('err.consumed');
   if (m.includes('PRIVKEY_NO_FORMULA')) return t('err.paper.privkey');
   if (m.includes('err.paper.crc'))      return t('err.paper.crc');
-  if (m.includes('LIVENESS_TIMEOUT')) return t('err.liveness.timeout');
   if (m.includes('WORKER_CRASH'))   return t('err.worker.crash');
   if (m.includes('WORKER_TIMEOUT')) return t('err.worker.timeout');
   if (m.toLowerCase().includes('invalid mnemonic') ||

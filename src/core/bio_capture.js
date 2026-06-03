@@ -33,7 +33,7 @@ function loadModels() {
   if (_modelPromise) return _modelPromise;
   _modelPromise = getFaceApi().then(fa => Promise.all([
     fa.nets.tinyFaceDetector.loadFromUri(MODELS_URL),
-    fa.nets.faceLandmark68Net.loadFromUri(MODELS_URL),
+    fa.nets.faceLandmark68Net.loadFromUri(MODELS_URL),   // arc-alignment → stabil descriptor
     fa.nets.faceRecognitionNet.loadFromUri(MODELS_URL),
   ]));
   return _modelPromise;
@@ -42,11 +42,13 @@ function loadModels() {
 // ── Kamera ────────────────────────────────────────────────────────────────
 
 export async function openCamera(videoEl, onStatus) {
+  // Régi stream leállítása — Firefox néha bent tartja a kamerát újratöltéskor
   if (videoEl.srcObject) {
     videoEl.srcObject.getTracks().forEach(t => t.stop());
     videoEl.srcObject = null;
   }
 
+  // Use ideal constraints — exact facingMode causes Samsung Browser to open native camera app
   let stream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({
@@ -54,10 +56,12 @@ export async function openCamera(videoEl, onStatus) {
       audio: false,
     });
   } catch {
+    // Fallback: accept any camera (handles devices that reject facingMode entirely)
     stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
   }
   videoEl.srcObject = stream;
 
+  // loadedmetadata + 2s fallback timeout (Firefox race condition)
   await new Promise(r => {
     if (videoEl.readyState >= 1) { r(); return; }
     videoEl.onloadedmetadata = r;
@@ -67,6 +71,7 @@ export async function openCamera(videoEl, onStatus) {
   try {
     await videoEl.play();
   } catch {
+    // Firefox: "play() interrupted" — 200ms késleltetés után retry
     await delay(200);
     await videoEl.play();
   }
@@ -90,11 +95,11 @@ async function extractEmbedding(videoEl) {
   const fa  = await getFaceApi();
   const opt = new fa.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
   const res = await fa.detectSingleFace(videoEl, opt)
-    .withFaceLandmarks()
+    .withFaceLandmarks()    // 68-pont arc-alignment → lényegesen stabilabb descriptor
     .withFaceDescriptor();
 
   if (!res) return null;
-  return res.descriptor;
+  return res.descriptor;   // Float32Array(128), FaceRecognitionNet L2-normalized
 }
 
 // ── Enrollment (5 frame) ──────────────────────────────────────────────────
@@ -116,11 +121,9 @@ export async function enrollEmbedding(videoEl, onProgress) {
   return averageEmbeddings(scans);
 }
 
-// ── Authentikáció (3 frame átlag) — EREDETI, érintetlen implementáció ─────
-// A liveness ellenőrzés NEM itt fut — a biometrikus scan stabilitása kritikus.
-// A második paraméter (livenessHint) elfogadva API-kompatibilitáshoz, de nincs hatása.
+// ── Authentikáció (3 frame átlag) ─────────────────────────────────────────
 
-export async function captureEmbedding(videoEl, livenessHint = null) {
+export async function captureEmbedding(videoEl) {
   const scans = [];
   let   tries = 0;
 
@@ -134,9 +137,6 @@ export async function captureEmbedding(videoEl, livenessHint = null) {
 
   return averageEmbeddings(scans);
 }
-
-// performLivenessChallenge: API-kompatibilitáshoz exportálva (jelenleg nem aktív)
-export async function performLivenessChallenge() {}
 
 // ── Utils ─────────────────────────────────────────────────────────────────
 

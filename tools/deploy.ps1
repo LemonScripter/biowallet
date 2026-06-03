@@ -52,7 +52,6 @@ $DEPLOY_MAP = [ordered]@{
     "src\core\prices.js"     = "/var/www/biowallet/core/prices.js"
     "src\core\fuzzy_extractor.js"   = "/var/www/biowallet/core/fuzzy_extractor.js"
     "src\core\recovery_formula.js" = "/var/www/biowallet/core/recovery_formula.js"
-    "src\vendor\noble-argon2.js"   = "/var/www/biowallet/vendor/noble-argon2.js"
     "src\core\rpc.js"              = "/var/www/biowallet/core/rpc.js"
     "dapp-guide.html"        = "/var/www/biowallet/dapp-guide.html"
     "dapp-guide.js"          = "/var/www/biowallet/dapp-guide.js"

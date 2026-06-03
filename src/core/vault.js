@@ -24,17 +24,10 @@ import {
   entropyToIndices, fetchRandomOffsets, computeRawPaper,
 } from './recovery_formula.js?v=12';
 import { split as sssSplit, combine as sssCombine } from './sss.js?v=1';
-import { argon2id } from '../vendor/noble-argon2.js?v=1';
 
 const AES_MODE            = 'AES-GCM';
 const DEVICE_PRF_INFO     = new TextEncoder().encode('biowallet-device-v2');
 const GENESIS_HMAC_INFO   = new TextEncoder().encode('biowallet-genesis-hmac-v1');
-
-// Argon2id parameters (vault v6) — OWASP minimum for offline vault protection
-// m=65536 (64 MB), t=3, p=1  →  significantly harder than PBKDF2-SHA256 for GPU/ASIC attacks
-const ARGON2_M = 65536;
-const ARGON2_T = 3;
-const ARGON2_P = 1;
 
 class BioVault {
   #chain;
@@ -308,112 +301,6 @@ class BioVault {
     } finally { seedBytes.fill(0); }
   }
 
-  // ── Vault v6 (Argon2id KDF) ───────────────────────────────────────────────
-  // Structure identical to v5-newV5 but face share uses Argon2id instead of PBKDF2.
-
-  static async _encryptSeedV6(seedBytes, embedding, devicePrf, credentialId, prfSalt, keyType = 'raw') {
-    const vaultId = crypto.randomUUID();
-    const ts      = Date.now();
-    const { R, P } = await fuzzyCommit(embedding);
-    const salt     = crypto.getRandomValues(new Uint8Array(32));
-
-    const genesisDna  = await BioVault._computeGenesisDna(R, ts);
-    const chainEntry  = await BioVault._buildChainEntry('', genesisDna, ts, 0, 'initial_enrollment');
-
-    const { R: R_genesis, genesisS, genesisExtraBit } = await fuzzyCommitDeterministic(embedding);
-    const gbSalt  = crypto.getRandomValues(new Uint8Array(32));
-    const gbKey   = await BioVault._deriveGenesisBackupKey(R_genesis, gbSalt);
-    const { iv: gbIv, ciphertext: gbCtBuf } = await aesEncrypt(gbKey, seedBytes);
-    P.genesisS        = genesisS;
-    P.genesisExtraBit = genesisExtraBit;
-
-    const vaultKeyRaw = crypto.getRandomValues(new Uint8Array(32));
-    try {
-      const vaultKey  = await importRawKey(vaultKeyRaw);
-      const plain = { seed: toHex(seedBytes), accounts: [], vaultId, created: ts };
-      if (keyType !== 'raw') plain.keyType = keyType;
-      const plaintext = encode(plain);
-      const { iv, ciphertext } = await aesEncrypt(vaultKey, plaintext);
-
-      const shares = sssSplit(vaultKeyRaw, 3, 2);
-      try {
-        const faceKey   = await deriveKeyV6(R, salt);      // ← Argon2id
-        const faceShare = { x: shares[0].x, ...await wrapBytes(faceKey, shares[0].y) };
-        const paperShareY = shares[2].y.slice();
-
-        let deviceWrap = null;
-        if (devicePrf && credentialId && prfSalt) {
-          const devKey = await deriveKeyDevice(R, new Uint8Array(devicePrf), salt);
-          deviceWrap = {
-            ...await wrapBytes(devKey, vaultKeyRaw),
-            credentialId: toHex(new Uint8Array(credentialId)),
-            prfSalt:      toHex(new Uint8Array(prfSalt)),
-          };
-        }
-
-        const genesisHmac = await BioVault._computeGenesisHmac(
-          vaultKeyRaw, { dna: genesisDna, ts }, [chainEntry]
-        );
-
-        const vault = {
-          v: 6, vaultId,
-          kdf: 'argon2id',
-          kdfParams: { m: ARGON2_M, t: ARGON2_T, p: ARGON2_P },
-          ...(keyType !== 'raw' && { keyType }),
-          genesis_hmac: genesisHmac,
-          salt:      toHex(salt),
-          iv:        toHex(iv),
-          ct:        toHex(new Uint8Array(ciphertext)),
-          genesis:   { dna: genesisDna, ts },
-          dna_chain: [chainEntry],
-          sss:       { faceShare, paperX: 3 },
-          deviceWrap,
-          genesis_backup: {
-            gbSalt: toHex(gbSalt),
-            gbIv:   toHex(gbIv),
-            gbCt:   toHex(new Uint8Array(gbCtBuf)),
-          },
-        };
-
-        return {
-          vaultId,
-          P,
-          encryptedVault: new TextEncoder().encode(JSON.stringify(vault)).buffer,
-          paperShareY,
-        };
-      } finally {
-        shares[0].y.fill(0);
-        shares[1].y.fill(0);
-        shares[2].y.fill(0);
-      }
-    } finally { vaultKeyRaw.fill(0); }
-  }
-
-  static async createV6(embedding, devicePrf = null, credentialId = null, prfSalt = null) {
-    const seed = crypto.getRandomValues(new Uint8Array(32));
-    try {
-      return await BioVault._encryptSeedV6(seed, embedding, devicePrf, credentialId, prfSalt);
-    } finally { seed.fill(0); }
-  }
-
-  static async importFromMnemonicV6(mnemonic, embedding, devicePrf = null, credentialId = null, prfSalt = null) {
-    const seedBytes = mnemonicToSeed(mnemonic);
-    try {
-      return await BioVault._encryptSeedV6(seedBytes, embedding, devicePrf, credentialId, prfSalt, 'bip39');
-    } finally { seedBytes.fill(0); }
-  }
-
-  static async importFromPrivKeyV6(privKeyHex, embedding, devicePrf = null, credentialId = null, prfSalt = null) {
-    const stripped = privKeyHex.startsWith('0x') || privKeyHex.startsWith('0X')
-      ? privKeyHex.slice(2) : privKeyHex;
-    if (!/^[0-9a-fA-F]{64}$/.test(stripped))
-      throw new Error('INVALID_PRIVATE_KEY');
-    const seedBytes = new Uint8Array(stripped.match(/../g).map(x => parseInt(x, 16)));
-    try {
-      return await BioVault._encryptSeedV6(seedBytes, embedding, devicePrf, credentialId, prfSalt, 'privkey');
-    } finally { seedBytes.fill(0); }
-  }
-
   static async _encryptSeed(seedBytes, embedding, pin = null, devicePrf = null, credentialId = null, prfSalt = null) {
     const vaultId  = crypto.randomUUID();
     const { R, P } = await fuzzyCommit(embedding);
@@ -462,22 +349,20 @@ class BioVault {
       const v2   = JSON.parse(new TextDecoder().decode(encryptedVault));
       const salt = fromHex(v2.salt);
 
-      // ── v4 / v5 / v6: SSS reconstruction ─────────────────────────────────
-      if (v2.v === 4 || v2.v === 5 || v2.v === 6) {
+      // ── v4 / v5: SSS reconstruction ──────────────────────────────────────
+      if (v2.v === 4 || v2.v === 5) {
         if (!v2.sss) { this.lock(); throw new DCCError('VAULT_CORRUPTED', 'OPEN'); }
 
-        // New v5/v6 structure: device is a direct K-wrap (deviceWrap field present),
+        // New v5 structure: device is a direct K-wrap (deviceWrap field present),
         // SSS only covers face(x=1) + paper(x=3).
         // Legacy v4/v5: device was an SSS share (sss.deviceShare present, no top-level deviceWrap).
-        // v6 = same structure as new-v5 (deviceWrap field) but face key uses Argon2id
-        const isNewV5 = (v2.v === 5 || v2.v === 6) && 'deviceWrap' in v2;
-        const isArgon2id = v2.v === 6 && v2.kdf === 'argon2id';
+        const isNewV5 = v2.v === 5 && 'deviceWrap' in v2;
 
         if (isNewV5) {
           let vaultKeyRaw = null;
           let usedDevice  = false;
 
-          // Path 1: device direct K-wrap (fastest — no SSS needed; still HKDF regardless of v6)
+          // Path 1: device direct K-wrap (fastest — no SSS needed)
           if (devicePrf && v2.deviceWrap) {
             try {
               const devKey = await deriveKeyDevice(R, new Uint8Array(devicePrf), salt);
@@ -487,13 +372,10 @@ class BioVault {
           }
 
           // Path 2: SSS face(x=1) + paper(x=3)
-          // v5: PBKDF2 face key; v6: Argon2id face key
           let shareA = null;
           if (!vaultKeyRaw) {
             try {
-              const faceKey = isArgon2id
-                ? await deriveKeyV6(R, salt)
-                : await deriveKey(R, salt, null);
+              const faceKey = await deriveKey(R, salt, null);
               const y1      = await unwrapBytes(faceKey, v2.sss.faceShare);
               shareA = { x: v2.sss.faceShare.x, y: y1 };
             } catch {}
@@ -553,8 +435,7 @@ class BioVault {
             usedDevice,
             usedFace,
             isV4:  false,
-            isV5:  v2.v === 5,
-            isV6:  v2.v === 6,
+            isV5:  true,
             genesis: v2.genesis ?? null,
           };
         }
@@ -698,9 +579,9 @@ class BioVault {
     if (this.#vaultFormat?.v >= 4) {
       const salt = fromHex(this.#vaultFormat.salt);
 
-      // New v5/v6 structure (deviceWrap field present): only update deviceWrap, SSS untouched.
+      // New v5 structure (deviceWrap field present): only update deviceWrap, SSS untouched.
       // Paper code stays permanently valid — no re-split needed.
-      if ((this.#vaultFormat.v === 5 || this.#vaultFormat.v === 6) && 'deviceWrap' in this.#vaultFormat) {
+      if (this.#vaultFormat.v === 5 && 'deviceWrap' in this.#vaultFormat) {
         const devKey = await deriveKeyDevice(R, new Uint8Array(devicePrf), salt);
         const newDeviceWrap = {
           ...await wrapBytes(devKey, this.#vaultKeyRaw),
@@ -935,52 +816,6 @@ class BioVault {
     } finally { vaultKeyRaw.fill(0); }
   }
 
-  // ── Upgrade v5 (PBKDF2) → v6 (Argon2id) ─────────────────────────────────
-  // Re-wraps vault key with Argon2id face key; ct/genesis/chain unchanged.
-  // Device wrap is cleared — user must re-enroll device after upgrade.
-  // Requires vault to be open (#faceR and #vaultKeyRaw in memory).
-  async upgradeToV6() {
-    if (!this.#vaultData || !this.#vaultKeyRaw || !this.#faceR)
-      throw new DCCError('VAULT_LOCKED', 'UPGRADE_V6');
-    if (!this.#vaultFormat || (this.#vaultFormat.v !== 5 && this.#vaultFormat.v !== 6) || !('deviceWrap' in this.#vaultFormat))
-      throw new DCCError('NOT_V5', 'UPGRADE_V6');
-
-    const newSalt = crypto.getRandomValues(new Uint8Array(32));
-    const shares  = sssSplit(this.#vaultKeyRaw, 3, 2);
-    try {
-      const faceKey     = await deriveKeyV6(this.#faceR, newSalt);  // Argon2id
-      const faceShare   = { x: shares[0].x, ...await wrapBytes(faceKey, shares[0].y) };
-      const paperShareY = shares[2].y.slice();
-
-      const vault = {
-        ...this.#vaultFormat,
-        v:          6,
-        kdf:        'argon2id',
-        kdfParams:  { m: ARGON2_M, t: ARGON2_T, p: ARGON2_P },
-        salt:       toHex(newSalt),
-        sss:        { faceShare, paperX: 3 },
-        deviceWrap: null,   // must re-enroll device after upgrade
-      };
-
-      if (vault.genesis_hmac !== undefined && this.#vaultKeyRaw) {
-        vault.genesis_hmac = await BioVault._computeGenesisHmac(
-          this.#vaultKeyRaw, vault.genesis, vault.dna_chain
-        );
-      }
-
-      this.#vaultFormat = vault;
-
-      return {
-        encryptedVault: new TextEncoder().encode(JSON.stringify(vault)).buffer,
-        paperShareY,
-      };
-    } finally {
-      shares[0].y.fill(0);
-      shares[1].y.fill(0);
-      shares[2].y.fill(0);
-    }
-  }
-
   // ── Face re-enrollment (v5 only) ──────────────────────────────────────────
   // Re-commits face BCH, refreshes SSS share wrappings, appends chain entry.
   // genesis.dna is preserved; vault key (and ct) unchanged.
@@ -1185,13 +1020,6 @@ async function deriveKey(R, salt, pin = null) {
     { name: 'PBKDF2', salt, iterations: 300_000, hash: 'SHA-256' },
     km, { name: AES_MODE, length: 256 }, false, ['encrypt', 'decrypt']
   );
-}
-
-// Vault v6: Argon2id face key derivation (@noble/hashes, pure JS, no WASM)
-// Replaces PBKDF2 for face share wrapping — memory-hard, GPU/ASIC-resistant
-async function deriveKeyV6(R, salt) {
-  const derived = argon2id(R, salt, { m: ARGON2_M, t: ARGON2_T, p: ARGON2_P, dkLen: 32 });
-  return crypto.subtle.importKey('raw', derived, AES_MODE, false, ['encrypt', 'decrypt']);
 }
 
 async function deriveKeyDevice(R, devicePrf, salt) {

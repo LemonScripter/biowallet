@@ -1,5 +1,10 @@
 // BioWallet ServiceWorker — offline cache (Phase C + WC2)
-const CACHE = 'biowallet-v87';
+const CACHE = 'biowallet-v96';
+
+// Kényszer-aktiválás: ha a főablak küldi, azonnal veszi át az irányítást
+self.addEventListener('message', e => {
+  if (e.data?.type === 'SKIP_WAITING') self.skipWaiting();
+});
 
 const PRECACHE = [
   '/app/',
@@ -14,7 +19,6 @@ const PRECACHE = [
   '/core/causal_chain.js',
   '/core/fuzzy_extractor.js',
   '/core/recovery_formula.js',
-  '/vendor/noble-argon2.js',
   '/core/rpc.js',
   '/core/vault.js',
   '/core/wallet.js',
@@ -57,12 +61,17 @@ self.addEventListener('activate', e =>
         names.filter(n => n !== CACHE).map(n => caches.delete(n))
       ))
       .then(() => self.clients.claim())
+      .then(() => self.clients.matchAll({ type: 'window' })
+        .then(clients => clients.forEach(c => c.postMessage({ type: 'SW_ACTIVATED' })))
+      )
   )
 );
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
+  // version.json: soha ne cache-eljük — az app innen ellenőrzi, kell-e frissítés
+  if (url.pathname === '/version.json') return;
   // Pass through: external RPC calls (Ethereum nodes)
   if (url.origin !== self.location.origin) return;
   e.respondWith(
