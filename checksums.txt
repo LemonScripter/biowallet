@@ -1,6 +1,6 @@
-# BioWallet v35.2 — Canonical File Hashes
+# BioWallet v35.3 — Canonical File Hashes
 # Date: 2026-06-03
-# Commit: bb89b32
+# Commit: dc06c86
 # Verify: sha256sum -c checksums.txt
 #
 # The constitution anchor is spec/biowallet.bio.
@@ -8,7 +8,7 @@
 
 793cac74939d658e3cebde0e8066b2ac754ab34e9c85657043c5f58a0a1866e2  spec/biowallet.bio
 23c5605f37a1c5fdc95c6b67695ac1116aa4c39cf6241c84bbc5baf4c4efebfb  src/core/causal_chain.js
-5db91d6ddf78382c3c6b56ab1e480b1446cf88a02b686653f23fdf4ce718ac4c  src/core/vault.js
+41754d48699410dd2e58ee497e6a3c980a6efff77e0e29d43e823e8680297e2b  src/core/vault.js
 f0b77111a307f8582a4ae7402fd28ab96e0575904253a1067cf07a3674d26b96  src/core/sss.js
 9a6912650e4780e8de8d078ce626a0cd1019a03f27599e1e2af25a166aa97876  src/core/fuzzy_extractor.js
 33670ce647166190346be137a41761caee8c570c8046b0f242f716cb5379d837  src/core/wallet.js
@@ -16,12 +16,13 @@ dae76b4d4e7232481fc534cf44eb6e46cc1c43d872aaadefb558709e9ab0d833  src/core/recov
 e50f91c535c44d64161ea53a93e03361efc2cd9f1a7f1e6a315c75bb4b5f1802  src/core/bio_capture.js
 31c7f86f0a26d956cdf82f3e3766f461914aca243c2895a55385af80243ec625  src/core/rpc.js
 2124f8b4854c8795464ecdaea31a92655b55e56fa00c92f9cf4b16fbbc6b092d  src/core/wc2.js
-7f7a705be6f454ee07f7d7326bab4383fc8ab8b664b9edfaa0a93d0c7e6e3af9  src/core/i18n.js
+1a6f56ced4efdff12c95be410e3887b6998f738bde8f46e602fb90e9dbc8cc12  src/core/i18n.js
 b526a1798c961c38d7f176dd730d298ab32cf8aafa219bf5383ecc20e1e72ac4  src/core/swap.js
-d2f4ed5902d63d5702fc969458f4e61ed3606bd7d4404fced99992fa77a5f9bf  src/app/vault_worker.js
-4c89ec2438ac03b2e07303acd35408a58bd7556ec4aae1e47405c71aff01a2a6  src/app/app.js
-c31f0de5d18c93b3b9bd92aa4004401b5170daf817b66cbcb508fa0c40ff50e0  src/app/sw.js
-271e606edbc5a36928eb8e84e3f41d77da7e9e43ec86fcb4b4bfa7e2f9602d10  src/app/index.html
+60f882d36ad459a8265d3d352bcde08c4bd2569fe4a5aaf7a9a2ee91d3ef63aa  src/app/vault_worker.js
+c94b5ab4d3c931cf768e0580202ee648f5470e0d692d6283c87ec76149e39288  src/app/app.js
+5dadf58c33cd75f6bb0d9d8a17fc5211d26b52942fbef5091513eedb8ec23991  src/app/sw.js
+cf4053823129eb55796204380325b0b14eb49779438a4110b5fd7201e7a91a73  src/app/index.html
 488565bf977d55a16e4615740bd312bcecbb335279867f741aefac80462c7ef1  recovery_tool.html
 8092420c33973ea23acfad3aa4fe58ee3b6e0af7fb6597f58f4ada55c925b5b0  src/app/dapp-guide.html
 86bf498d2edad52823ff038c6a0c56747d04243e57f81205f90c4265cdbda7eb  src/app/dapp-guide.js
+3d2f6007c572d912fb56310c259827fa0c0f0afef8079e4a36426f8356e0f46a  src/vendor/noble-argon2.js

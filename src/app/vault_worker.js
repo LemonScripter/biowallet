@@ -33,7 +33,7 @@
 import * as _ethersLib from '../vendor/ethers.bundle.js';
 self.ethers = _ethersLib;
 
-import { BioVault } from '../core/vault.js?v=22';
+import { BioVault } from '../core/vault.js?v=23';
 
 let vault = null;
 
@@ -149,6 +149,39 @@ async function handle(type, p) {
         encryptedVault: res.encryptedVault,
         paperShareY:    Array.from(res.paperShareY),
       };
+    }
+
+    case 'CREATE_V6': {
+      const dPrf  = p.devicePrf    ? new Uint8Array(p.devicePrf)    : null;
+      const cId   = p.credentialId ? new Uint8Array(p.credentialId) : null;
+      const pSalt = p.prfSalt      ? new Uint8Array(p.prfSalt)      : null;
+      const res = await BioVault.createV6(p.embedding, dPrf, cId, pSalt);
+      vault = new BioVault(res.vaultId);
+      return { vaultId: res.vaultId, P: res.P, encryptedVault: res.encryptedVault, paperShareY: Array.from(res.paperShareY) };
+    }
+
+    case 'IMPORT_V6': {
+      const dPrf  = p.devicePrf    ? new Uint8Array(p.devicePrf)    : null;
+      const cId   = p.credentialId ? new Uint8Array(p.credentialId) : null;
+      const pSalt = p.prfSalt      ? new Uint8Array(p.prfSalt)      : null;
+      const res = await BioVault.importFromMnemonicV6(p.mnemonic, p.embedding, dPrf, cId, pSalt);
+      vault = new BioVault(res.vaultId);
+      return { vaultId: res.vaultId, P: res.P, encryptedVault: res.encryptedVault, paperShareY: Array.from(res.paperShareY) };
+    }
+
+    case 'IMPORT_PK_V6': {
+      const dPrf  = p.devicePrf    ? new Uint8Array(p.devicePrf)    : null;
+      const cId   = p.credentialId ? new Uint8Array(p.credentialId) : null;
+      const pSalt = p.prfSalt      ? new Uint8Array(p.prfSalt)      : null;
+      const res = await BioVault.importFromPrivKeyV6(p.privKey, p.embedding, dPrf, cId, pSalt);
+      vault = new BioVault(res.vaultId);
+      return { vaultId: res.vaultId, P: res.P, encryptedVault: res.encryptedVault, paperShareY: Array.from(res.paperShareY) };
+    }
+
+    case 'UPGRADE_V6': {
+      if (!vault) throw new Error('No vault initialised');
+      const { encryptedVault, paperShareY } = await vault.upgradeToV6();
+      return { encryptedVault, paperShareY: Array.from(paperShareY) };
     }
 
     case 'OPEN': {

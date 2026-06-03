@@ -999,6 +999,16 @@
         <button class="help-btn" data-info="paper" data-i18n-title="btn.info.title" title="Hogyan működik?">ℹ</button>
       </div>
 
+      <!-- Upgrade to v6 Argon2id (v5 only, app.js controls visibility) -->
+      <div id="upgrade-v6-row" style="margin-top:0.4rem;display:none">
+        <div class="btn-row">
+          <button class="btn btn-ghost" id="btn-upgrade-v6">
+            <span data-i18n="btn.upgrade.v6">Biztonság erősítése (Argon2id)</span>
+            <small data-i18n="btn.upgrade.v6.sub">Vault v6 frissítés — memória-nehéz KDF a PBKDF2 helyett</small>
+          </button>
+        </div>
+      </div>
+
       <!-- Re-enroll face (v5 only, app.js controls visibility) -->
       <div id="reenroll-row" style="margin-top:0.4rem;display:none">
         <div class="btn-row">

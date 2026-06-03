@@ -6,7 +6,7 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v35.2';
+const APP_VERSION = 'v35.3';
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
 import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=12';
@@ -860,7 +860,7 @@ btnEnroll.addEventListener('click', async () => {
   const wa = await _offerDeviceEnroll();
 
   try {
-    const { vaultId, P, encryptedVault, paperShareY } = await callWorker('CREATE_V5', {
+    const { vaultId, P, encryptedVault, paperShareY } = await callWorker('CREATE_V6', {
       embedding,
       ...(wa ? { devicePrf: wa.devicePrf, credentialId: wa.credentialId, prfSalt: wa.prfSalt } : {}),
     }, [embedding.buffer]);
@@ -1251,8 +1251,8 @@ btnImportEnroll.addEventListener('click', async () => {
   const wa = await _offerDeviceEnroll();
 
   const workerMsg = importSecret.type === 'privkey'
-    ? { type: 'IMPORT_PK_V5', payload: { privKey: importSecret.value } }
-    : { type: 'IMPORT_V5',    payload: { mnemonic: importSecret.value } };
+    ? { type: 'IMPORT_PK_V6', payload: { privKey: importSecret.value } }
+    : { type: 'IMPORT_V6',    payload: { mnemonic: importSecret.value } };
 
   try {
     const { vaultId, P, encryptedVault, paperShareY } = await callWorker(workerMsg.type, {
@@ -1444,7 +1444,7 @@ btnScan.addEventListener('click', async () => {
       }
     }
 
-    const { address, hasDevice, usedDevice, usedFace, isV4, isV5 } = await callWorker(
+    const { address, hasDevice, usedDevice, usedFace, isV4, isV5, isV6 } = await callWorker(
       'OPEN',
       { encryptedVault: encBuf, P: meta.P, devicePrf, pin, paperShareY },
       [encBuf]
@@ -1461,14 +1461,16 @@ btnScan.addEventListener('click', async () => {
     deviceRow.style.display = '';
     swapRow.style.display   = isSwapSupported(currentNetwork.chainId) ? '' : 'none';
     const sssRow = document.getElementById('sss-row');
-    if (sssRow) sssRow.style.display = (isV4 || isV5) ? 'none' : '';
+    if (sssRow) sssRow.style.display = (isV4 || isV5 || isV6) ? 'none' : '';
     const securityToolsRow = document.getElementById('security-tools-row');
     if (securityToolsRow) securityToolsRow.style.display = '';
     const reenrollRow = document.getElementById('reenroll-row');
-    if (reenrollRow) reenrollRow.style.display = isV5 ? '' : 'none';
+    if (reenrollRow) reenrollRow.style.display = (isV5 || isV6) ? '' : 'none';
+    const upgradeV6Row = document.getElementById('upgrade-v6-row');
+    if (upgradeV6Row) upgradeV6Row.style.display = isV5 ? '' : 'none';  // csak v5-nek kell upgrade
 
-    // SSS paper+device nyitás v5-ön: kötelező arc re-enrollment
-    if (!usedFace && isV5) {
+    // SSS paper+device nyitás v5/v6-on: kötelező arc re-enrollment
+    if (!usedFace && (isV5 || isV6)) {
       await _mandatoryReenroll(meta);
       return;
     }
@@ -2220,6 +2222,57 @@ async function _mandatoryReenroll(meta) {
   }
 }
 
+// ── btn-upgrade-v6: upgrade vault from PBKDF2 (v5) to Argon2id (v6) ─────────
+document.getElementById('btn-upgrade-v6')?.addEventListener('click', async () => {
+  if (!confirm(t('msg.upgrade.v6.confirm'))) return;
+
+  await _ensureCameraForScan();
+  setScanning(true);
+  setMsg(t('msg.upgrade.v6.scanning'), '');
+
+  let embedding;
+  try {
+    embedding = await enrollEmbedding(video, (n) => {
+      dots.forEach((d, i) => d.classList.toggle('done', i < n));
+      setMsg(t('msg.scan.progress', { n }), '');
+    });
+  } catch (e) {
+    setScanning(false);
+    setMsg(friendlyError(e.message), 'error');
+    return;
+  }
+  setScanning(false);
+
+  try {
+    // BIO_CAPTURE needed so vault stays open during upgrade
+    await callWorker('BIO_CAPTURE', { embedding, P: JSON.parse(localStorage.getItem('biowallet_meta')).P }, [embedding.buffer]);
+
+    const { encryptedVault, paperShareY } = await callWorker('UPGRADE_V6', {});
+
+    const paperHex = _paperHexWithCrc(paperShareY);
+    await showPaperShareModal(paperHex, true);
+
+    const meta = JSON.parse(localStorage.getItem('biowallet_meta'));
+    meta.vaultJson = new TextDecoder().decode(encryptedVault);
+    meta.device    = null;
+    localStorage.setItem('biowallet_meta', JSON.stringify(meta));
+    _walletsSaveCurrent();
+
+    const walletName = await showSaveModal(encryptedVault, null, 'upgrade', meta.walletName || 'biowallet');
+    meta.walletName = walletName;
+    localStorage.setItem('biowallet_meta', JSON.stringify(meta));
+    _walletsSaveCurrent();
+
+    // Hide upgrade button — vault is now v6
+    const upgradeV6Row = document.getElementById('upgrade-v6-row');
+    if (upgradeV6Row) upgradeV6Row.style.display = 'none';
+
+    setMsg(t('msg.upgrade.v6.done'), 'ok');
+  } catch (e) {
+    setMsg(friendlyError(e.message) || t('err.upgrade.v6.fail'), 'error');
+  }
+});
+
 // ── btn-reenroll: re-enroll face for v5 vaults ────────────────────────────
 document.getElementById('btn-reenroll')?.addEventListener('click', async () => {
   const meta = JSON.parse(localStorage.getItem('biowallet_meta') ?? 'null');
@@ -2686,12 +2739,36 @@ async function ensureWCInit() {
   });
 }
 
+let _wcExpiryTimer = null;
+
+function _wcExpiryStr(expiry) {
+  if (!expiry) return '';
+  const isHu = document.documentElement.lang !== 'en';
+  const rem = expiry - Math.floor(Date.now() / 1000);
+  if (rem <= 0)    return isHu ? ' · lejárt' : ' · expired';
+  if (rem < 300)   return ` · ⚠ ${Math.ceil(rem / 60)}m`;
+  if (rem < 3600)  return ` · ${Math.ceil(rem / 60)}m`;
+  return ` · ${Math.ceil(rem / 3600)}h`;
+}
+
 function updateWCBar() {
+  if (_wcExpiryTimer) { clearInterval(_wcExpiryTimer); _wcExpiryTimer = null; }
   const sessions = wcGetSessions();
   if (sessions.length) {
-    const name = sessions[0].peer?.metadata?.name ?? 'dApp';
-    wcDappName.textContent = name;
+    const sess   = sessions[0];
+    const name   = sess.peer?.metadata?.name ?? 'dApp';
+    const expiry = sess.expiry ?? null;
+    const refresh = () => { wcDappName.textContent = name + _wcExpiryStr(expiry); };
+    refresh();
     wcBar.classList.add('visible');
+    if (expiry) {
+      _wcExpiryTimer = setInterval(() => {
+        if (Math.floor(Date.now() / 1000) >= expiry) {
+          clearInterval(_wcExpiryTimer); _wcExpiryTimer = null;
+          updateWCBar();
+        } else { refresh(); }
+      }, 60_000);
+    }
   } else {
     wcBar.classList.remove('visible');
   }

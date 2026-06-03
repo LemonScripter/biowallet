@@ -1,5 +1,5 @@
 // BioWallet ServiceWorker — offline cache (Phase C + WC2)
-const CACHE = 'biowallet-v73';
+const CACHE = 'biowallet-v74';
 
 const PRECACHE = [
   '/app/',
@@ -14,6 +14,7 @@ const PRECACHE = [
   '/core/causal_chain.js',
   '/core/fuzzy_extractor.js',
   '/core/recovery_formula.js',
+  '/vendor/noble-argon2.js',
   '/core/rpc.js',
   '/core/vault.js',
   '/core/wallet.js',
