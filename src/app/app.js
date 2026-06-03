@@ -2223,30 +2223,12 @@ async function _mandatoryReenroll(meta) {
 }
 
 // ── btn-upgrade-v6: upgrade vault from PBKDF2 (v5) to Argon2id (v6) ─────────
+// A vault már nyitva van — nincs szükség új arc-scanre.
+// upgradeToV6() a meglévő #faceR-t használja az aktuális sessionből.
 document.getElementById('btn-upgrade-v6')?.addEventListener('click', async () => {
   if (!confirm(t('msg.upgrade.v6.confirm'))) return;
 
-  await _ensureCameraForScan();
-  setScanning(true);
-  setMsg(t('msg.upgrade.v6.scanning'), '');
-
-  let embedding;
   try {
-    embedding = await enrollEmbedding(video, (n) => {
-      dots.forEach((d, i) => d.classList.toggle('done', i < n));
-      setMsg(t('msg.scan.progress', { n }), '');
-    });
-  } catch (e) {
-    setScanning(false);
-    setMsg(friendlyError(e.message), 'error');
-    return;
-  }
-  setScanning(false);
-
-  try {
-    // BIO_CAPTURE needed so vault stays open during upgrade
-    await callWorker('BIO_CAPTURE', { embedding, P: JSON.parse(localStorage.getItem('biowallet_meta')).P }, [embedding.buffer]);
-
     const { encryptedVault, paperShareY } = await callWorker('UPGRADE_V6', {});
 
     const paperHex = _paperHexWithCrc(paperShareY);
@@ -2258,13 +2240,13 @@ document.getElementById('btn-upgrade-v6')?.addEventListener('click', async () =>
     localStorage.setItem('biowallet_meta', JSON.stringify(meta));
     _walletsSaveCurrent();
 
-    // P.json nem változik upgrade során (BCH biometrikus paraméterek vault key-független)
-    const walletName = await showSaveModal(encryptedVault, meta.P ? JSON.stringify(meta.P) : null, 'upgrade', meta.walletName || 'biowallet');
+    // P.json nem változik upgrade során; "-v6" névutótag a dupla fájlok elkerüléséhez
+    const baseName = (meta.walletName || 'biowallet').replace(/-v6$/, '');
+    const walletName = await showSaveModal(encryptedVault, meta.P ? JSON.stringify(meta.P) : null, 'upgrade', baseName + '-v6');
     meta.walletName = walletName;
     localStorage.setItem('biowallet_meta', JSON.stringify(meta));
     _walletsSaveCurrent();
 
-    // Hide upgrade button — vault is now v6
     const upgradeV6Row = document.getElementById('upgrade-v6-row');
     if (upgradeV6Row) upgradeV6Row.style.display = 'none';
 
