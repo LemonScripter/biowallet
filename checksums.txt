@@ -1,6 +1,6 @@
-# BioWallet v35.1 — Canonical File Hashes
+# BioWallet v35.2 — Canonical File Hashes
 # Date: 2026-06-03
-# Commit: 3a45715
+# Commit: 05a28d7
 # Verify: sha256sum -c checksums.txt
 #
 # The constitution anchor is spec/biowallet.bio.
@@ -16,12 +16,12 @@ dae76b4d4e7232481fc534cf44eb6e46cc1c43d872aaadefb558709e9ab0d833  src/core/recov
 e50f91c535c44d64161ea53a93e03361efc2cd9f1a7f1e6a315c75bb4b5f1802  src/core/bio_capture.js
 31c7f86f0a26d956cdf82f3e3766f461914aca243c2895a55385af80243ec625  src/core/rpc.js
 2124f8b4854c8795464ecdaea31a92655b55e56fa00c92f9cf4b16fbbc6b092d  src/core/wc2.js
-1c097d310a054833840fc11dee836dd26c88c6aeaaa7cfb0c21810e1a77df8c2  src/core/i18n.js
+d678ea062dee1bbc22524fe7cb55756273c7ce8a65ed9c2311df9c08de976650  src/core/i18n.js
 b526a1798c961c38d7f176dd730d298ab32cf8aafa219bf5383ecc20e1e72ac4  src/core/swap.js
 d2f4ed5902d63d5702fc969458f4e61ed3606bd7d4404fced99992fa77a5f9bf  src/app/vault_worker.js
-7bda385de1d813b3d5f6969c594af0038604da6f4b09be77e1c2f392916624d0  src/app/app.js
-7d0efed3f8a8b5e5625ec688535d8c4d3d89987b677bc55de27877f2e966f107  src/app/sw.js
+55ce18f4a9d123888b06d13ee1bdc6b1743276ca6f7b4990b2b30cb087b6df58  src/app/app.js
+733181c08f8184ba5eb6fcead3c6f80b1eab658d15c9663abe478f890ed53aae  src/app/sw.js
 271e606edbc5a36928eb8e84e3f41d77da7e9e43ec86fcb4b4bfa7e2f9602d10  src/app/index.html
-a9a2269d6ef5c573911f0e1150800026066d7fed9ba7096abd382b99524787bf  recovery_tool.html
+488565bf977d55a16e4615740bd312bcecbb335279867f741aefac80462c7ef1  recovery_tool.html
 8092420c33973ea23acfad3aa4fe58ee3b6e0af7fb6597f58f4ada55c925b5b0  src/app/dapp-guide.html
 86bf498d2edad52823ff038c6a0c56747d04243e57f81205f90c4265cdbda7eb  src/app/dapp-guide.js

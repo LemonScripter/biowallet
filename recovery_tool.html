@@ -194,7 +194,7 @@
       </p>
 
       <label id="lbl-raw-a" for="raw-paper-a">RAW PAPER A — 24 numbers from the app</label>
-      <textarea id="raw-paper-a" placeholder="0432 1289 0042 1801 0713 ...&#10;(24 numbers total)"></textarea>
+      <textarea id="raw-paper-a" placeholder="0432 1289 0042 1801 0713 ...&#10;(12 or 24 numbers total)"></textarea>
 
       <label id="lbl-encode-p" for="encode-p">Personal number (P) — kept only in your head!</label>
       <input type="password" id="encode-p" placeholder="Your P value" autocomplete="off">
@@ -228,11 +228,11 @@
       </p>
 
       <label id="lbl-paper-a" for="paper-a">FINAL PAPER A — 24 numbers</label>
-      <textarea id="paper-a" placeholder="0432 1289 0042 1801 0713 ...&#10;(24 numbers total)"></textarea>
+      <textarea id="paper-a" placeholder="0432 1289 0042 1801 0713 ...&#10;(12 or 24 numbers total)"></textarea>
 
       <h3 id="lbl-paper-b-title">PAPER B — Offsets (r_j)</h3>
       <label id="lbl-paper-b" for="paper-b">24 numbers, space- or newline-separated</label>
-      <textarea id="paper-b" placeholder="0512 0011 1892 0304 1567 ...&#10;(24 numbers total)"></textarea>
+      <textarea id="paper-b" placeholder="0512 0011 1892 0304 1567 ...&#10;(12 or 24 numbers total)"></textarea>
 
       <label id="lbl-personal-p" for="personal-p" style="margin-top:0.5rem;">Personal number (P) — kept only in your head!</label>
       <input type="password" id="personal-p" placeholder="Your P value" autocomplete="off">
@@ -277,8 +277,8 @@
       'tab.decode':    'DECODE — Papers → 24 words',
       'enc.step':      'STEP 1 — Finalise Raw Paper A',
       'enc.desc':      'The BioWallet app generated the Raw Paper A numbers — these are still <strong>without P</strong>. Enter your P here to obtain <strong>Final Paper A</strong>, which you can safely store.',
-      'lbl.raw.a':     'RAW PAPER A — 24 numbers from the app',
-      'ph.raw.a':      '0432 1289 0042 1801 0713 ...\n(24 numbers total)',
+      'lbl.raw.a':     'RAW PAPER A — numbers from the app (12 or 24)',
+      'ph.raw.a':      '0432 1289 0042 1801 0713 ...\n(12 or 24 numbers total)',
       'lbl.encode.p':  'Personal number (P) — kept only in your head!',
       'ph.p':          'Your P value',
       'hint.encode.p': 'P is not stored here — it is erased immediately after finalisation.',
@@ -290,16 +290,16 @@
       'dec.title':     'Decode — Papers → 24 words',
       'dec.desc':      '<strong>Final Paper A</strong> + <strong>Paper B</strong> + memorised <strong>P</strong> → 24 BIP39 words.',
       'lbl.paper.a':   'FINAL PAPER A — 24 numbers',
-      'ph.paper.a':    '0432 1289 0042 1801 0713 ...\n(24 numbers total)',
+      'ph.paper.a':    '0432 1289 0042 1801 0713 ...\n(12 or 24 numbers total)',
       'lbl.paper.b.title': 'PAPER B — Offsets (r_j)',
       'lbl.paper.b':   '24 numbers, space- or newline-separated',
-      'ph.paper.b':    '0512 0011 1892 0304 1567 ...\n(24 numbers total)',
+      'ph.paper.b':    '0512 0011 1892 0304 1567 ...\n(12 or 24 numbers total)',
       'lbl.personal.p':'Personal number (P) — kept only in your head!',
       'hint.personal.p':'P is not stored anywhere — erased immediately after decoding.',
       'btn.decode':    'Start decoding',
-      'dec.result.hdr':'✓ Decoding successful — 24-word BIP39 Seed Phrase',
+      'dec.result.hdr':'✓ Decoding successful — BIP39 Seed Phrase',
       'dec.copy.note': '⚠ Write down the words in order before closing this page. MetaMask import order: 1–24.',
-      'err.parse':     '{label}: expected 24 numbers, got {n}.',
+      'err.parse':     '{label}: expected 12 or 24 numbers, got {n}.',
       'err.range':     '{label}: every number must be 0–2047 (invalid: {val}).',
       'err.p.short':   'The personal number (P) must be at least 4 characters.',
       'err.p.hash':    'Error computing P hash: {msg}',
@@ -319,8 +319,8 @@
       'tab.decode':    'DECODE — Papírokból 24 szó',
       'enc.step':      '1. LÉPÉS — Nyers Papír A véglegesítése',
       'enc.desc':      'A BioWallet app a Nyers Papír A számait generálta — ezek még <strong>P nélküliek</strong>. Adja meg itt P-jét, és megkapja a <strong>Végleges Papír A-t</strong>, amit már biztonságosan tárolhat.',
-      'lbl.raw.a':     'NYERS PAPÍR A — 24 szám az app-ból',
-      'ph.raw.a':      '0432 1289 0042 1801 0713 ...\n(24 szám összesen)',
+      'lbl.raw.a':     'NYERS PAPÍR A — számok az app-ból (12 vagy 24)',
+      'ph.raw.a':      '0432 1289 0042 1801 0713 ...\n(12 vagy 24 szám összesen)',
       'lbl.encode.p':  'Személyes szám (P) — csak fejben tárolt!',
       'ph.p':          'Fejben tartott P értéke',
       'hint.encode.p': 'P itt sem tárolódik — véglegesítés után azonnal törlődik a mezőből.',
@@ -332,16 +332,16 @@
       'dec.title':     'Visszafejtés — Papírokból 24 szó',
       'dec.desc':      'A <strong>Végleges Papír A</strong> + <strong>Papír B</strong> + fejben tartott <strong>P</strong> → 24 BIP39 szó.',
       'lbl.paper.a':   'VÉGLEGES PAPÍR A — 24 szám',
-      'ph.paper.a':    '0432 1289 0042 1801 0713 ...\n(24 szám összesen)',
+      'ph.paper.a':    '0432 1289 0042 1801 0713 ...\n(12 vagy 24 szám összesen)',
       'lbl.paper.b.title': 'PAPÍR B — Eltolások (r_j)',
       'lbl.paper.b':   '24 szám, szóközzel vagy sortöréssel elválasztva',
-      'ph.paper.b':    '0512 0011 1892 0304 1567 ...\n(24 szám összesen)',
+      'ph.paper.b':    '0512 0011 1892 0304 1567 ...\n(12 vagy 24 szám összesen)',
       'lbl.personal.p':'Személyes szám (P) — csak fejben tárolt!',
       'hint.personal.p':'A P értéke sehol nem tárolódik — visszafejtés után azonnal törlődik.',
       'btn.decode':    'Visszafejtés indítása',
-      'dec.result.hdr':'✓ Visszafejtés sikeres — 24 szavas BIP39 Seed Phrase',
+      'dec.result.hdr':'✓ Visszafejtés sikeres — BIP39 Seed Phrase',
       'dec.copy.note': '⚠ Írja fel a szavakat papírra a sorrendnek megfelelően, mielőtt bezárja ezt az oldalt. A MetaMask import sorrendje: 1–24.',
-      'err.parse':     '{label}: 24 számot vár, de {n} érkezett.',
+      'err.parse':     '{label}: 12 vagy 24 számot vár, de {n} érkezett.',
       'err.range':     '{label}: minden szám 0–2047 között kell legyen (hibás: {val}).',
       'err.p.short':   'A személyes szám (P) legalább 4 karakter legyen.',
       'err.p.hash':    'Hiba a P hash számításánál: {msg}',
@@ -427,7 +427,7 @@
   // ── Validation ────────────────────────────────────────────────────────────
   function parseNumbers(raw, label) {
     const nums = raw.trim().split(/[\s,;]+/).filter(Boolean).map(Number);
-    if (nums.length !== 24)
+    if (nums.length !== 12 && nums.length !== 24)
       throw new Error(t('err.parse', { label, n: nums.length }));
     for (const n of nums)
       if (!Number.isInteger(n) || n < 0 || n > 2047)
@@ -452,7 +452,7 @@
     }
 
     let p;
-    try { p = await personalHashOffsets(pValue, 24); }
+    try { p = await personalHashOffsets(pValue, rawA.length); }
     catch (e) {
       errEl.textContent = '⚠ ' + t('err.p.hash', { msg: e.message });
       errEl.style.display = 'block'; return;
@@ -501,8 +501,13 @@
       errEl.style.display = 'block'; return;
     }
 
+    if (c.length !== r.length) {
+      errEl.textContent = '⚠ Paper A and Paper B must have the same number of entries (' + c.length + ' vs ' + r.length + ').';
+      errEl.style.display = 'block'; return;
+    }
+
     let p;
-    try { p = await personalHashOffsets(pValue, 24); }
+    try { p = await personalHashOffsets(pValue, c.length); }
     catch (e) {
       errEl.textContent = '⚠ ' + t('err.p.hash', { msg: e.message });
       errEl.style.display = 'block'; return;

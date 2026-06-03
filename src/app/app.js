@@ -55,7 +55,55 @@ window.addEventListener('unhandledrejection', e => {
   setScanning(false);
 });
 
-// HTML escape — minden külső adat (WC metadata, user input) innerHTML-be kerülés előtt
+// ── Multi-wallet storage ──────────────────────────────────────────────────
+// biowallet_meta            = active wallet (unchanged — backward compat)
+// biowallet_wallets         = [{vaultId, name, address?}] — index
+// biowallet_wallet_${id}    = full meta snapshot per wallet
+
+function _walletsGet() {
+  try { return JSON.parse(localStorage.getItem('biowallet_wallets') ?? '[]'); } catch { return []; }
+}
+function _walletsRegister(vaultId, name, address = null) {
+  const list = _walletsGet();
+  const idx  = list.findIndex(w => w.vaultId === vaultId);
+  const entry = { vaultId, name: name || 'Wallet', ...(address ? { address } : {}) };
+  if (idx >= 0) list[idx] = { ...list[idx], ...entry };
+  else list.push(entry);
+  localStorage.setItem('biowallet_wallets', JSON.stringify(list));
+}
+function _walletsRemove(vaultId) {
+  localStorage.setItem('biowallet_wallets',
+    JSON.stringify(_walletsGet().filter(w => w.vaultId !== vaultId)));
+  localStorage.removeItem(`biowallet_wallet_${vaultId}`);
+}
+function _walletsSaveCurrent() {
+  const meta = JSON.parse(localStorage.getItem('biowallet_meta') ?? 'null');
+  if (meta?.vaultId) localStorage.setItem(`biowallet_wallet_${meta.vaultId}`, JSON.stringify(meta));
+}
+function _walletsMigrate() {
+  const meta = JSON.parse(localStorage.getItem('biowallet_meta') ?? 'null');
+  if (meta?.vaultId && !localStorage.getItem('biowallet_wallets')) {
+    _walletsRegister(meta.vaultId, meta.walletName || 'My Wallet');
+    localStorage.setItem(`biowallet_wallet_${meta.vaultId}`, JSON.stringify(meta));
+  }
+}
+
+// ── TX calldata decoder (ERC-20 common selectors) ─────────────────────────
+function _decodeCalldata(data) {
+  if (!data || data === '0x' || data.length < 10) return null;
+  const sel = data.slice(0, 10).toLowerCase();
+  const known = {
+    '0xa9059cbb': 'transfer',
+    '0x095ea7b3': 'approve',
+    '0x23b872dd': 'transferFrom',
+    '0x70a08231': 'balanceOf',
+    '0x18160ddd': 'totalSupply',
+    '0x313ce567': 'decimals',
+  };
+  return known[sel] ? `${known[sel]}()` : sel;
+}
+
+// ── HTML escape — minden külső adat (WC metadata, user input) innerHTML-be kerülés előtt
 const h = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 // Kép URL: csak http/https engedélyezett (javascript: URI-k kizárva)
 const safeImgSrc = url => /^https?:\/\//i.test(url ?? '') ? h(url) : '';
@@ -251,6 +299,7 @@ function _refreshDynamicLabels() {
   }
 
   const stored = localStorage.getItem('biowallet_meta');
+  _walletsMigrate();   // v35.2: single-wallet → multi-wallet index migration
   if (stored) {
     try {
       const meta = JSON.parse(stored);
@@ -829,6 +878,8 @@ btnEnroll.addEventListener('click', async () => {
     const walletName = await showSaveModal(encryptedVault, JSON.stringify(P), 'create');
     newMeta.walletName = walletName;
     localStorage.setItem('biowallet_meta', JSON.stringify(newMeta));
+    _walletsRegister(vaultId, walletName);
+    _walletsSaveCurrent();
 
     // Show SSS and genesis-recover rows immediately
     const pr = document.getElementById('sss-paper-row');
@@ -975,15 +1026,118 @@ function showRecoveryPaperModal(rawA, r) {
   });
 }
 
-// ── Wallet switch (lock panel → setup) ───────────────────────────────────
-btnSwitchWallet.addEventListener('click', () => {
-  if (!confirm(t('switch.wallet.confirm'))) return;
-  localStorage.clear();
-  vaultReady = false;
-  callWorker('LOCK').catch(() => {});
-  showPanel('setup');
-  setMsg(t('msg.new.wallet'), '');
+// ── Wallet switch — multi-wallet switcher (v35.2) ─────────────────────────
+btnSwitchWallet.addEventListener('click', async () => {
+  const { action, meta } = await showWalletSwitcherModal();
+
+  if (action === 'cancel') return;
+
+  if (action === 'add') {
+    callWorker('LOCK').catch(() => {});
+    vaultReady = false;
+    showPanel('setup');
+    setMsg(t('msg.new.wallet'), '');
+    return;
+  }
+
+  if (action === 'switch' && meta?.vaultId) {
+    callWorker('LOCK').catch(() => {});
+    await callWorker('INIT_VAULT', { vaultId: meta.vaultId, bfState: _bfGet() });
+    vaultReady = true;
+    _applyVaultJson(meta, meta.vaultJson ?? '');
+    _showWalletBadge(meta);
+    _showReenrollReminder(_reenrollReminderDays(meta));
+    showPanel('lock');
+    setMsg(t('msg.vault.loaded'), '');
+    return;
+  }
+
+  if (action === 'deleted-active' || action === 'error') {
+    const next = JSON.parse(localStorage.getItem('biowallet_meta') ?? 'null');
+    callWorker('LOCK').catch(() => {});
+    if (next?.vaultId) {
+      await callWorker('INIT_VAULT', { vaultId: next.vaultId, bfState: _bfGet() });
+      vaultReady = true;
+      _applyVaultJson(next, next.vaultJson ?? '');
+      _showWalletBadge(next);
+      showPanel('lock');
+    } else {
+      vaultReady = false;
+      showPanel('setup');
+      setMsg(t('msg.new.wallet'), '');
+    }
+  }
+  // 'deleted' (non-active) → no change needed, stay on current panel
 });
+
+// ── Wallet switcher modal (v35.2) ─────────────────────────────────────────
+function showWalletSwitcherModal() {
+  return new Promise(resolve => {
+    _walletsMigrate();
+    const wallets  = _walletsGet();
+    const activeId = JSON.parse(localStorage.getItem('biowallet_meta') ?? 'null')?.vaultId;
+    const isHu     = document.documentElement.lang !== 'en';
+
+    const rows = wallets.map(w => {
+      const isActive = w.vaultId === activeId;
+      const addrStr  = w.address
+        ? `<div style="font-size:0.68rem;color:#6b6b80;font-family:monospace;">${w.address.slice(0,10)}…${w.address.slice(-6)}</div>` : '';
+      const activeBadge = isActive
+        ? ` <span style="font-size:0.62rem;background:#1a1a4a;color:#6c63ff;padding:1px 5px;border-radius:4px;font-weight:700;">${isHu ? 'AKTÍV' : 'ACTIVE'}</span>` : '';
+      return `
+        <div style="display:flex;align-items:center;gap:0.6rem;padding:0.65rem 1rem;border-bottom:1px solid #1e1e24;${isActive ? 'background:#16162a;' : ''}">
+          <div style="flex:1;min-width:0;overflow:hidden;">
+            <div style="font-size:0.88rem;font-weight:${isActive ? '700':'600'};color:#e8e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${h(w.name)}${activeBadge}</div>
+            ${addrStr}
+          </div>
+          ${!isActive ? `<button class="_sw_open" data-id="${h(w.vaultId)}" style="flex-shrink:0;padding:0.3rem 0.6rem;border-radius:7px;border:none;background:#6c63ff;color:#fff;font-size:0.75rem;font-weight:600;cursor:pointer;">${isHu ? 'Megnyitás' : 'Open'}</button>` : ''}
+          <button class="_sw_del" data-id="${h(w.vaultId)}" data-name="${h(w.name)}" style="flex-shrink:0;padding:0.3rem 0.55rem;border-radius:7px;border:1px solid #3a1a1a;background:#2b0a0a;color:#ff4757;font-size:0.78rem;cursor:pointer;">✕</button>
+        </div>`;
+    }).join('');
+
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;overflow-y:auto;';
+    ov.innerHTML = `
+      <div style="background:#16161a;border:1px solid #2a2a35;border-radius:16px;width:100%;max-width:400px;overflow:hidden;">
+        <div style="padding:1.1rem 1.25rem 0.6rem;font-size:0.95rem;font-weight:700;color:#e8e8f0;">${isHu ? 'Tárcák' : 'Your wallets'}</div>
+        <div>${rows || `<div style="padding:0.8rem 1.25rem;color:#6b6b80;font-size:0.82rem;">${isHu ? 'Nincs mentett tárca.' : 'No wallets.'}</div>`}</div>
+        <div style="padding:0.75rem 1rem 1rem;display:flex;flex-direction:column;gap:0.5rem;">
+          <button id="_sw_add" style="padding:0.6rem;border-radius:10px;border:1px dashed #2a2a35;background:transparent;color:#6c63ff;font-size:0.82rem;font-weight:600;cursor:pointer;">+ ${isHu ? 'Új tárca hozzáadása' : 'Add new wallet'}</button>
+          <button id="_sw_close" style="padding:0.55rem;border-radius:10px;border:1px solid #2a2a35;background:transparent;color:#6b6b80;font-size:0.8rem;cursor:pointer;">${isHu ? 'Mégse' : 'Cancel'}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+
+    ov.querySelectorAll('._sw_open').forEach(btn => btn.addEventListener('click', () => {
+      _walletsSaveCurrent();
+      const id     = btn.dataset.id;
+      const target = JSON.parse(localStorage.getItem(`biowallet_wallet_${id}`) ?? 'null');
+      if (!target) { ov.remove(); resolve({ action: 'error' }); return; }
+      localStorage.setItem('biowallet_meta', JSON.stringify(target));
+      ov.remove(); resolve({ action: 'switch', meta: target });
+    }));
+
+    ov.querySelectorAll('._sw_del').forEach(btn => btn.addEventListener('click', () => {
+      const id   = btn.dataset.id;
+      const name = btn.dataset.name;
+      if (!confirm(isHu ? `Töröljük: ${name}?` : `Remove wallet: ${name}?`)) return;
+      _walletsRemove(id);
+      const wasActive = id === activeId;
+      if (wasActive) {
+        const remaining = _walletsGet();
+        if (remaining.length > 0) {
+          const next = JSON.parse(localStorage.getItem(`biowallet_wallet_${remaining[0].vaultId}`) ?? 'null');
+          if (next) localStorage.setItem('biowallet_meta', JSON.stringify(next));
+          else localStorage.removeItem('biowallet_meta');
+        } else { localStorage.removeItem('biowallet_meta'); }
+      }
+      ov.remove(); resolve({ action: wasActive ? 'deleted-active' : 'deleted' });
+    }));
+
+    ov.querySelector('#_sw_add').addEventListener('click', () => { ov.remove(); resolve({ action: 'add' }); });
+    ov.querySelector('#_sw_close').addEventListener('click', () => { ov.remove(); resolve({ action: 'cancel' }); });
+  });
+}
 
 // ── Restore existing wallet (.P.json) ────────────────────────────────────
 btnRestore.addEventListener('click', async () => {
@@ -1106,6 +1260,8 @@ btnImportEnroll.addEventListener('click', async () => {
     const walletName = await showSaveModal(encryptedVault, JSON.stringify(P), 'import');
     newMeta.walletName = walletName;
     localStorage.setItem('biowallet_meta', JSON.stringify(newMeta));
+    _walletsRegister(vaultId, walletName);
+    _walletsSaveCurrent();
 
     const pr = document.getElementById('sss-paper-row');
     if (pr) pr.style.display = '';
@@ -1285,6 +1441,7 @@ btnScan.addEventListener('click', async () => {
     fetchBalance(address);
     updateTokenSelector();
     setScanning(false, true);
+    _walletsRegister(meta.vaultId, meta.walletName, address);  // cache address for switcher
 
     _updateDeviceRow(hasDevice, usedDevice);
     deviceRow.style.display = '';
@@ -2759,6 +2916,7 @@ async function handleWCEthSend(topic, id, wcTx) {
       gas:         `~${weiToEth((gasLimit * feeData.maxFeePerGas).toString())} ETH`,
       network:     currentNetwork.name + ' (dApp)',
       fingerprint: wcFp,
+      data:        wcTx.data ?? null,
     });
     if (!wcConfirmed) {
       await callWorker('CANCEL_TX');
@@ -3472,7 +3630,7 @@ function startTimer() {
 // ── Confirm overlay ───────────────────────────────────────────────────────
 // Returns { confirmed: boolean, userInput: string|null }
 // When fingerprint is provided, the confirm button is locked until user types 4 chars.
-function showConfirm({ to, amount, gas, network, fingerprint = null }) {
+function showConfirm({ to, amount, gas, network, fingerprint = null, data = null }) {
   return new Promise(resolve => {
     const overlay = document.createElement('div');
     overlay.style.cssText = `
@@ -3514,6 +3672,8 @@ function showConfirm({ to, amount, gas, network, fingerprint = null }) {
               <td style="color:#4CAF50;text-align:right;font-weight:600;">${amount}</td></tr>
           <tr><td style="color:#6b6b80;padding:0.3rem 0;">${t('confirm.gas')}</td>
               <td style="color:#ffa502;text-align:right;">${gas}</td></tr>
+          ${data && data !== '0x' ? `<tr><td style="color:#6b6b80;padding:0.3rem 0;">${t('confirm.fn.label')}</td>
+              <td style="color:#e8e8f0;text-align:right;font-family:monospace;font-size:0.78rem;">${h(_decodeCalldata(data) ?? data.slice(0,10))}</td></tr>` : ''}
         </table>
         ${fpSection}
         <div style="display:flex;gap:0.75rem;margin-top:1.2rem;">

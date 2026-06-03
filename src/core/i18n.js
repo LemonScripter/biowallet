@@ -84,7 +84,7 @@ const STRINGS = {
     'btn.sss':               '2-of-3 védelem',
     'btn.sss.sub':           'Shamir titkosítás — bármely 2: arc / eszköz / papír elegendő',
     'sss.info.title':        '2-of-3 védelem — mi ez?',
-    'sss.info.body':         '<p>A vault kulcsát a Shamir-titkosítás 3 részre osztja. Bármely 2 rész elegendő a megnyitáshoz — de 1 rész önmagában semmit nem árul el.</p><ul><li><strong>Arc</strong> (1. rész) — biometrikus azonosítás, mint most</li><li><strong>Eszköz</strong> (2. rész) — ujjlenyomat / Windows Hello</li><li><strong>Papír</strong> (3. rész) — 64 hex karakteres kód, offline tárolva</li></ul><p>Ha elveszted az eszközödet: <em>arc + papír</em>. Ha megváltozik a biometriád: <em>eszköz + papír</em>. Egyetlen tényező elvesztése nem jelent örökös kizárást.</p><p style="color:#ffa502;margin-top:0.5rem">⚠ A papír share-t most kell felírni — a vault fájlban nem tárolódik.</p>',
+    'sss.info.body':         '<p>A vault kulcsát a Shamir-titkosítás 3 részre osztja. Bármely 2 rész elegendő a megnyitáshoz — de 1 rész önmagában semmit nem árul el.</p><ul><li><strong>Arc</strong> (1. rész) — biometrikus azonosítás, mint most</li><li><strong>Eszköz</strong> (2. rész) — ujjlenyomat / Windows Hello</li><li><strong>Papír</strong> (3. rész) — 64 vagy 66 karakteres kód, offline tárolva</li></ul><p>Ha elveszted az eszközödet: <em>arc + papír</em>. Ha megváltozik a biometriád: <em>eszköz + papír</em>. Egyetlen tényező elvesztése nem jelent örökös kizárást.</p><p style="color:#ffa502;margin-top:0.5rem">⚠ A papír share-t most kell felírni — a vault fájlban nem tárolódik.</p>',
     'sss.paper.modal.title': 'Papír share — írd fel!',
     'sss.paper.modal.body':  'Ez a 66 karakteres kód a 3. faktorod. A tárca fájlban <strong>nem tárolódik</strong>. Ha elveszted az eszközödet <em>és</em> ezt a kódot is, a tárca örökre zárolva marad.',
     'sss.paper.copy':        'Másolás',
@@ -207,8 +207,9 @@ const STRINGS = {
     'confirm.gas':      'Max. gas',
     'confirm.cancel':   'Mégse',
     'confirm.send':     'Küldés',
-    'confirm.fp.label': 'Tranzakció ujjlenyomat',
-    'confirm.fp.hint':  'Írd be az első 4 karaktert:',
+    'confirm.fp.label':  'Tranzakció ujjlenyomat',
+    'confirm.fp.hint':   'Írd be az első 4 karaktert:',
+    'confirm.fn.label':  'Művelet',
 
     /* ── WC modals ─────────────────────────────────────────────────── */
     'wc.pair.title':       'dApp kapcsolódás',
@@ -434,7 +435,7 @@ const STRINGS = {
     'btn.sss':               '2-of-3 Protection',
     'btn.sss.sub':           'Shamir secret sharing — any 2 of: face / device / paper',
     'sss.info.title':        '2-of-3 Protection — what is this?',
-    'sss.info.body':         '<p>Shamir secret sharing splits your vault key into 3 shares. Any 2 shares are enough to open — but 1 share alone reveals nothing.</p><ul><li><strong>Face</strong> (share 1) — biometric, same as today</li><li><strong>Device</strong> (share 2) — fingerprint / Windows Hello</li><li><strong>Paper</strong> (share 3) — a 64-character hex code stored offline</li></ul><p>Lost your device? Use <em>face + paper</em>. Changed browser / camera? Use <em>device + paper</em>. Losing a single factor is no longer permanent lockout.</p><p style="color:#ffa502;margin-top:0.5rem">⚠ The paper share must be written down now — it is not stored in the vault file.</p>',
+    'sss.info.body':         '<p>Shamir secret sharing splits your vault key into 3 shares. Any 2 shares are enough to open — but 1 share alone reveals nothing.</p><ul><li><strong>Face</strong> (share 1) — biometric, same as today</li><li><strong>Device</strong> (share 2) — fingerprint / Windows Hello</li><li><strong>Paper</strong> (share 3) — a 64 or 66-character code stored offline</li></ul><p>Lost your device? Use <em>face + paper</em>. Changed browser / camera? Use <em>device + paper</em>. Losing a single factor is no longer permanent lockout.</p><p style="color:#ffa502;margin-top:0.5rem">⚠ The paper share must be written down now — it is not stored in the vault file.</p>',
     'sss.paper.modal.title': 'Paper share — write it down!',
     'sss.paper.modal.body':  'This 66-character code is your 3rd factor. It is <strong>not stored</strong> in the wallet file. If you lose your device <em>and</em> this code, the wallet is permanently locked.',
     'sss.paper.copy':        'Copy',
@@ -557,8 +558,9 @@ const STRINGS = {
     'confirm.gas':      'Max. gas',
     'confirm.cancel':   'Cancel',
     'confirm.send':     'Send',
-    'confirm.fp.label': 'Transaction fingerprint',
-    'confirm.fp.hint':  'Enter the first 4 characters:',
+    'confirm.fp.label':  'Transaction fingerprint',
+    'confirm.fp.hint':   'Enter the first 4 characters:',
+    'confirm.fn.label':  'Function',
 
     /* ── WC modals ─────────────────────────────────────────────────── */
     'wc.pair.title':       'Connect dApp',
