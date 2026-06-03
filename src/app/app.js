@@ -60,6 +60,24 @@ const h = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replac
 // Kép URL: csak http/https engedélyezett (javascript: URI-k kizárva)
 const safeImgSrc = url => /^https?:\/\//i.test(url ?? '') ? h(url) : '';
 
+// CRC-8/SMBUS (poly=0x07) — paper share ellenőrző összeg
+// 32 bájt SSS share → 64 hex + 2 CRC8 hex = 66 karakter
+// Gépelési hibát detektál mielőtt az AES-GCM decrypt-fail félrevezető BIO_MISMATCH-et dobna
+function _crc8(bytes) {
+  let c = 0;
+  for (const b of bytes) {
+    c ^= b;
+    for (let i = 0; i < 8; i++) c = (c & 0x80) ? (c << 1) ^ 0x07 : c << 1;
+    c &= 0xFF;
+  }
+  return c;
+}
+function _paperHexWithCrc(shareBytes) {
+  const hex = Array.from(shareBytes).map(b => b.toString(16).padStart(2,'0')).join('');
+  const crc = _crc8(new Uint8Array(shareBytes instanceof Uint8Array ? shareBytes : shareBytes));
+  return hex + crc.toString(16).padStart(2,'0');
+}
+
 // callWorker timeout: ha a Worker 30s-on belül nem válaszol → reject (ne fagyjon)
 const WORKER_TIMEOUT_MS = 30_000;
 function callWorker(type, payload = {}, transfer = []) {
@@ -804,7 +822,7 @@ btnEnroll.addEventListener('click', async () => {
     localStorage.setItem('biowallet_meta', JSON.stringify(newMeta));
 
     // Step 3: mandatory paper share display
-    const paperHex = Array.from(paperShareY).map(b => b.toString(16).padStart(2, '0')).join('');
+    const paperHex = _paperHexWithCrc(paperShareY);
     await showPaperShareModal(paperHex);
 
     // Step 4: save files
@@ -1081,7 +1099,7 @@ btnImportEnroll.addEventListener('click', async () => {
     localStorage.setItem('biowallet_meta', JSON.stringify(newMeta));
 
     // Step 3: mandatory paper share display
-    const paperHex = Array.from(paperShareY).map(b => b.toString(16).padStart(2, '0')).join('');
+    const paperHex = _paperHexWithCrc(paperShareY);
     await showPaperShareModal(paperHex);
 
     // Step 4: save files
@@ -1231,8 +1249,20 @@ btnScan.addEventListener('click', async () => {
     if (vaultVersion >= 4) {
       const paperInput = document.getElementById('sss-paper-input');
       const hexStr = (paperInput?.value ?? '').trim().toLowerCase().replace(/\s/g, '');
-      if (hexStr.length === 64 && /^[0-9a-f]+$/.test(hexStr)) {
-        paperShareY = Array.from(hexStr.match(/../g).map(h => parseInt(h, 16)));
+      if (hexStr.length === 66 && /^[0-9a-f]+$/.test(hexStr)) {
+        // Új formátum (v35.1+): 64 hex adat + 2 hex CRC8
+        const dataBytes = new Uint8Array(hexStr.slice(0, 64).match(/../g).map(x => parseInt(x, 16)));
+        const expectedCrc = parseInt(hexStr.slice(64), 16);
+        if (_crc8(dataBytes) !== expectedCrc) {
+          setScanning(false);
+          btnScan.disabled = false;
+          setMsg(t('err.paper.crc'), 'error');
+          return;
+        }
+        paperShareY = Array.from(dataBytes);
+      } else if (hexStr.length === 64 && /^[0-9a-f]+$/.test(hexStr)) {
+        // Legacy formátum (v35.0 és korábbi): CRC nélkül elfogadjuk
+        paperShareY = Array.from(hexStr.match(/../g).map(x => parseInt(x, 16)));
       }
     } else if (vaultVersion === 3 && !devicePrf) {
       setMsg(t('msg.pin.required'), '');
@@ -1270,6 +1300,11 @@ btnScan.addEventListener('click', async () => {
     if (!usedFace && isV5) {
       await _mandatoryReenroll(meta);
       return;
+    }
+    // SSS paper+device nyitás v4-en: re-enrollment nem lehetséges (v4 nem támogatja),
+    // de az alacsonyabb bizalmi szintről figyelmeztetünk.
+    if (!usedFace && isV4) {
+      setTimeout(() => setMsg(t('msg.vault.v4.no.face.warn'), 'error'), 1500);
     }
 
     setMsg(t('msg.vault.open'), 'ok');
@@ -1795,7 +1830,7 @@ document.getElementById('btn-sss')?.addEventListener('click', async () => {
       prfSalt:      wa?.prfSalt      ?? null,
     });
 
-    const paperHex = Array.from(paperShareY).map(b => b.toString(16).padStart(2, '0')).join('');
+    const paperHex = _paperHexWithCrc(paperShareY);
     await showPaperShareModal(paperHex);
 
     meta.vaultJson = new TextDecoder().decode(encryptedVault);
@@ -1991,7 +2026,7 @@ async function _mandatoryReenroll(meta) {
         'RE_ENROLL_FACE', { embedding }, [embedding.buffer]
       );
 
-      const paperHex = Array.from(paperShareY).map(b => b.toString(16).padStart(2, '0')).join('');
+      const paperHex = _paperHexWithCrc(paperShareY);
       await showPaperShareModal(paperHex);
 
       meta.P         = P;
@@ -2048,7 +2083,7 @@ document.getElementById('btn-reenroll')?.addEventListener('click', async () => {
       'RE_ENROLL_FACE', { embedding }, [embedding.buffer]
     );
 
-    const paperHex = Array.from(paperShareY).map(b => b.toString(16).padStart(2, '0')).join('');
+    const paperHex = _paperHexWithCrc(paperShareY);
     await showPaperShareModal(paperHex);
 
     meta.P         = P;
@@ -2070,9 +2105,14 @@ document.getElementById('btn-reenroll')?.addEventListener('click', async () => {
 function _applyVaultJson(meta, vaultText) {
   meta.vaultJson = vaultText;
   const vMatch = vaultText.match(/"v"\s*:\s*(\d+)/);
-  if (vMatch && parseInt(vMatch[1]) >= 4) {
+  const vaultVer = vMatch ? parseInt(vMatch[1]) : 0;
+  if (vaultVer >= 4) {
     const pr = document.getElementById('sss-paper-row');
     if (pr) pr.style.display = '';
+    // WARN-04: v4 vault nincs genesis HMAC — figyelmeztetés betöltéskor
+    if (vaultVer === 4) {
+      setTimeout(() => setMsg(t('msg.vault.v4.legacy.warn'), 'error'), 800);
+    }
 
     // Auto-restore meta.device from vault if not already set (e.g. after P.json restore).
     // credentialId/prfSalt are hex strings in vault → convert to number arrays for WebAuthn.
@@ -3129,7 +3169,6 @@ async function _signAndBroadcast(tx, meta, label) {
 
 async function _reopenVaultForSwap(meta, stepLabel) {
   // P7 auto-lock után újra kell nyitni a vault-ot a swap TX aláírásához.
-  const isHu = document.documentElement.lang !== 'en';
   setMsg(stepLabel, '');
   await _ensureCameraForScan();
   for (const n of ['5', '4', '3', '2', '1']) {
@@ -3137,17 +3176,18 @@ async function _reopenVaultForSwap(meta, stepLabel) {
     await new Promise(r => setTimeout(r, 500));
   }
   setScanning(true);
-
-  const embedding = await captureEmbedding(video);
-  await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
-
-  let devicePrf = null;
-  if (meta.device?.credentialId) {
-    try { devicePrf = await getDevicePrf(meta.device.credentialId, meta.device.prfSalt); } catch {}
+  try {
+    const embedding = await captureEmbedding(video);
+    await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
+    let devicePrf = null;
+    if (meta.device?.credentialId) {
+      try { devicePrf = await getDevicePrf(meta.device.credentialId, meta.device.prfSalt); } catch {}
+    }
+    const encBuf = new TextEncoder().encode(meta.vaultJson).buffer;
+    await callWorker('OPEN', { encryptedVault: encBuf, P: meta.P, devicePrf }, [encBuf]);
+  } finally {
+    setScanning(false);  // WARN-03: minden kivételuton nullázza a scanning state-et
   }
-  const encBuf = new TextEncoder().encode(meta.vaultJson).buffer;
-  await callWorker('OPEN', { encryptedVault: encBuf, P: meta.P, devicePrf }, [encBuf]);
-  setScanning(false);
 }
 
 async function _executeApproveAndSwap(approveResult, swapResult, gasSpeed = 'normal') {
@@ -3625,6 +3665,7 @@ function friendlyError(m) {
   if (m.includes('VAULT_ID_MISMATCH')) return t('err.vault.mismatch');
   if (m.includes('ALREADY_CONSUMED'))   return t('err.consumed');
   if (m.includes('PRIVKEY_NO_FORMULA')) return t('err.paper.privkey');
+  if (m.includes('err.paper.crc'))      return t('err.paper.crc');
   if (m.includes('WORKER_CRASH'))   return t('err.worker.crash');
   if (m.includes('WORKER_TIMEOUT')) return t('err.worker.timeout');
   if (m.toLowerCase().includes('invalid mnemonic') ||
