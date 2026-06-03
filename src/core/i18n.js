@@ -874,19 +874,25 @@ const GUIDE_HTML = {
     <div class="guide-note" style="border-color:#6c63ff;text-align:center;padding:0.9rem 1rem;margin-bottom:0.2rem">
       <strong style="color:#6c63ff;font-size:1rem">Ajánlott böngésző</strong><br>
       <span style="font-size:0.83rem">Legjobb élmény: <strong>Chrome</strong> (asztali &amp; Android PWA) · <strong>Edge</strong> (asztali)<br>
-      Firefox alapvetően működik · <strong style="color:#ffa502">Samsung Internet: nem támogatott</strong> — fájlválasztásnál a kameraválasztó jelenik meg, fájlkezelés nem megbízható.</span>
+      Firefox alapvetően működik · <strong style="color:#ffa502">Samsung Internet: nem támogatott</strong> — fájlválasztásnál a kameraválasztó jelenik meg.</span>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
       <div class="guide-h2">Mi a BioWallet?</div>
-      <p class="guide-p">A BioWallet biometrikailag védett Ethereum-tárca. A privát kulcsát <strong>az Ön arca + egy PIN-kód</strong> védi — a titkosítókulcs soha nem tárolódik lemezen, kizárólag arc-scan + PIN kombinációjából keletkezik.</p>
-      <p class="guide-p">Technológia: BCH hibajavító kód · DCC kauzális lánc · AES-256-GCM · WebAuthn PRF · Web Worker kripto-sandbox. Formálisan bizonyított: Z3 SMT solver.</p>
+      <p class="guide-p">A BioWallet biometrikailag védett Ethereum-tárca. A privát kulcsot <strong>az Ön arca</strong> védi — a titkosítókulcs soha nem tárolódik lemezen, csak arc-scan után keletkezik, és minden művelet után automatikusan törlődik.</p>
+      <p class="guide-p"><strong>Háromféle tárca létrehozható:</strong></p>
+      <table class="guide-table"><thead><tr><th>Típus</th><th>Forrás</th><th>Mikor?</th></tr></thead><tbody>
+        <tr><td><span style="color:#4CAF50;font-weight:700;">NATÍV</span></td><td>BioWallet generálja</td><td>Új tárca létrehozásakor</td></tr>
+        <tr><td><span style="color:#ffa502;font-weight:700;">SEED</span></td><td>12–24 szavas seed phrase</td><td>MetaMask HD wallet importálásakor</td></tr>
+        <tr><td><span style="color:#ff6b35;font-weight:700;">PRIVKULCS</span></td><td>0x... hex privát kulcs</td><td>MetaMask importált fiók importálásakor</td></tr>
+      </tbody></table>
+      <p class="guide-p" style="margin-top:0.5rem">Technológia: BCH hibajavító kód · DCC kauzális lánc · AES-256-GCM · WebAuthn PRF · Web Worker kripto-sandbox. Formálisan bizonyított: Z3 SMT solver.</p>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">1. Wallet létrehozása</div>
-      <ol class="guide-ol"><li>Kattintson a <strong>Wallet létrehozása</strong> gombra.</li><li>Nézzen egyenesen a kamerába — 5 arc-scan (~10 mp).</li><li>Adjon meg egy <strong>PIN-kódot</strong> (min. 4 karakter) — más eszközön az arc-scan mellé szükséges. Jegyezze meg, nem tárolódik!</li><li>Megjelenik a <strong>mentési modal</strong> — adjon nevet a tárcának, majd töltse le mindkét fájlt:</li></ol>
-      <table class="guide-table" style="margin-top:0.6rem"><thead><tr><th>Fájl</th><th>Tartalom</th><th>Tárolás</th></tr></thead><tbody>
+      <div class="guide-h2">1. Wallet létrehozása (natív)</div>
+      <ol class="guide-ol"><li>Kattintson a <strong>Wallet létrehozása</strong> gombra.</li><li>Nézzen egyenesen a kamerába — 5 arc-scan (~10 mp).</li><li>Megjelenik a <strong>mentési modal</strong> — adjon nevet a tárcának, majd töltse le mindkét fájlt:</li></ol>
+      <table class="guide-table" style="margin-top:0.4rem"><thead><tr><th>Fájl</th><th>Tartalom</th><th>Tárolás</th></tr></thead><tbody>
         <tr><td><code style="font-size:0.75rem">*.biowallet</code></td><td>Titkosított kulcstartó (AES-256-GCM)</td><td>MEGŐRZENDŐ</td></tr>
         <tr><td><code style="font-size:0.75rem">*.P.json</code></td><td>Arcadat helper — BCH szindróma, NEM arc-kép</td><td>MEGŐRZENDŐ</td></tr>
       </tbody></table>
@@ -894,63 +900,81 @@ const GUIDE_HTML = {
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">2. Vault megnyitása</div>
+      <div class="guide-h2">2. Wallet importálása (MetaMask)</div>
+      <p class="guide-p">Meglévő MetaMask tárcát kétféleképpen importálhat:</p>
+      <table class="guide-table"><thead><tr><th>Forrás</th><th>Mit kell megadni</th><th>Eredmény</th></tr></thead><tbody>
+        <tr><td><strong>Seed phrase</strong></td><td>12, 15, 18, 21 vagy 24 szó</td><td>Ugyanaz az Ethereum cím, mint a MetaMask HD tárcánál</td></tr>
+        <tr><td><strong>Privát kulcs</strong></td><td>0x... (64 hex karakter)</td><td>MetaMask importált fiók — ugyanaz a cím</td></tr>
+      </tbody></table>
+      <ol class="guide-ol" style="margin-top:0.5rem"><li>Setup panel → <strong>Wallet importálása</strong>.</li><li>Válassza ki a fület: <strong>12/24 szó</strong> vagy <strong>Privát kulcs</strong>.</li><li>Írja be az adatokat (a szöveg homályos, kattintson bele).</li><li>5 arc-scan → papír share megjelenítés → mentési modal.</li><li>Importálás után ellenőrizze, hogy az Ethereum-cím egyezik az eredeti tárcájéval!</li></ol>
+      <div class="guide-ok">✓ Az adatok soha nem hagyják el a böngészőt — ellenőrizhető: DevTools → Network → nincs kérés beírás közben.</div>
+      <div class="guide-note">⚠ <strong>Privát kulcsos tárca:</strong> a Papírképlet készítése funkció nem elérhető — nincs BIP39 seed phrase. Mentse el a privát kulcsát máshol is.</div>
+    </div>
+    <hr class="guide-sep">
+    <div class="guide-section">
+      <div class="guide-h2">3. Vault megnyitása</div>
       <p class="guide-p" style="font-weight:600;color:#a0a0b0;font-size:0.78rem;margin-bottom:0.4rem;">Ugyanaz az eszköz (első megnyitás után):</p>
-      <ol class="guide-ol"><li>Arc-scan (3 scan, ~5 mp).</li><li>PIN megadása — <em>vagy eszközbiometria, ha regisztrálva (lásd 3. pont)</em>.</li><li>A vault automatikusan betöltődik — nincs fájlválasztás.</li></ol>
+      <ol class="guide-ol"><li>Arc-scan (3 scan, ~5 mp).</li><li>A vault automatikusan betöltődik — nincs fájlválasztás.</li></ol>
       <p class="guide-p" style="font-weight:600;color:#a0a0b0;font-size:0.78rem;margin:0.6rem 0 0.4rem;">Új eszköz / böngésző:</p>
-      <ol class="guide-ol"><li>Setup → <strong>Meglévő wallet visszaállítása</strong> → töltse be a <code style="font-size:0.75rem">*.P.json</code> fájlt → 5 arc-scan.</li><li>Lock panel: arc-scan + PIN + <code style="font-size:0.75rem">*.biowallet</code> kiválasztása.</li></ol>
+      <ol class="guide-ol"><li>Setup → <strong>Meglévő wallet visszaállítása</strong> → töltse be a <code style="font-size:0.75rem">*.P.json</code> fájlt → 5 arc-scan.</li><li>Lock panel: arc-scan + <code style="font-size:0.75rem">*.biowallet</code> kiválasztása.</li></ol>
       <div class="guide-ok">✓ Az időablakot a TTL-csíkok mutatják valós időben. Sikeres egyezés esetén 30 mp-es ablak nyílik.</div>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">3. Eszköz regisztrálása (opcionális)</div>
+      <div class="guide-h2">4. Több tárca kezelése</div>
+      <p class="guide-p">A BioWallet egyszerre több tárcát tud kezelni — mindegyik arc-scannel nyílik meg.</p>
+      <ol class="guide-ol"><li>Vault panel → <strong>Másik wallet / importálás</strong> gomb.</li><li>Megjelenik a tárca-választó — minden tárca neve, Ethereum-cím-előnézete és típusjele látható.</li><li>Kattintson a <strong>Megnyitás</strong> gombra a kívánt tárca mellé → lock panel jelenik meg az adott tárcával.</li><li>Új tárca hozzáadásához kattintson a <strong>+ Új tárca hozzáadása</strong> gombra.</li></ol>
+      <table class="guide-table" style="margin-top:0.4rem"><thead><tr><th>Jel</th><th>Tárca típusa</th></tr></thead><tbody>
+        <tr><td><span style="color:#4CAF50;font-weight:700;border:1px solid #4CAF50;padding:1px 4px;border-radius:3px;font-size:0.75rem;">NATÍV</span></td><td>BioWallet által generált tárca</td></tr>
+        <tr><td><span style="color:#ffa502;font-weight:700;border:1px solid #ffa502;padding:1px 4px;border-radius:3px;font-size:0.75rem;">SEED</span></td><td>Seed phrase alapú import (MetaMask HD)</td></tr>
+        <tr><td><span style="color:#ff6b35;font-weight:700;border:1px solid #ff6b35;padding:1px 4px;border-radius:3px;font-size:0.75rem;">PRIVKULCS</span></td><td>Privát kulcs alapú import</td></tr>
+      </tbody></table>
+    </div>
+    <hr class="guide-sep">
+    <div class="guide-section">
+      <div class="guide-h2">5. Eszköz regisztrálása (opcionális)</div>
       <p class="guide-p">PIN helyett <strong>Windows Hello / Touch ID / ujjlenyomat</strong> is lehet második faktor — csak ezen az eszközön érvényes.</p>
-      <ol class="guide-ol"><li>Vault megnyitása → <strong>Eszköz hozzáadása</strong> gomb.</li><li>Végezze el a platformbiometrikus azonosítást (Windows Hello / Touch ID / ujjlenyomat).</li><li>Megjelenik a mentési modal — töltse le az <strong>új .biowallet fájlt</strong> (tartalmazza az eszközadatot).</li></ol>
-      <div class="guide-note">⚠ A korábbi .biowallet (eszköz nélküli) mostantól törölhető — az új fájl mindkét megnyitási módot tartalmazza.</div>
-      <div class="guide-ok">✓ Ezután ezen az eszközön PIN nélkül, csak arc-scannel megnyílik a vault.</div>
+      <ol class="guide-ol"><li>Vault megnyitása → <strong>Eszköz hozzáadása</strong> gomb.</li><li>Végezze el a platformbiometrikus azonosítást.</li><li>Töltse le az <strong>új .biowallet fájlt</strong> (tartalmazza az eszközadatot).</li></ol>
+      <div class="guide-ok">✓ Ezután ezen az eszközön csak arc-scannel megnyílik a vault — PIN nem szükséges.</div>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">4. ETH küldése</div>
-      <ol class="guide-ol"><li>Válassza ki a hálózatot (<strong>Sepolia</strong> = testnet, <strong>Mainnet</strong> = éles).</li><li>Adja meg a fogadó Ethereum-cím (0x… vagy ENS).</li><li>Adja meg az összeget ETH-ben.</li><li>Kattintson az <strong>ETH küldése</strong> gombra — díjbecslés + egyenlegellenőrzés.</li><li>Egy <strong>megerősítő ablak</strong> jelenik meg a tranzakció részleteivel és egy <strong>8 karakteres ujjlenyomattal</strong>.</li><li>Írja be az ujjlenyomat első <strong>4 karakterét</strong> — ez kriptográfiailag a tranzakcióhoz köti az aláírást.</li><li>Kattintson a <strong>Küldés</strong> gombra, majd végezzen el egy újabb arc-scant — 10 mp-es aláírási ablak.</li><li>A vault automatikusan <strong>zárolódik</strong>.</li></ol>
-      <div class="guide-note">⚠ Sepolia = ingyenes tesztnet. Mainnet használatához valódi ETH szükséges.</div>
+      <div class="guide-h2">6. ETH küldése</div>
+      <ol class="guide-ol"><li>Adja meg a fogadó Ethereum-cím (0x… vagy ENS) és az összeget.</li><li>Kattintson az <strong>ETH küldése</strong> gombra — díjbecslés + egyenlegellenőrzés.</li><li>A <strong>megerősítő ablakban</strong> ellenőrizze a részleteket. Ha a tranzakció okosszerződés-hívást tartalmaz, a <strong>Művelet</strong> sor megmutatja a hívott függvényt (pl. <code style="font-size:0.75rem">transfer()</code>).</li><li>Írja be az ujjlenyomat első <strong>4 karakterét</strong> — ez a tranzakcióhoz köti az aláírást.</li><li>Arc-scan (10 mp-es aláírási ablak) → vault automatikusan <strong>zárolódik</strong>.</li></ol>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">5. Biztonsági útmutató</div>
+      <div class="guide-h2">7. Biztonsági útmutató</div>
       <table class="guide-table"><thead><tr><th>Adat</th><th>Hol tárolja?</th><th>Nyilvános?</th></tr></thead><tbody>
         <tr><td><code style="font-size:0.75rem">*.biowallet</code></td><td>Pendrive / titkosított felhő</td><td>NEM</td></tr>
         <tr><td><code style="font-size:0.75rem">*.P.json</code></td><td>Pendrive / titkosított felhő</td><td>NEM</td></tr>
-        <tr><td>PIN-kód</td><td>Fejben — soha ne írja le digitálisan</td><td>SOHA</td></tr>
         <tr><td>Seed phrase / privát kulcs</td><td>Papír, páncélszekrény</td><td>SOHA</td></tr>
         <tr><td>Ethereum cím</td><td>Bárhol</td><td>Igen</td></tr>
       </tbody></table>
-      <div class="guide-note" style="margin-top:0.6rem">⚠ Elfelejtett PIN esetén — ha nincs regisztrált eszköz — a vault csak a seed phrase importálásával (+ új PIN) állítható vissza. Ezért fontos a <strong>Papírképlet</strong> biztonsági mentés (vault panel → Papírképlet készítése).</div>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">6. recovery_tool.html — offline visszafejtő</div>
-      <p class="guide-p">A <strong>recovery_tool.html</strong> egy önálló, teljesen offline működő HTML eszköz a Papírképlet kezeléséhez. Internetkapcsolat nélkül használandó.</p>
-      <p class="guide-p"><strong>Letöltés:</strong> <a href="/recovery_tool.html" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:600;">biowallet.metaspace.bio/recovery_tool.html</a> → mentse el a számítógépre, majd <strong>internet nélkül nyissa meg</strong>.</p>
-      <table class="guide-table" style="margin-top:0.5rem"><thead><tr><th>Mód</th><th>Mikor?</th><th>Mit csinál?</th></tr></thead><tbody>
-        <tr><td><strong>ENCODE</strong></td><td>Wallet létrehozása / arc-frissítés után</td><td>Nyers Papír A + fejben tartott P → <strong>Végleges Papír A</strong> (ezt kell eltenni)</td></tr>
-        <tr><td><strong>DECODE</strong></td><td>24 szó visszaállításakor</td><td>Végleges Papír A + Papír B + P → <strong>24 BIP39 szó</strong> → MetaMask import</td></tr>
+      <div class="guide-h2">8. recovery_tool.html — offline visszafejtő</div>
+      <p class="guide-p">A <strong>recovery_tool.html</strong> teljesen offline működő HTML eszköz a Papírképlet kezeléséhez. Csak <strong>natív és seed phrase</strong> tárcáknál érhető el.</p>
+      <p class="guide-p"><strong>Letöltés:</strong> <a href="/recovery_tool.html" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:600;">biowallet.metaspace.bio/recovery_tool.html</a></p>
+      <table class="guide-table" style="margin-top:0.5rem"><thead><tr><th>Mód</th><th>Mit csinál?</th></tr></thead><tbody>
+        <tr><td><strong>ENCODE</strong></td><td>Nyers Papír A + P → <strong>Végleges Papír A</strong> (ezt kell eltenni)</td></tr>
+        <tr><td><strong>DECODE</strong></td><td>Végleges Papír A + Papír B + P → <strong>12 vagy 24 BIP39 szó</strong> → MetaMask import</td></tr>
       </tbody></table>
-      <div class="guide-ok" style="margin-top:0.6rem">✓ ENCODE után a Nyers Papír A-t meg kell semmisíteni — csak a Végleges Papír A marad meg, a P fejben.</div>
-      <div class="guide-note" style="margin-top:0.4rem">⚠ A P értéket a BioWallet soha nem látja — csak Ön és az offline recovery_tool.html kombinálhatja. Papír B-t és Papír A-t <strong>különböző helyen</strong> tárolja.</div>
+      <div class="guide-ok" style="margin-top:0.5rem">✓ ENCODE után semmisítse meg a Nyers Papír A-t. Papír A-t és B-t <strong>különböző helyen</strong> tárolja.</div>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">7. Hibaelhárítás</div>
-
+      <div class="guide-h2">9. Hibaelhárítás</div>
       <table class="guide-table"><thead><tr><th>Hibaüzenet / jelenség</th><th>Teendő</th></tr></thead><tbody>
-        <tr><td><span class="guide-badge badge-err">FE_DECODE_FAIL</span></td><td>Jobb megvilágítás, egyenes tartás, próbálja újra</td></tr>
-        <tr><td><span class="guide-badge badge-err">EXPIRED</span></td><td>Az időablak lejárt — indítson új arc-scant</td></tr>
         <tr><td><span class="guide-badge badge-err">BIO_MISMATCH</span></td><td>Arc nem egyezik — ugyanabban a böngészőben próbálja (Firefox ↔ Chrome eltérő feldolgozás)</td></tr>
+        <tr><td><span class="guide-badge badge-err">EXPIRED</span></td><td>Az időablak lejárt — indítson új arc-scant</td></tr>
         <tr><td><span class="guide-badge badge-err">TX_MISMATCH</span></td><td>Ujjlenyomat nem egyezett — tranzakció módosult, aláírás blokkolva</td></tr>
-        <tr><td><span class="guide-badge badge-sym">Vault nem nyílik / rossz PIN</span></td><td>Ellenőrizze a PIN-kódot — ugyanazt kell megadni, amit létrehozáskor beállított</td></tr>
-        <tr><td><span class="guide-badge badge-err">Kamera hiba</span></td><td>HTTPS szükséges; helyi tesztnél: <code style="font-size:0.72rem">http://localhost:3333</code></td></tr>
-        <tr><td><span class="guide-badge badge-sym">Samsung Internet böngésző</span></td><td><strong>Nem támogatott.</strong> Fájlválasztáskor kameraválasztó jelenik meg. Használjon <strong>Chrome-ot</strong> (lehetőleg PWA-ként telepítve).</td></tr>
+        <tr><td><span class="guide-badge badge-err">Papírképlet nem elérhető</span></td><td>Privát kulcsos tárca — nincs BIP39 seed phrase, a funkció nem alkalmazható</td></tr>
+        <tr><td><span class="guide-badge badge-err">Papír kód ellenőrző összeg hiba</span></td><td>Elírás a papír kódban — ellenőrizze a karaktereket egyenként</td></tr>
+        <tr><td><span class="guide-badge badge-sym">Vault nem nyílik</span></td><td>Ugyanaz a böngésző kell, amellyel regisztrált. Ellenőrizze a .P.json és .biowallet fájlokat.</td></tr>
+        <tr><td><span class="guide-badge badge-err">Kamera hiba</span></td><td>HTTPS szükséges; helyi tesztnél: <code style="font-size:0.72rem">http://localhost:8080</code></td></tr>
+        <tr><td><span class="guide-badge badge-sym">Samsung Internet böngésző</span></td><td><strong>Nem támogatott.</strong> Használjon <strong>Chrome-ot</strong> (lehetőleg PWA-ként telepítve).</td></tr>
       </tbody></table>
       <div class="guide-ok" style="margin-top:0.7rem">✓ Tipp: egyenes tartás, közvetlen fényforrás szemből, kerülje az erős háttérvilágítást.</div>
     </div>
@@ -990,82 +1014,107 @@ const GUIDE_HTML = {
     <div class="guide-note" style="border-color:#6c63ff;text-align:center;padding:0.9rem 1rem;margin-bottom:0.2rem">
       <strong style="color:#6c63ff;font-size:1rem">Recommended browser</strong><br>
       <span style="font-size:0.83rem">Best experience: <strong>Chrome</strong> (desktop &amp; Android PWA) · <strong>Edge</strong> (desktop)<br>
-      Firefox works with basic support · <strong style="color:#ffa502">Samsung Internet: not supported</strong> — file picker shows camera chooser; file handling is unreliable.</span>
+      Firefox works with basic support · <strong style="color:#ffa502">Samsung Internet: not supported</strong> — file picker shows camera chooser.</span>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
       <div class="guide-h2">What is BioWallet?</div>
-      <p class="guide-p">BioWallet is a biometrically protected Ethereum wallet. Your private key is protected by <strong>your face + a PIN code</strong> — the encryption key is derived solely from your face scan combined with your PIN, and is never stored on disk.</p>
-      <p class="guide-p">Technology: BCH error-correcting code · DCC causal chain · AES-256-GCM · WebAuthn PRF · Web Worker crypto sandbox. Formally verified: Z3 SMT solver.</p>
-    </div>
-    <hr class="guide-sep">
-    <div class="guide-section">
-      <div class="guide-h2">1. Create wallet</div>
-      <ol class="guide-ol"><li>Click the <strong>Create wallet</strong> button.</li><li>Look straight into the camera — 5 face scans (~10 seconds).</li><li>Set a <strong>PIN code</strong> (min. 4 characters) — required alongside the face scan on a new device. Remember it — it is never stored!</li><li>A <strong>save dialog</strong> appears — name your wallet and download both files:</li></ol>
-      <table class="guide-table" style="margin-top:0.6rem"><thead><tr><th>File</th><th>Contents</th><th>Storage</th></tr></thead><tbody>
-        <tr><td><code style="font-size:0.75rem">*.biowallet</code></td><td>Encrypted key store (AES-256-GCM)</td><td>KEEP</td></tr>
-        <tr><td><code style="font-size:0.75rem">*.P.json</code></td><td>Biometric helper data — BCH syndrome, NOT a face image</td><td>KEEP</td></tr>
+      <p class="guide-p">BioWallet is a biometrically protected Ethereum wallet. Your private key is protected by <strong>your face</strong> — the encryption key is derived solely from your face scan, never stored on disk, and erased after every operation.</p>
+      <p class="guide-p"><strong>Three wallet types are supported:</strong></p>
+      <table class="guide-table"><thead><tr><th>Type</th><th>Source</th><th>When?</th></tr></thead><tbody>
+        <tr><td><span style="color:#4CAF50;font-weight:700;">NATIVE</span></td><td>Generated by BioWallet</td><td>New wallet creation</td></tr>
+        <tr><td><span style="color:#ffa502;font-weight:700;">SEED</span></td><td>12–24-word seed phrase</td><td>Importing a MetaMask HD wallet</td></tr>
+        <tr><td><span style="color:#ff6b35;font-weight:700;">PRIVKEY</span></td><td>0x... hex private key</td><td>Importing a MetaMask imported account</td></tr>
       </tbody></table>
-      <div class="guide-note">⚠ Save both files to a secure location. Without them — and without a seed phrase backup — the wallet is unrecoverable.</div>
+      <p class="guide-p" style="margin-top:0.5rem">Technology: BCH error-correcting code · DCC causal chain · AES-256-GCM · WebAuthn PRF · Web Worker crypto sandbox. Formally verified: Z3 SMT solver.</p>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">2. Open vault</div>
+      <div class="guide-h2">1. Create wallet (native)</div>
+      <ol class="guide-ol"><li>Click <strong>Create wallet</strong>.</li><li>Look straight into the camera — 5 face scans (~10 seconds).</li><li>A <strong>save dialog</strong> appears — name your wallet and download both files:</li></ol>
+      <table class="guide-table" style="margin-top:0.4rem"><thead><tr><th>File</th><th>Contents</th><th>Storage</th></tr></thead><tbody>
+        <tr><td><code style="font-size:0.75rem">*.biowallet</code></td><td>Encrypted key store (AES-256-GCM)</td><td>KEEP</td></tr>
+        <tr><td><code style="font-size:0.75rem">*.P.json</code></td><td>Biometric helper — BCH syndrome, NOT a face image</td><td>KEEP</td></tr>
+      </tbody></table>
+      <div class="guide-note">⚠ Save both files securely. Without them — and without a seed phrase backup — the wallet is unrecoverable.</div>
+    </div>
+    <hr class="guide-sep">
+    <div class="guide-section">
+      <div class="guide-h2">2. Import wallet (MetaMask)</div>
+      <p class="guide-p">Import an existing MetaMask wallet in two ways:</p>
+      <table class="guide-table"><thead><tr><th>Source</th><th>What to enter</th><th>Result</th></tr></thead><tbody>
+        <tr><td><strong>Seed phrase</strong></td><td>12, 15, 18, 21 or 24 words</td><td>Same Ethereum address as MetaMask HD wallet</td></tr>
+        <tr><td><strong>Private key</strong></td><td>0x... (64 hex chars)</td><td>MetaMask imported account — same address</td></tr>
+      </tbody></table>
+      <ol class="guide-ol" style="margin-top:0.5rem"><li>Setup → <strong>Import wallet</strong>.</li><li>Choose tab: <strong>12/24 words</strong> or <strong>Private key</strong>.</li><li>Enter your data (text is blurred — click to type).</li><li>5 face scans → paper share display → save dialog.</li><li>After import verify the Ethereum address matches your original wallet.</li></ol>
+      <div class="guide-ok">✓ Your data never leaves the browser — verifiable: DevTools → Network → no request sent while typing.</div>
+      <div class="guide-note">⚠ <strong>Private key wallets:</strong> the Paper recovery feature is unavailable — there is no BIP39 seed phrase. Store your private key separately.</div>
+    </div>
+    <hr class="guide-sep">
+    <div class="guide-section">
+      <div class="guide-h2">3. Open vault</div>
       <p class="guide-p" style="font-weight:600;color:#a0a0b0;font-size:0.78rem;margin-bottom:0.4rem;">Same device (after first open):</p>
-      <ol class="guide-ol"><li>Face scan (3 scans, ~5 seconds).</li><li>Enter PIN — <em>or device biometrics if enrolled (see step 3)</em>.</li><li>The vault loads automatically — no file picker.</li></ol>
+      <ol class="guide-ol"><li>Face scan (3 scans, ~5 seconds).</li><li>The vault loads automatically — no file picker.</li></ol>
       <p class="guide-p" style="font-weight:600;color:#a0a0b0;font-size:0.78rem;margin:0.6rem 0 0.4rem;">New device / browser:</p>
-      <ol class="guide-ol"><li>Setup → <strong>Restore existing wallet</strong> → load your <code style="font-size:0.75rem">*.P.json</code> → 5 face scans.</li><li>Lock panel: face scan + PIN + select <code style="font-size:0.75rem">*.biowallet</code>.</li></ol>
-      <div class="guide-ok">✓ The TTL bars show the remaining time in real time. A 30-second window opens on success.</div>
+      <ol class="guide-ol"><li>Setup → <strong>Restore existing wallet</strong> → load your <code style="font-size:0.75rem">*.P.json</code> → 5 face scans.</li><li>Lock panel: face scan + select <code style="font-size:0.75rem">*.biowallet</code>.</li></ol>
+      <div class="guide-ok">✓ The TTL bars show remaining time in real time. A 30-second window opens on success.</div>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">3. Register device (optional)</div>
-      <p class="guide-p">Use <strong>Windows Hello / Touch ID / fingerprint</strong> as second factor instead of PIN — valid on this device only.</p>
-      <ol class="guide-ol"><li>Open vault → click <strong>Add this device</strong> button.</li><li>Complete the platform biometric authentication (Windows Hello / Touch ID / fingerprint).</li><li>A save dialog appears — download the <strong>new .biowallet file</strong> (includes device data).</li></ol>
-      <div class="guide-note">⚠ The previous .biowallet (without device) can now be deleted — the new file covers both unlock paths.</div>
+      <div class="guide-h2">4. Multiple wallets</div>
+      <p class="guide-p">BioWallet manages multiple wallets — each opens with face scan.</p>
+      <ol class="guide-ol"><li>Vault panel → <strong>Switch wallet / import</strong> button.</li><li>The wallet switcher shows all wallets with name, address preview and type badge.</li><li>Click <strong>Open</strong> next to a wallet → lock panel for that wallet.</li><li>To add a wallet click <strong>+ Add new wallet</strong>.</li></ol>
+      <table class="guide-table" style="margin-top:0.4rem"><thead><tr><th>Badge</th><th>Wallet type</th></tr></thead><tbody>
+        <tr><td><span style="color:#4CAF50;font-weight:700;border:1px solid #4CAF50;padding:1px 4px;border-radius:3px;font-size:0.75rem;">NATIVE</span></td><td>BioWallet-generated wallet</td></tr>
+        <tr><td><span style="color:#ffa502;font-weight:700;border:1px solid #ffa502;padding:1px 4px;border-radius:3px;font-size:0.75rem;">SEED</span></td><td>Seed phrase import (MetaMask HD)</td></tr>
+        <tr><td><span style="color:#ff6b35;font-weight:700;border:1px solid #ff6b35;padding:1px 4px;border-radius:3px;font-size:0.75rem;">PRIVKEY</span></td><td>Private key import</td></tr>
+      </tbody></table>
+    </div>
+    <hr class="guide-sep">
+    <div class="guide-section">
+      <div class="guide-h2">5. Register device (optional)</div>
+      <p class="guide-p">Use <strong>Windows Hello / Touch ID / fingerprint</strong> as second factor — valid on this device only.</p>
+      <ol class="guide-ol"><li>Open vault → click <strong>Add this device</strong>.</li><li>Complete platform biometric authentication.</li><li>Download the <strong>new .biowallet file</strong> (includes device data).</li></ol>
       <div class="guide-ok">✓ On this device the vault now opens with face scan only — no PIN required.</div>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">4. Send ETH</div>
-      <ol class="guide-ol"><li>Select the network (<strong>Sepolia</strong> = testnet, <strong>Mainnet</strong> = live).</li><li>Enter the recipient Ethereum address (0x… or ENS).</li><li>Enter the amount in ETH.</li><li>Click <strong>Send ETH</strong> — fee estimation + balance check.</li><li>A <strong>confirmation dialog</strong> appears with the transaction details and an <strong>8-character fingerprint</strong>.</li><li>Type the first <strong>4 characters</strong> of the fingerprint — this cryptographically binds the signature to the exact transaction.</li><li>Click <strong>Send</strong>, then perform another face scan — 10-second signing window.</li><li>The vault auto-<strong>locks</strong>.</li></ol>
-      <div class="guide-note">⚠ Sepolia = free testnet. Real ETH is required for Mainnet.</div>
+      <div class="guide-h2">6. Send ETH</div>
+      <ol class="guide-ol"><li>Enter the recipient address (0x… or ENS) and amount.</li><li>Click <strong>Send ETH</strong> — fee estimation + balance check.</li><li>The <strong>confirmation dialog</strong> shows transaction details. If the transaction calls a contract, the <strong>Function</strong> row shows the called function (e.g. <code style="font-size:0.75rem">transfer()</code>).</li><li>Type the first <strong>4 characters</strong> of the fingerprint — binds the signature to the exact transaction.</li><li>Face scan (10-second window) → vault auto-<strong>locks</strong>.</li></ol>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">5. Security guide</div>
+      <div class="guide-h2">7. Security guide</div>
       <table class="guide-table"><thead><tr><th>Data</th><th>Where to store</th><th>Public?</th></tr></thead><tbody>
         <tr><td><code style="font-size:0.75rem">*.biowallet</code></td><td>USB drive / encrypted cloud</td><td>NO</td></tr>
         <tr><td><code style="font-size:0.75rem">*.P.json</code></td><td>USB drive / encrypted cloud</td><td>NO</td></tr>
-        <tr><td>PIN code</td><td>In your head — never write it digitally</td><td>NEVER</td></tr>
         <tr><td>Seed phrase / private key</td><td>Paper, fireproof safe</td><td>NEVER</td></tr>
         <tr><td>Ethereum address</td><td>Anywhere</td><td>Yes</td></tr>
       </tbody></table>
-      <div class="guide-note" style="margin-top:0.6rem">⚠ Forgotten PIN: without an enrolled device, the vault is only recoverable by re-importing the seed phrase with a new PIN. This is why creating a <strong>Paper recovery</strong> backup is important (vault panel → Generate paper recovery).</div>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">6. recovery_tool.html — offline decoder</div>
-      <p class="guide-p">The <strong>recovery_tool.html</strong> is a standalone, fully offline HTML tool for the Paper Recovery formula. Use it with no internet connection.</p>
-      <p class="guide-p"><strong>Download:</strong> <a href="/recovery_tool.html" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:600;">biowallet.metaspace.bio/recovery_tool.html</a> → save to your computer, then <strong>open offline</strong>.</p>
-      <table class="guide-table" style="margin-top:0.5rem"><thead><tr><th>Mode</th><th>When?</th><th>What it does</th></tr></thead><tbody>
-        <tr><td><strong>ENCODE</strong></td><td>After wallet creation / face update</td><td>Raw Paper A + memorised P → <strong>Final Paper A</strong> (keep this)</td></tr>
-        <tr><td><strong>DECODE</strong></td><td>When recovering 24 words</td><td>Final Paper A + Paper B + P → <strong>24 BIP39 words</strong> → MetaMask import</td></tr>
+      <div class="guide-h2">8. recovery_tool.html — offline decoder</div>
+      <p class="guide-p">Standalone fully offline HTML tool for Paper Recovery. Available for <strong>native and seed phrase wallets only</strong>.</p>
+      <p class="guide-p"><strong>Download:</strong> <a href="/recovery_tool.html" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:600;">biowallet.metaspace.bio/recovery_tool.html</a></p>
+      <table class="guide-table" style="margin-top:0.5rem"><thead><tr><th>Mode</th><th>What it does</th></tr></thead><tbody>
+        <tr><td><strong>ENCODE</strong></td><td>Raw Paper A + P → <strong>Final Paper A</strong> (keep this)</td></tr>
+        <tr><td><strong>DECODE</strong></td><td>Final Paper A + Paper B + P → <strong>12 or 24 BIP39 words</strong> → MetaMask import</td></tr>
       </tbody></table>
-      <div class="guide-ok" style="margin-top:0.6rem">✓ After ENCODE, destroy Raw Paper A — only Final Paper A remains, P stays in your head.</div>
-      <div class="guide-note" style="margin-top:0.4rem">⚠ BioWallet never sees your P value — only you and the offline recovery_tool.html can combine them. Store Paper B and Paper A in <strong>separate locations</strong>.</div>
+      <div class="guide-ok" style="margin-top:0.5rem">✓ After ENCODE destroy Raw Paper A. Store Paper A and B in <strong>separate locations</strong>.</div>
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">7. Troubleshooting</div>
+      <div class="guide-h2">9. Troubleshooting</div>
       <table class="guide-table"><thead><tr><th>Error / symptom</th><th>Action</th></tr></thead><tbody>
-        <tr><td><span class="guide-badge badge-err">FE_DECODE_FAIL</span></td><td>Better lighting, hold head straight, try again</td></tr>
-        <tr><td><span class="guide-badge badge-err">EXPIRED</span></td><td>Window expired — start a new face scan</td></tr>
         <tr><td><span class="guide-badge badge-err">BIO_MISMATCH</span></td><td>Face does not match — use the same browser as enrollment (Firefox ↔ Chrome differ)</td></tr>
+        <tr><td><span class="guide-badge badge-err">EXPIRED</span></td><td>Window expired — start a new face scan</td></tr>
         <tr><td><span class="guide-badge badge-err">TX_MISMATCH</span></td><td>Fingerprint mismatch — transaction was altered, signing blocked</td></tr>
-        <tr><td><span class="guide-badge badge-sym">Vault won't open / wrong PIN</span></td><td>Check your PIN — it must match what you set at wallet creation</td></tr>
-        <tr><td><span class="guide-badge badge-err">Camera error</span></td><td>HTTPS required; for local testing: <code style="font-size:0.72rem">http://localhost:3333</code></td></tr>
-        <tr><td><span class="guide-badge badge-sym">Samsung Internet browser</span></td><td><strong>Not supported.</strong> File picker shows a camera chooser instead of Files. Use <strong>Chrome</strong> (preferably installed as a PWA).</td></tr>
+        <tr><td><span class="guide-badge badge-err">Paper recovery unavailable</span></td><td>Private key wallet — no BIP39 seed phrase, feature not applicable</td></tr>
+        <tr><td><span class="guide-badge badge-err">Paper code checksum error</span></td><td>Typo in paper code — check each character carefully</td></tr>
+        <tr><td><span class="guide-badge badge-sym">Vault won't open</span></td><td>Use the same browser used for enrollment. Check .P.json and .biowallet files.</td></tr>
+        <tr><td><span class="guide-badge badge-err">Camera error</span></td><td>HTTPS required; for local testing: <code style="font-size:0.72rem">http://localhost:8080</code></td></tr>
+        <tr><td><span class="guide-badge badge-sym">Samsung Internet browser</span></td><td><strong>Not supported.</strong> Use <strong>Chrome</strong> (preferably installed as a PWA).</td></tr>
       </tbody></table>
       <div class="guide-ok" style="margin-top:0.7rem">✓ Tip: hold head straight, direct front lighting, avoid strong backlight.</div>
     </div>
