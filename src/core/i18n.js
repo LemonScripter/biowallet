@@ -99,6 +99,8 @@ const STRINGS = {
     /* ── Dynamic messages ──────────────────────────────────────────── */
     'msg.camera.init':        'Kamera inicializálása…',
     'msg.camera.error':       'Kamera nem érhető el — ellenőrizze, hogy egy másik alkalmazás nem foglalja le, majd próbálja újra.',
+    'msg.model.loading':      'Arcfelismerés inicializálása (~8 MB)…',
+    'msg.model.error':        'Arcfelismerés betöltési hiba — frissítse az oldalt.',
     'msg.vault.loaded':       'Vault betöltve — arc-scan a megnyitáshoz.',
     'msg.vault.file.loaded':   'Vault fájl betöltve — most scannelhetsz.',
     'msg.vault.file.required': 'Előbb töltse be a vault fájlt (.biowallet)!',
@@ -447,6 +449,8 @@ const STRINGS = {
     /* ── Dynamic messages ──────────────────────────────────────────── */
     'msg.camera.init':        'Initialising camera…',
     'msg.camera.error':       'Camera unavailable — check that no other app is using it, then try again.',
+    'msg.model.loading':      'Initialising face recognition (~8 MB)…',
+    'msg.model.error':        'Face recognition failed to load — please reload the page.',
     'msg.vault.loaded':       'Vault loaded — face scan to unlock.',
     'msg.vault.file.loaded':   'Vault file loaded — you can now scan.',
     'msg.vault.file.required': 'Load the vault file (.biowallet) first!',

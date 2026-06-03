@@ -8,6 +8,8 @@
  * Phase 6: face-api.js + modell súlyok lokálisan (CDN-mentes, CSP 'self')
  */
 
+import { t } from './i18n.js?v=12';
+
 const MODELS_URL = '/models';   // lokális: /var/www/biowallet/models/
 
 const ENROLL_SCANS = 5;
@@ -74,8 +76,8 @@ export async function openCamera(videoEl, onStatus) {
     await videoEl.play();
   }
 
-  onStatus?.('FaceNet modellek betöltése (~8 MB)…');
-  loadModels().catch(e => onStatus?.(`Model hiba: ${e.message}`));
+  onStatus?.(t('msg.model.loading'));
+  loadModels().catch(() => onStatus?.(t('msg.model.error')));
 
   return stream;
 }

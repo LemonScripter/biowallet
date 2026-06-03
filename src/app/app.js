@@ -9,7 +9,7 @@
 const APP_VERSION = 'v35.1';
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
-import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=11';
+import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=12';
 import {
   WC_PROJECT_ID, initWC, wcPair, wcApprove, wcRejectProposal, wcEmitChainChanged,
   wcRespondOk, wcRespondError, wcGetSessions, wcDisconnect, wcReady,
