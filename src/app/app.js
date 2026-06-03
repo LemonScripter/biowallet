@@ -2258,7 +2258,8 @@ document.getElementById('btn-upgrade-v6')?.addEventListener('click', async () =>
     localStorage.setItem('biowallet_meta', JSON.stringify(meta));
     _walletsSaveCurrent();
 
-    const walletName = await showSaveModal(encryptedVault, null, 'upgrade', meta.walletName || 'biowallet');
+    // P.json nem változik upgrade során (BCH biometrikus paraméterek vault key-független)
+    const walletName = await showSaveModal(encryptedVault, meta.P ? JSON.stringify(meta.P) : null, 'upgrade', meta.walletName || 'biowallet');
     meta.walletName = walletName;
     localStorage.setItem('biowallet_meta', JSON.stringify(meta));
     _walletsSaveCurrent();
