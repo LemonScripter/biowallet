@@ -46,14 +46,15 @@ All vendor libraries (FaceNet, ethers.js, WalletConnect, QRCode) are bundled at 
 **A fully compromised browser**
 If the browser process itself is controlled by an attacker, Worker isolation provides no protection. Use a dedicated browser profile for high-value wallets. See *Hardened Deployment* below for a kernel-level mitigation.
 
-**Presentation attacks (photo or mask spoofing) — known limitation**
-BioWallet uses FaceNet embeddings derived from 2D webcam frames. **There is no liveness detection.** A high-quality photograph or 3D face mask of the enrolled user could potentially bypass face authentication.
+**Presentation attacks (photo or mask spoofing)**
+BioWallet v35.4+ includes a **dynamic head-turn liveness challenge** at every vault open, face re-enrollment, and emergency seed recovery. A static photograph cannot pass the challenge because it cannot perform a head turn.
 
-*Mitigations available to users:*
-- **SSS 2-of-3 (strongly recommended):** enroll the WebAuthn device factor (hardware authenticator as the second SSS share). A photo gives an attacker the face share (x=1) only — without the device factor or paper share, the 2-of-3 threshold is not met and the vault cannot be opened.
-- For the highest-value holdings, combine with a hardware wallet (Ledger, Trezor) for transaction signing.
+*How it works:* Using `faceLandmark68Net` (already loaded, zero extra dependency), the app measures a baseline nose-position ratio, then detects a ~20° turn in either direction within 8 seconds. The biometric scan (`captureEmbedding`) only runs after the challenge passes and a 2-second stabilisation pause.
 
-*Roadmap:* liveness/PAD (presentation-attack detection) integration is on the roadmap as a future optional security layer.
+*Remaining limitations:*
+- A **video replay** that includes a head turn could theoretically defeat the challenge; however, a targeted video of a specific person performing the exact random timing is significantly harder to obtain.
+- A **3D mask** with articulated joints could also bypass — this is out of scope for the typical threat model.
+- For high-value holdings, **SSS 2-of-3 with a hardware device factor** is still strongly recommended as a second layer.
 
 **Loss of the `.biowallet` file AND the paper recovery formula**
 Without both the encrypted vault file and a valid recovery formula, the funds are unrecoverable. BioWallet cannot help you. Store both independently.
@@ -136,7 +137,7 @@ We do not operate a paid bug bounty program. Researchers who responsibly disclos
 - **GitHub Security Advisory** co-authorship credit
 - A **Hall of Fame** entry at [biowallet.metaspace.bio](https://biowallet.metaspace.bio) (coming soon)
 
-Findings that are part of the known limitations listed above (e.g. liveness detection, OS-level compromise) are **out of scope** for recognition, but we welcome constructive discussion.
+Findings that are part of the known limitations listed above (e.g. OS-level compromise, video-replay liveness bypass) are **out of scope** for recognition, but we welcome constructive discussion.
 
 ---
 
@@ -191,7 +192,7 @@ A fully validated BioWallet + BioOS joint deployment remains experimental — se
 | XSS / HTML injection (v35.1+) | — | ✅ `h()` escape on all external data | — |
 | WalletConnect v2 | — | ✅ Internal | — |
 | Paraswap swap integration | — | ✅ Internal | — |
-| Liveness / PAD | ❌ Not implemented | ⚠️ Known limitation — SSS mitigates | — |
+| Liveness / PAD | ✅ Head-turn challenge at OPEN, re-enroll, genesis recovery *(v35.4)* | ✅ Internal | — |
 | External audit | ❌ Not yet performed | | |
 
 We invite independent security researchers to audit the codebase and the formal verification tests.

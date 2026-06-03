@@ -172,6 +172,7 @@ Full analysis with data tables and bar charts: <a href="https://biowallet.metasp
 | v35.2 | **Multi-wallet UI:** `biowallet_wallets` index + per-wallet storage; wallet switcher modal with NATIVE / SEED / PRIVKEY type badges; address preview; add/delete wallets. **TX ABI decode:** `_decodeCalldata()` — common ERC-20 selectors (`transfer`, `approve`, `transferFrom`) shown in confirm dialog. **Paper recovery 12-word:** `recovery_tool.html` now accepts 12 or 24 numbers; length mismatch guard. **Paper share CRC-8:** `_crc8()` + `_paperHexWithCrc()` — 66-char codes, backward compatible with 64-char. **Audit:** `INTERNAL_AUDIT_V1.md` published, 15 flows 0 WARN. **User guide:** full rewrite HU+EN — import section, multi-wallet section, type badges, 12/24-word recovery |
 | v35.3 | *Argon2id v6 attempt — rolled back due to stability issues* |
 | v35.3s | **Stable baseline (v35.2 core + DCC hardening):** reverted to v35.2 codebase (v5 PBKDF2, no Argon2id, no liveness). **DCC GAP fixes:** GAP-2 Worker console blocks `Uint8Array`/`ArrayBuffer` logging; GAP-3 `issue()` validates R is 32-byte `Uint8Array`; GAP-4 `BroadcastChannel` enforces single vault session across tabs. **PWA auto-update:** `version.json` (no-cache) + SW unregister + cache clear on version mismatch — SW-independent, no banner required. **WC session expiry:** countdown in session bar |
+| v35.4 | **Liveness / PAD:** dynamic head-turn challenge using `faceLandmark68Net` (already loaded, zero extra dependency) — baseline nose-ratio calibration (~1.2 s), detects ~20° turn in either direction, 8 s timeout; active at vault OPEN, face re-enrollment, and emergency seed recovery. Defeats static-photo attacks. `captureEmbedding` / `enrollEmbedding` untouched — only pre-scan challenge added. **Local-first:** tested on `localhost:8080` before deploy |
 
 ---
 
@@ -264,7 +265,7 @@ Both scripts are self-contained and produce human-readable PASS/FAIL output for 
 - [x] **WC session expiry** — countdown in session bar *(LIVE since v35.3s)*
 - [x] **PWA auto-update** — `version.json` SW-independent forced update *(LIVE since v35.3s)*
 - [ ] **Argon2id KDF** — replace PBKDF2 with memory-hard KDF (v6 vault format, pending stable implementation)
-- [ ] **Liveness / PAD** — presentation-attack detection (photo/mask spoofing mitigation)
+- [x] **Liveness / PAD** — dynamic head-turn challenge at vault open, re-enrollment, emergency recovery *(LIVE since v35.4)*
 - [ ] **External security audit** — independent third-party review (Trail of Bits / Least Authority)
 
 ---

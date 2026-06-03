@@ -51,7 +51,7 @@
 | T4 | Malicious dApp (WalletConnect) | JSON-RPC requests, metadata injection | Approval abuse, XSS | DCC: every tx requires fresh biometric; `h()` escape on all metadata | ✅ |
 | T5 | Stolen device | Physical access, browser session | Vault file + P file | Vault AES-GCM encrypted; not openable without enrolled face | ✅ |
 | T6 | Shoulder-surfing | Sees the screen | Seed phrase / recovery formula | Paper formula obfuscated (meaningless without r\_j) | ✅ |
-| T7 | Camera spoofing (photo/mask) | 2D photo or 3D face mask | Biometric authentication | **KNOWN LIMITATION** — no liveness detection | 🔴 SSS 2-of-3 mitigates: photo yields face share only, insufficient without device/paper |
+| T7 | Camera spoofing (photo/mask) | 2D photo or 3D face mask | Biometric authentication | ✅ Head-turn liveness challenge (v35.4) — static photo cannot turn head; 3D mask/video replay partially mitigated by SSS 2-of-3 | ✅ Photo blocked; ⚠️ targeted video/mask residual risk |
 | T8 | RPC endpoint MITM / compromised node | Modified responses | TX fee, balance | DCC commit + fingerprint; HTTPS; not silent | ⚠️ No certificate pinning |
 | T9 | Supply chain (npm, CDN) | Modified bundle | Everything | No CDN; SRI hash verification; local bundle | ✅ |
 | T10 | Brute-force / rainbow table | Offline vault file | Vault key | BCH fuzzy R not reproducible without the enrolled face; 300k PBKDF2 | ✅ |
@@ -85,7 +85,7 @@
 
 | Risk | Likelihood | Impact | Combined | Mitigation status |
 |------|-----------|--------|----------|-------------------|
-| Photo-based bypass (T7) | Medium (close acquaintance) | High | **High** | SSS 2-of-3 strongly recommended; liveness on roadmap |
+| Photo-based bypass (T7) | Low (liveness blocks static photos) | High | **Medium** | ✅ Head-turn challenge implemented (v35.4); SSS 2-of-3 as second layer |
 | Compromised browser extension (T3) | Low (CSP blocks) | High | Medium | ✅ CSP + Worker isolation |
 | Stolen `.biowallet` file (T1) | Medium | Low (brute-force infeasible) | Low | ✅ AES-256-GCM |
 | RPC MITM (T8) | Low | Medium | Low | ⚠️ HTTPS only; no pinning |
