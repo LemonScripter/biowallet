@@ -155,3 +155,49 @@ function l2Normalize(v) {
 }
 
 const delay = ms => new Promise(r => setTimeout(r, ms));
+
+// ── Liveness / PAD — fejfordítás challenge ────────────────────────────────
+//
+// Csak withFaceLandmarks() (NEM withFaceDescriptor) → gyorsabb,
+// nem érinti a biometrikus pipelinet.
+// captureEmbedding / enrollEmbedding SOHA NEM MÓDOSUL.
+
+async function _detectNoseRatio(videoEl, fa, opt) {
+  if (videoEl.readyState < 2) return null;
+  const res = await fa.detectSingleFace(videoEl, opt).withFaceLandmarks();
+  if (!res) return null;
+  const pts = res.landmarks.positions;
+  const jW  = pts[16].x - pts[0].x + 1e-6;  // jaw szélesség
+  return (pts[30].x - pts[0].x) / jW;        // nose[30] pozíció aránya
+}
+
+export async function performLivenessChallenge(videoEl, onHint) {
+  await loadModels();
+  const fa  = await getFaceApi();
+  const opt = new fa.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+
+  onHint?.(t('liveness.turn'));
+
+  // Baseline: ~1.2s, mérjük az orr kiindulási pozícióját
+  // Dinamikus → kezeli a tükrözést, ferde tartást, egyéni eltéréseket
+  let sum = 0, n = 0;
+  for (let i = 0; i < 8; i++) {
+    await delay(150);
+    const r = await _detectNoseRatio(videoEl, fa, opt);
+    if (r !== null) { sum += r; n++; }
+  }
+  const baseline = n > 0 ? sum / n : 0.50;
+
+  // Detektálás: max 8s, 150ms polling
+  // Siker: orrpont 0.10-el eltér a baseline-tól bármelyik irányba (~20 fok)
+  const deadline = Date.now() + 8000;
+  while (Date.now() < deadline) {
+    await delay(150);
+    const r = await _detectNoseRatio(videoEl, fa, opt);
+    if (r !== null && Math.abs(r - baseline) > 0.10) {
+      onHint?.(t('liveness.look_straight'));
+      return; // siker
+    }
+  }
+  throw new Error('LIVENESS_TIMEOUT');
+}

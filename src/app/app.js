@@ -6,11 +6,11 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v35.3s';              // s = stable (GAP-2/3/4 javításokkal)
-const SW_CACHE_VERSION = 'biowallet-v96';  // egyezzen a sw.js CACHE értékével
+const APP_VERSION = 'v35.4';              // s = stable (GAP-2/3/4 javításokkal)
+const SW_CACHE_VERSION = 'biowallet-v97';  // egyezzen a sw.js CACHE értékével
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
-import { openCamera, enrollEmbedding, captureEmbedding } from '../core/bio_capture.js?v=12';
+import { openCamera, enrollEmbedding, captureEmbedding, performLivenessChallenge } from '../core/bio_capture.js?v=13';
 import {
   WC_PROJECT_ID, initWC, wcPair, wcApprove, wcRejectProposal, wcEmitChainChanged,
   wcRespondOk, wcRespondError, wcGetSessions, wcDisconnect, wcReady,
@@ -1448,6 +1448,11 @@ btnScan.addEventListener('click', async () => {
   setMsg(t('msg.open.scanning'), '');
 
   try {
+    // Liveness challenge — fejfordítás, fotó ellen
+    await performLivenessChallenge(video, m => setMsg(m, ''));
+    await new Promise(r => setTimeout(r, 2000));
+    setMsg(t('msg.open.scanning'), '');
+
     const embedding = await captureEmbedding(video);
     await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
 
@@ -2003,6 +2008,10 @@ document.getElementById('btn-genesis-recover')?.addEventListener('click', async 
 
   let embedding;
   try {
+    // Liveness — vészhelyzeti recovery-nél vault zárolva, fotó ellen kötelező
+    await performLivenessChallenge(video, m => setMsg(m, ''));
+    await new Promise(r => setTimeout(r, 2000));
+    setMsg(t('msg.genesis.recover.scanning'), '');
     embedding = await captureEmbedding(video);
   } catch (e) {
     setScanning(false);
@@ -2289,6 +2298,19 @@ document.getElementById('btn-reenroll')?.addEventListener('click', async () => {
 
   await _ensureCameraForScan();
   setScanning(true);
+  setMsg(t('msg.scanning.face'), '');
+
+  // Liveness challenge az arc re-enrollment előtt
+  try {
+    await performLivenessChallenge(video, m => setMsg(m, ''));
+    await new Promise(r => setTimeout(r, 1500));
+    setMsg(t('msg.scanning.face'), '');
+  } catch (e) {
+    setScanning(false);
+    setMsg(friendlyError(e.message), 'error');
+    return;
+  }
+
   enrollDots.style.display = 'flex';
   setMsg(t('msg.scanning.face'), '');
 
@@ -3897,6 +3919,7 @@ function friendlyError(m) {
   if (m.includes('NO_TOKEN'))        return t('err.no.token');
   if (m.includes('VAULT_ID_MISMATCH')) return t('err.vault.mismatch');
   if (m.includes('ALREADY_CONSUMED'))   return t('err.consumed');
+  if (m.includes('LIVENESS_TIMEOUT'))   return t('err.liveness.timeout');
   if (m.includes('PRIVKEY_NO_FORMULA')) return t('err.paper.privkey');
   if (m.includes('err.paper.crc'))      return t('err.paper.crc');
   if (m.includes('WORKER_CRASH'))   return t('err.worker.crash');
