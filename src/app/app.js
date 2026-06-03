@@ -799,7 +799,7 @@ btnEnroll.addEventListener('click', async () => {
   } catch (e) {
     setScanning(false);
     enrollDots.style.display = 'none';
-    setMsg(e.message, 'error');
+    setMsg(friendlyError(e.message), 'error');
     btnEnroll.disabled = false;
     return;
   }
@@ -842,7 +842,7 @@ btnEnroll.addEventListener('click', async () => {
     _showReenrollReminder(_reenrollReminderDays(newMeta));
     _showWalletBadge(newMeta);
   } catch (e) {
-    setMsg(e.message, 'error');
+    setMsg(friendlyError(e.message), 'error');
     btnEnroll.disabled = false;
   }
 });
@@ -1844,7 +1844,7 @@ document.getElementById('btn-sss')?.addEventListener('click', async () => {
     document.getElementById('sss-row').style.display = 'none';
     setMsg(t('sss.paper.done'), 'ok');
   } catch (e) {
-    setMsg(e.message, 'error');
+    setMsg(friendlyError(e.message), 'error');
   }
 });
 
@@ -2244,7 +2244,7 @@ btnDevice.addEventListener('click', async () => {
     _updateDeviceRow(true, true);
     setMsg(t('msg.device.enrolled'), 'ok');
   } catch (e) {
-    setMsg(e.message, 'error');
+    setMsg(friendlyError(e.message), 'error');
   }
 });
 
