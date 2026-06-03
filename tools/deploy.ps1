@@ -38,7 +38,15 @@ $ErrorActionPreference = 'Stop'
 $REPO_ROOT  = "C:\Users\lszok\Documents\_MetaSpace_CPU"
 $BW_ROOT    = "$REPO_ROOT\BioWallet"
 $SSH_KEY    = "$env:USERPROFILE\.ssh\google_compute_engine"
-$SERVER     = "lszok@34.146.249.102"
+
+# Server: set BIOWALLET_SERVER in your environment (never commit credentials here)
+# Example: $env:BIOWALLET_SERVER = "user@host"
+if (-not $env:BIOWALLET_SERVER) {
+    Write-Host "  ERR  BIOWALLET_SERVER environment variable not set." -ForegroundColor Red
+    Write-Host "       Run: `$env:BIOWALLET_SERVER = 'user@host'" -ForegroundColor Yellow
+    exit 1
+}
+$SERVER = $env:BIOWALLET_SERVER
 
 # Immutable (+i) protected files on the server — unlocked before SCP, re-locked after
 $CHATTR_FILES = @(
