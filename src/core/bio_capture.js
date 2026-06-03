@@ -16,6 +16,35 @@ const ENROLL_SCANS = 5;
 const AUTH_SCANS   = 3;
 export const EMBED_DIM = 128;  // FaceRecognitionNet output dim
 
+// Liveness / PAD (presentation attack detection)
+// Random challenge from 3 options — unpredictable, hard to fake with static photo.
+// Uses faceLandmark68Net (already loaded) — zero additional dependencies.
+const LIVENESS_CHALLENGES  = ['blink', 'turn_left', 'turn_right'];
+const EAR_BLINK_THRESHOLD  = 0.21;   // Eye Aspect Ratio — eyes closed
+const EAR_OPEN_THRESHOLD   = 0.25;   // EAR — eyes open again (hysteresis)
+const NOSE_LEFT_THRESHOLD  = 0.40;   // nose/jaw ratio → turned left
+const NOSE_RIGHT_THRESHOLD = 0.60;   // nose/jaw ratio → turned right
+const LIVENESS_TIMEOUT_MS  = 12_000; // max challenge duration
+
+// Eye Aspect Ratio — standard dlib 68-point landmark indices
+// Left eye: 36-41  Right eye: 42-47
+function _ear(pts) {
+  const d = (a, b) => {
+    const dx = pts[a].x - pts[b].x, dy = pts[a].y - pts[b].y;
+    return Math.sqrt(dx*dx + dy*dy);
+  };
+  const earL = (d(37,41) + d(38,40)) / (2 * d(36,39) + 1e-6);
+  const earR = (d(43,47) + d(44,46)) / (2 * d(42,45) + 1e-6);
+  return (earL + earR) / 2;
+}
+
+// Nose position ratio on face width: jaw(0)–nose(30)–jaw(16)
+// Straight ≈ 0.5 · left turn < 0.4 · right turn > 0.6
+function _noseRatio(pts) {
+  const jW = pts[16].x - pts[0].x + 1e-6;
+  return (pts[30].x - pts[0].x) / jW;
+}
+
 // ── Library + model loading ────────────────────────────────────────────────
 
 let _fa           = null;   // window.faceapi handle
@@ -121,9 +150,68 @@ export async function enrollEmbedding(videoEl, onProgress) {
   return averageEmbeddings(scans);
 }
 
-// ── Authentikáció (3 frame átlag) ─────────────────────────────────────────
+// ── Liveness challenge (EAR blink + nose-ratio head turn) ────────────────
+//
+// Exported — app.js hívja a biztonságkritikus útvonalakon (OPEN, SIGN, PAPER).
+// enrollEmbedding() deliberate, lassú folyamat → ott nem szükséges.
+//
+// @param {HTMLVideoElement} videoEl
+// @param {function(string):void} onHint  — challenge szöveg callback (setMsg)
+// @returns {Promise<void>}  — sikeres challenge esetén resolve, timeout → throw LIVENESS_TIMEOUT
 
-export async function captureEmbedding(videoEl) {
+export async function performLivenessChallenge(videoEl, onHint) {
+  await loadModels();
+  const fa  = await getFaceApi();
+  const opt = new fa.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+
+  // Véletlenszerű challenge — előre nem jelezhető videófelvétellel szemben
+  const challenge = LIVENESS_CHALLENGES[Math.floor(Math.random() * LIVENESS_CHALLENGES.length)];
+  onHint?.(t(`liveness.${challenge}`));
+
+  // 1s előkészülési idő — felhasználó elolvassa az utasítást
+  await delay(1000);
+
+  const deadline  = Date.now() + LIVENESS_TIMEOUT_MS;
+  let blinkCount  = 0;
+  let eyesOpen    = true;  // blink state machine: open → closed → open = 1 blink
+
+  while (Date.now() < deadline) {
+    await delay(100);  // ~10 fps — balance between responsiveness and CPU
+    if (videoEl.readyState < 2) continue;
+
+    const res = await fa.detectSingleFace(videoEl, opt).withFaceLandmarks();
+    if (!res) continue;
+
+    const pts = res.landmarks.positions;
+
+    if (challenge === 'blink') {
+      const ear = _ear(pts);
+      if (eyesOpen && ear < EAR_BLINK_THRESHOLD) {
+        eyesOpen = false;                  // szem csukódik
+      } else if (!eyesOpen && ear > EAR_OPEN_THRESHOLD) {
+        eyesOpen = true;                   // szem kinyílik → 1 pislogás kész
+        if (++blinkCount >= 2) return;     // 2 pislogás → challenge teljesítve
+      }
+    } else {
+      const ratio = _noseRatio(pts);
+      if (challenge === 'turn_left'  && ratio < NOSE_LEFT_THRESHOLD)  return;
+      if (challenge === 'turn_right' && ratio > NOSE_RIGHT_THRESHOLD) return;
+    }
+  }
+
+  throw new Error('LIVENESS_TIMEOUT');
+}
+
+// ── Authentikáció (3 frame átlag) ─────────────────────────────────────────
+//
+// livenessHint: ha megadva → liveness challenge fut az embedding előtt.
+// enrollEmbedding()-nél nem hívjuk (deliberate enrollment).
+
+export async function captureEmbedding(videoEl, livenessHint = null) {
+  if (livenessHint) {
+    await performLivenessChallenge(videoEl, livenessHint);
+  }
+
   const scans = [];
   let   tries = 0;
 
