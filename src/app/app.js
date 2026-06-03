@@ -1394,6 +1394,7 @@ btnScan.addEventListener('click', async () => {
   setMsg(t('msg.open.scanning'), '');
 
   try {
+    // Liveness csak vault-nyitáskor: ez az egyetlen pont ahol fotótámadás reális
     const embedding = await captureEmbedding(video, m => setMsg(m, ''));
     await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
 
@@ -1649,7 +1650,7 @@ btnSign.addEventListener('click', async () => {
 
   try {
     const meta      = JSON.parse(localStorage.getItem('biowallet_meta'));
-    const embedding = await captureEmbedding(video, m => setMsg(m, ''));
+    const embedding = await captureEmbedding(video);
     await callWorker('BIO_CAPTURE', { embedding, P: meta.P, userInput }, [embedding.buffer]);
     bioSuccess();
 
@@ -1700,7 +1701,7 @@ btnPaper.addEventListener('click', async () => {
 
   // BIO_CAPTURE hibánál a vault nyitva marad — user próbálhat újra.
   try {
-    const embedding = await captureEmbedding(video, m => setMsg(m, ''));
+    const embedding = await captureEmbedding(video);
     await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
     bioSuccess();
   } catch (e) {
@@ -3003,7 +3004,7 @@ async function handleWCEthSend(topic, id, wcTx) {
     setScanning(true);
     setMsg(t('msg.signing.dapp'), '');
     const meta      = JSON.parse(localStorage.getItem('biowallet_meta'));
-    const embedding = await captureEmbedding(video, m => setMsg(m, ''));
+    const embedding = await captureEmbedding(video);
     await callWorker('BIO_CAPTURE', { embedding, P: meta.P, userInput: wcUserInput }, [embedding.buffer]);
     bioSuccess();
 
@@ -3031,7 +3032,7 @@ async function handleWCPersonalSign(topic, id, hexMsg) {
     setScanning(true);
     setMsg(t('msg.signing.msg'), '');
     const meta      = JSON.parse(localStorage.getItem('biowallet_meta'));
-    const embedding = await captureEmbedding(video, m => setMsg(m, ''));
+    const embedding = await captureEmbedding(video);
     await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
     bioSuccess();
     const { signature } = await callWorker('PERSONAL_SIGN', { message: hexMsg });
@@ -3057,7 +3058,7 @@ async function handleWCTypedSign(topic, id, typedDataJson) {
     setScanning(true);
     setMsg(t('msg.signing.msg'), '');
     const meta      = JSON.parse(localStorage.getItem('biowallet_meta'));
-    const embedding = await captureEmbedding(video, m => setMsg(m, ''));
+    const embedding = await captureEmbedding(video);
     await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
     bioSuccess();
     const { signature } = await callWorker('SIGN_TYPED_DATA', { typedDataJson });
@@ -3409,7 +3410,7 @@ async function _reopenVaultForSwap(meta, stepLabel) {
   }
   setScanning(true);
   try {
-    const embedding = await captureEmbedding(video, m => setMsg(m, ''));
+    const embedding = await captureEmbedding(video);
     await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
     let devicePrf = null;
     if (meta.device?.credentialId) {
