@@ -170,6 +170,7 @@ Full analysis with data tables and bar charts: <a href="https://biowallet.metasp
 | v35 | **Genesis HMAC:** `genesis_hmac` field in vault JSON — HMAC-SHA256(HKDF(vault\_key), genesis+dna\_chain) verified on every open; `ignoreChecks` removed from Paraswap — balance verified before broadcast; **production-ready** |
 | v35.1 | **Paper formula fix:** 12-word (16-byte) entropy support in `entropyToIndices`; `privkey` vault guard before DCC gate; split try-catch in `btnPaper`. **Worker self-healing:** `onerror`/`onmessageerror` reject all pending promises, 30 s timeout, `unhandledrejection` → scanning reset. **XSS hardening:** `h()` escape + `safeImgSrc()` on all WalletConnect-sourced HTML. **Mobile:** paper grid `minmax(0,1fr)`. **PWA fix:** nginx `sw.js no-cache`, `reg.update()` on load. **Docs:** `THREAT_MODEL.md` published, `SECURITY.md` liveness disclosure, GitHub Private Vulnerability Reporting enabled |
 | v35.2 | **Multi-wallet UI:** `biowallet_wallets` index + per-wallet storage; wallet switcher modal with NATIVE / SEED / PRIVKEY type badges; address preview; add/delete wallets. **TX ABI decode:** `_decodeCalldata()` — common ERC-20 selectors (`transfer`, `approve`, `transferFrom`) shown in confirm dialog. **Paper recovery 12-word:** `recovery_tool.html` now accepts 12 or 24 numbers; length mismatch guard. **Paper share CRC-8:** `_crc8()` + `_paperHexWithCrc()` — 66-char codes, backward compatible with 64-char. **Audit:** `INTERNAL_AUDIT_V1.md` published, 15 flows 0 WARN. **User guide:** full rewrite HU+EN — import section, multi-wallet section, type badges, 12/24-word recovery |
+| v35.3 | **Argon2id KDF (vault v6):** `@noble/hashes` pure-JS Argon2id replaces PBKDF2 for face-share key wrapping — m=65536 (64 MB), t=3, p=1, OWASP offline minimum; `noble-argon2.js` vendor bundle (12 KB, no WASM); all new vaults use v6; `upgradeToV6()` migration for existing v5 vaults; full backward compat (v1–v5 open unchanged). **WC session expiry:** countdown in session bar (`23h` / `45m` / `⚠ 3m`), 60 s interval, auto-refresh on expiry. **APP_VERSION v35.3** |
 
 ---
 
@@ -254,6 +255,9 @@ Both scripts are self-contained and produce human-readable PASS/FAIL output for 
 - [ ] **Argon2id KDF** — replace PBKDF2 with memory-hard KDF (vault format v6)
 - [x] **Multi-wallet UI** — wallet switcher, NATIVE/SEED/PRIVKEY type badges, add/delete *(LIVE since v35.2)*
 - [x] **TX ABI decode** — ERC-20 function names shown in confirm dialog *(LIVE since v35.2)*
+- [x] **Argon2id KDF** — vault v6, m=64 MB, t=3, p=1; upgrade button for existing v5 vaults *(LIVE since v35.3)*
+- [x] **WC session expiry** — countdown in session bar *(LIVE since v35.3)*
+- [ ] **Liveness / PAD** — presentation-attack detection (photo/video replay mitigation)
 - [x] **Phase 10 SSS(2,3)** — face + WebAuthn hardware key + paper, any 2-of-3 sufficient *(LIVE since v29)*
 - [x] **MetaMask import** — BIP39 seed phrase (12–24 words) and raw private key, correct HD derivation *(LIVE since v34)*
 - [x] **Paraswap swap** — ERC-20 token swaps with gas speed selector, balance-checked *(LIVE since v35)*
