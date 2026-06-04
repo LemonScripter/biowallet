@@ -1,6 +1,6 @@
 # Threat Model — BioWallet
 
-**Version:** v35.1 · **Date:** 2026-06-03 · **Scope:** browser PWA + Tokyo GCP deployment
+**Version:** v35.4a · **Date:** 2026-06-04 · **Scope:** browser PWA + Tokyo GCP deployment
 
 ---
 
@@ -52,7 +52,7 @@
 | T5 | Stolen device | Physical access, browser session | Vault file + P file | Vault AES-GCM encrypted; not openable without enrolled face | ✅ |
 | T6 | Shoulder-surfing | Sees the screen | Seed phrase / recovery formula | Paper formula obfuscated (meaningless without r\_j) | ✅ |
 | T7 | Camera spoofing (photo/mask) | 2D photo or 3D face mask | Biometric authentication | ✅ Head-turn liveness challenge (v35.4) — static photo cannot turn head; 3D mask/video replay partially mitigated by SSS 2-of-3 | ✅ Photo blocked; ⚠️ targeted video/mask residual risk |
-| T8 | RPC endpoint MITM / compromised node | Modified responses | TX fee, balance | DCC commit + fingerprint; HTTPS; not silent | ⚠️ No certificate pinning |
+| T8 | RPC endpoint MITM / compromised node | Modified responses | TX fee, balance | DCC commit + fingerprint; HTTPS; 12 s AbortController timeout (v35.4a); chainId verification on custom networks (v35.4a); Ethereum fallback RPC | ⚠️ No certificate pinning |
 | T9 | Supply chain (npm, CDN) | Modified bundle | Everything | No CDN; SRI hash verification; local bundle | ✅ |
 | T10 | Brute-force / rainbow table | Offline vault file | Vault key | BCH fuzzy R not reproducible without the enrolled face; 300k PBKDF2 | ✅ |
 
@@ -62,7 +62,7 @@
 
 | Not protected | Rationale |
 |---------------|-----------|
-| OS-level compromise (root, kernel exploit) | Worker isolation is browser-level; kernel-level: BioOS + DCC Ring 0 is experimental, not production |
+| OS-level compromise via local access | Worker isolation is browser-level only. Note: the canonical deployment at `biowallet.metaspace.bio` runs DCC Ring 0 (eBPF LSM) + `chattr +i` kernel immutable protection — a server-side RCE cannot silently replace the served JavaScript. A local OS compromise on the *user's* device remains out of scope. |
 | Jailbroken / rooted device | Trusted Execution Environment assumption violated |
 | Physically compromised hardware | TPM / Secure Enclave bypass is out of scope |
 | Key voluntarily disclosed by user | Social engineering is not a cryptographic problem |
@@ -88,5 +88,5 @@
 | Photo-based bypass (T7) | Low (liveness blocks static photos) | High | **Medium** | ✅ Head-turn challenge implemented (v35.4); SSS 2-of-3 as second layer |
 | Compromised browser extension (T3) | Low (CSP blocks) | High | Medium | ✅ CSP + Worker isolation |
 | Stolen `.biowallet` file (T1) | Medium | Low (brute-force infeasible) | Low | ✅ AES-256-GCM |
-| RPC MITM (T8) | Low | Medium | Low | ⚠️ HTTPS only; no pinning |
+| RPC MITM (T8) | Low | Medium | Low | ⚠️ HTTPS only; no pinning. Mitigated by timeout (12 s), chainId verify, fallback RPC (v35.4a) |
 | Supply chain attack (T9) | Very low | Critical | Medium | ✅ SRI + local bundle |

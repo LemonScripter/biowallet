@@ -10,17 +10,22 @@ Formal verification does not test code with inputs. It **proves** that a propert
 
 ### 1. DCC + vault invariants — `tests/verify_biowallet.py`
 
-**51 properties across 7 modules:**
+**71 properties across 12 modules (v35.4a):**
 
 | Module | Properties | What is verified |
 |---|---|---|
 | DCC | 7 | Token lifecycle, state machine transitions, auto-lock |
-| Fuzzy extractor (DF) | 14 | BCH correction bounds, key derivation stability |
+| Fuzzy extractor (DF) | 9 | BCH correction bounds, key derivation stability |
 | BCH code | 4 | Error correcting code algebraic properties |
 | Vault protocol (P5) | 8 | Vault open/lock/sign safety conditions |
-| Paper recovery (P9) | 6 | Two-step recovery formula correctness |
+| Paper recovery (P9) | 5 | Two-step recovery formula correctness |
 | SSS enrollment | 6 | Shamir share split/reconstruct consistency |
 | Enrollment constitution (ALKOT) | 6 | Minimum 2-of-3 factor requirement |
+| Genesis identity chain | 4 | genesis.dna immutability, chain monotonicity |
+| **Liveness / PAD** (v35.4) | **4** | **Head-turn required at OPEN/re-enroll/genesis; static photo blocked** |
+| **TX commitment** (v35.4) | **1** | **Signed tx hash must match committed hash** |
+| **Single session** (v35.4) | **1** | **Two tabs cannot hold the vault open simultaneously** |
+| **R validation + Worker integrity** (v35.4) | **4** | **Biometric result type/length; worker crash revokes all tokens** |
 
 **Selected properties:**
 
@@ -39,6 +44,15 @@ Implies(
     And(face_enrolled, Not(fingerprint_enrolled), Not(hw_key_enrolled)),
     Not(vault_open_p10)
 )
+
+# LIV-1 (v35.4): vault open requires liveness to have passed
+Implies(And(op_open, SAT), liveness_passed)
+
+# LIV-4 (v35.4): a static photo cannot pass liveness
+Implies(static_photo_attack, Not(liveness_passed))
+
+# WI-1 (v35.4): worker crash revokes all pending tokens
+Implies(worker_crashed, And(all_pending_tokens_revoked, Not(SAT)))
 ```
 
 **Method:** Each property is encoded as a Z3 formula. The solver checks whether a violation is *satisfiable*. `unsat` means no violation is possible — the property holds universally.
@@ -87,7 +101,7 @@ ForAll([secret], reconstruct([shares[0], shares[1]]) == secret)
 ```bash
 pip install z3-solver
 
-# 51 invariants — takes ~10 seconds
+# 71 invariants — takes ~10 seconds
 python tests/verify_biowallet.py
 
 # 13 GF(2^8) proofs — takes ~5 seconds
@@ -121,4 +135,4 @@ The Z3 proofs verify the *algebraic and logical properties* of these operations.
 
 3. **Biometric model.** The fuzzy extractor proofs model the BCH code algebraically but cannot capture the statistical properties of real face embeddings (distribution, inter-personal distance, etc.).
 
-4. **No proof of liveness.** Nothing in the Z3 proofs guarantees that the image fed to FaceNet is from a live person rather than a photograph.
+4. **Liveness model.** Since v35.4 the Z3 proofs include LIV1–4 which verify that liveness *must* have passed before any sensitive operation and that a static photo attack cannot satisfy the liveness predicate. The model captures the logical requirement; it does not verify the neural network's ability to distinguish a live face from a sophisticated video replay.

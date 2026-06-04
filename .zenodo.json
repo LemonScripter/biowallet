@@ -1,10 +1,10 @@
 {
   "title": "BioWallet: Formally Verified Biometric Ethereum Wallet with DCC Causal Chain Protocol",
-  "description": "BioWallet is a self-sovereign, biometric Ethereum wallet with formal security proofs. This deposit includes: (1) Z3-based formal verification of the Digital Causal Closure (DCC) protocol — 56/56 invariants verified; (2) exhaustive GF(2^8) Shamir Secret Sharing arithmetic proofs — 196,608 cases verified; (3) the complete threat model, security policy, and audit documentation.\n\nKey technical contributions:\n- BCH(255,55,t=25) fuzzy extractor for stable face-to-key derivation\n- DCC causal token protocol enforcing biometric causality on every vault operation\n- Shamir 2-of-3 SSS with WebAuthn PRF device factor\n- Genesis identity chain (genesis_hmac) for tamper-evident re-enrollment history\n- Single-file air-gapped deployment (biowallet.html, ~11.5 MB, all assets inlined)",
+  "description": "BioWallet is a self-sovereign, biometric Ethereum wallet with formal security proofs. This deposit includes: (1) Z3-based formal verification of the Digital Causal Closure (DCC) protocol — 71/71 invariants verified across 12 modules including liveness/PAD, TX commitment, single-session, and worker integrity invariants added in v35.4; (2) exhaustive GF(2^8) Shamir Secret Sharing arithmetic proofs — 196,608 cases verified; (3) the complete threat model, security policy, and audit documentation.\n\nKey technical contributions:\n- BCH(255,55,t=25) fuzzy extractor for stable face-to-key derivation\n- DCC causal token protocol enforcing biometric causality on every vault operation\n- Dynamic head-turn liveness challenge (PAD) at every vault open, re-enrollment, and genesis recovery — formally verified (LIV1-4)\n- Shamir 2-of-3 SSS with WebAuthn PRF device factor\n- Genesis identity chain (genesis_hmac) for tamper-evident re-enrollment history\n- Single-file air-gapped deployment (biowallet.html, ~11.5 MB, all assets inlined)\n- Server-side supply chain protection: ext4 chattr+i kernel immutable flag + DCC Ring 0 eBPF audit (production active at biowallet.metaspace.bio)",
   "creators": [
     {
-      "name": "Szőke, László-Ferenc",
-      "affiliation": "Citrom Média LTD / MetaSpace Research"
+      "name": "Szoke, Laszlo-Ferenc",
+      "affiliation": "Citrom Media LTD / MetaSpace Research"
     }
   ],
   "keywords": [
@@ -19,9 +19,13 @@
     "WebCrypto",
     "DCC protocol",
     "causal chain",
+    "liveness detection",
+    "presentation attack detection",
     "self-sovereign identity",
     "WebAuthn",
-    "browser security"
+    "browser security",
+    "eBPF",
+    "supply chain protection"
   ],
   "license": "other-open",
   "upload_type": "software",
