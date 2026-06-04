@@ -6,6 +6,11 @@
  * EIP-1559: maxFeePerGas / maxPriorityFeePerGas via eth_feeHistory.
  */
 
+// Fallback RPC endpoints — used automatically if primary times out
+const RPC_FALLBACK = {
+  'https://ethereum.publicnode.com': 'https://eth.llamarpc.com',
+};
+
 export const BUILTIN_NETWORKS = [
   { key: 'mainnet',   name: 'Ethereum',   chainId: 1,        rpc: 'https://ethereum.publicnode.com',                    explorer: 'https://etherscan.io/tx/',             nativeSymbol: 'ETH',  blockscout: 'https://eth.blockscout.com',          testnet: false },
   { key: 'bsc',       name: 'BNB Chain',  chainId: 56,       rpc: 'https://bsc-dataseed.binance.org/',           explorer: 'https://bscscan.com/tx/',              nativeSymbol: 'BNB',  blockscout: null,                                  testnet: false },
@@ -45,7 +50,7 @@ export const NETWORKS = {
 
 const RPC_TIMEOUT_MS = 12000;
 
-async function rpcCall(rpcUrl, method, params = []) {
+async function _rpcOnce(rpcUrl, method, params) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), RPC_TIMEOUT_MS);
   try {
@@ -61,6 +66,17 @@ async function rpcCall(rpcUrl, method, params = []) {
     return result;
   } finally {
     clearTimeout(timer);
+  }
+}
+
+async function rpcCall(rpcUrl, method, params = []) {
+  try {
+    return await _rpcOnce(rpcUrl, method, params);
+  } catch (e) {
+    // If a fallback exists (e.g. Ethereum: publicnode -> llamarpc), retry once
+    const fallback = RPC_FALLBACK[rpcUrl];
+    if (!fallback) throw e;
+    return await _rpcOnce(fallback, method, params);
   }
 }
 
