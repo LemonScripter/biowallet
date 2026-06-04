@@ -27,9 +27,9 @@ export const BUY_NETWORKS = new Map([
 ]);
 
 // ── MoonPay config ────────────────────────────────────────────────────────────
-const MOONPAY_BUY_URL  = 'https://buy.sandbox.moonpay.com/';
-const MOONPAY_SELL_URL = 'https://sell.sandbox.moonpay.com/';
-// Production: 'https://buy.moonpay.com/' and 'https://sell.moonpay.com/'
+// Test mode is activated by the pk_test_ key — same URL for both test and production
+const MOONPAY_BUY_URL  = 'https://buy.moonpay.com/';
+const MOONPAY_SELL_URL = 'https://sell.moonpay.com/';
 
 // ── Module state ──────────────────────────────────────────────────────────────
 let _deps         = null;
