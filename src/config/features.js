@@ -8,3 +8,7 @@
 export const FEATURES = {
   BUY_MODULE: true,    // BioWallet Protected Buy/Sell (v36)
 };
+
+// Supported chainIds for Buy/Sell — kept here so button visibility
+// works without waiting for the async buy.js module to load
+export const BUY_SUPPORTED_CHAINS = new Set([1, 56, 137, 42161, 8453, 10]);

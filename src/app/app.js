@@ -7,7 +7,7 @@
  */
 
 const APP_VERSION = 'v36.0';              // Buy/Sell Crypto module (Transak)
-const SW_CACHE_VERSION = 'biowallet-v100'; // egyezzen a sw.js CACHE értékével
+const SW_CACHE_VERSION = 'biowallet-v101'; // egyezzen a sw.js CACHE értékével
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
 import { openCamera, enrollEmbedding, captureEmbedding, performLivenessChallenge } from '../core/bio_capture.js?v=13';
@@ -17,7 +17,7 @@ import {
 } from '../core/wc2.js';
 import { isSwapSupported, buildSwapTx, buildApproveTx, getParaswapSpender, formatOutput, ETH_ADDR } from '../core/swap.js';
 import { fetchPricesUsd, fmtUsd, PRICE_NATIVE_ADDR } from '../core/prices.js';
-import { FEATURES } from '../config/features.js';
+import { FEATURES, BUY_SUPPORTED_CHAINS } from '../config/features.js';
 import {
   BUILTIN_NETWORKS, getAllNetworks, saveCustomNetwork, deleteCustomNetwork,
   getBalance, getNonce,
@@ -1521,7 +1521,7 @@ btnScan.addEventListener('click', async () => {
     _updateDeviceRow(hasDevice, usedDevice);
     deviceRow.style.display = '';
     swapRow.style.display   = isSwapSupported(currentNetwork.chainId) ? '' : 'none';
-    if (buyRow) buyRow.style.display = (_buyModule && _buyModule.isBuySupported(currentNetwork.chainId)) ? '' : 'none';
+    if (buyRow) buyRow.style.display = (FEATURES.BUY_MODULE && BUY_SUPPORTED_CHAINS.has(currentNetwork.chainId)) ? '' : 'none';
     const sssRow = document.getElementById('sss-row');
     if (sssRow) sssRow.style.display = (isV4 || isV5) ? 'none' : '';
     const securityToolsRow = document.getElementById('security-tools-row');
@@ -4055,7 +4055,7 @@ function _switchNetwork(net) {
   updateTokenSelector();
   if (vaultReady) {
     swapRow.style.display = isSwapSupported(currentNetwork.chainId) ? '' : 'none';
-    if (buyRow) buyRow.style.display = (_buyModule && _buyModule.isBuySupported(currentNetwork.chainId)) ? '' : 'none';
+    if (buyRow) buyRow.style.display = (FEATURES.BUY_MODULE && BUY_SUPPORTED_CHAINS.has(currentNetwork.chainId)) ? '' : 'none';
   }
   const addr = ethAddress.textContent;
   if (addr && addr !== '—') fetchBalance(addr);
@@ -4274,7 +4274,7 @@ if (FEATURES.BUY_MODULE) {
       },
     });
     if (vaultReady && buyRow)
-      buyRow.style.display = mod.isBuySupported(currentNetwork.chainId) ? '' : 'none';
+      buyRow.style.display = (FEATURES.BUY_MODULE && BUY_SUPPORTED_CHAINS.has(currentNetwork.chainId)) ? '' : 'none';
   }).catch(e => console.warn('Buy module load failed:', e));
 }
 
