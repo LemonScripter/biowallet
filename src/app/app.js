@@ -4116,7 +4116,15 @@ function showAddNetworkModal() {
         await verifyChainId(rpc, chainId);
       } catch (e) {
         err.style.color = 'var(--danger)';
-        err.textContent = e.message;
+        const msg = e.message ?? '';
+        if (e.name === 'AbortError' || msg.includes('abort') || msg.includes('timed out')) {
+          err.textContent = t('net.add.err.timeout');
+        } else if (msg.includes('mismatch')) {
+          const m = msg.match(/entered (\d+).*?(\d+)$/);
+          err.textContent = t('net.add.err.mismatch', { expected: m?.[1] ?? chainId, actual: m?.[2] ?? '?' });
+        } else {
+          err.textContent = t('net.add.err.rpc.fail', { msg: msg.slice(0, 60) });
+        }
         addBtn.disabled = false;
         return;
       }

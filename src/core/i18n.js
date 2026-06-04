@@ -259,11 +259,14 @@ const STRINGS = {
     'net.add.f.sym':      'Natív token szimbóluma (pl. ETH)',
     'net.add.cancel':     'Mégse',
     'net.add.confirm':    'Hozzáadás',
-    'net.add.err.name':   'Hálózat neve kötelező.',
-    'net.add.err.chain':  'Érvénytelen ChainID.',
-    'net.add.err.rpc':    'RPC URL https://-vel kell kezdődjön.',
-    'net.add.err.exp':    'Explorer URL https://-vel kell kezdődjön.',
-    'net.add.verifying':  'RPC ellenőrzése...',
+    'net.add.err.name':      'Hálózat neve kötelező.',
+    'net.add.err.chain':     'Érvénytelen ChainID.',
+    'net.add.err.rpc':       'RPC URL https://-vel kell kezdődjön.',
+    'net.add.err.exp':       'Explorer URL https://-vel kell kezdődjön.',
+    'net.add.verifying':     'RPC ellenőrzése...',
+    'net.add.err.mismatch':  'ChainID eltérés: megadott {expected}, RPC szerint {actual}.',
+    'net.add.err.timeout':   'RPC nem válaszolt (timeout). Ellenőrizd az URL-t.',
+    'net.add.err.rpc.fail':  'RPC nem érhető el: {msg}',
 
     /* ── Recovery paper modal ──────────────────────────────────────── */
     'paper.step.label':  '2 LÉPÉSES FOLYAMAT — 1. LÉPÉS',
@@ -617,8 +620,11 @@ const STRINGS = {
     'net.add.err.name':   'Network name is required.',
     'net.add.err.chain':  'Invalid ChainID.',
     'net.add.err.rpc':    'RPC URL must start with https://.',
-    'net.add.err.exp':    'Explorer URL must start with https://.',
-    'net.add.verifying':  'Verifying RPC...',
+    'net.add.err.exp':       'Explorer URL must start with https://.',
+    'net.add.verifying':     'Verifying RPC...',
+    'net.add.err.mismatch':  'Chain ID mismatch: entered {expected}, RPC reports {actual}.',
+    'net.add.err.timeout':   'RPC timed out. Check the URL.',
+    'net.add.err.rpc.fail':  'RPC unreachable: {msg}',
 
     /* ── Recovery paper modal ──────────────────────────────────────── */
     'paper.step.label':  '2-STEP PROCESS — STEP 1',
