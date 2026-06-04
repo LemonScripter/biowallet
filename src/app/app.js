@@ -6,8 +6,8 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v35.4a';             // a = RPC timeout + fallback + chainId verify
-const SW_CACHE_VERSION = 'biowallet-v99';  // egyezzen a sw.js CACHE értékével
+const APP_VERSION = 'v36.0';              // Buy/Sell Crypto module (Transak)
+const SW_CACHE_VERSION = 'biowallet-v100'; // egyezzen a sw.js CACHE értékével
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
 import { openCamera, enrollEmbedding, captureEmbedding, performLivenessChallenge } from '../core/bio_capture.js?v=13';
@@ -17,6 +17,7 @@ import {
 } from '../core/wc2.js';
 import { isSwapSupported, buildSwapTx, buildApproveTx, getParaswapSpender, formatOutput, ETH_ADDR } from '../core/swap.js';
 import { fetchPricesUsd, fmtUsd, PRICE_NATIVE_ADDR } from '../core/prices.js';
+import { FEATURES } from '../config/features.js';
 import {
   BUILTIN_NETWORKS, getAllNetworks, saveCustomNetwork, deleteCustomNetwork,
   getBalance, getNonce,
@@ -246,6 +247,7 @@ const btnDevice      = document.getElementById('btn-device');
 const deviceRow      = document.getElementById('device-row');
 const btnSwap        = document.getElementById('btn-swap');
 const swapRow        = document.getElementById('swap-row');
+const buyRow         = document.getElementById('buy-row');
 
 const dots = [0,1,2,3,4].map(i => document.getElementById(`dot-${i}`));
 
@@ -1519,6 +1521,7 @@ btnScan.addEventListener('click', async () => {
     _updateDeviceRow(hasDevice, usedDevice);
     deviceRow.style.display = '';
     swapRow.style.display   = isSwapSupported(currentNetwork.chainId) ? '' : 'none';
+    if (buyRow) buyRow.style.display = (_buyModule && _buyModule.isBuySupported(currentNetwork.chainId)) ? '' : 'none';
     const sssRow = document.getElementById('sss-row');
     if (sssRow) sssRow.style.display = (isV4 || isV5) ? 'none' : '';
     const securityToolsRow = document.getElementById('security-tools-row');
@@ -4050,7 +4053,10 @@ function _switchNetwork(net) {
   btnNetwork.textContent = currentNetwork.name;
   btnNetwork.classList.toggle('mainnet', !currentNetwork.testnet);
   updateTokenSelector();
-  if (vaultReady) swapRow.style.display = isSwapSupported(currentNetwork.chainId) ? '' : 'none';
+  if (vaultReady) {
+    swapRow.style.display = isSwapSupported(currentNetwork.chainId) ? '' : 'none';
+    if (buyRow) buyRow.style.display = (_buyModule && _buyModule.isBuySupported(currentNetwork.chainId)) ? '' : 'none';
+  }
   const addr = ethAddress.textContent;
   if (addr && addr !== '—') fetchBalance(addr);
 }
@@ -4246,6 +4252,30 @@ function _selfHealReset() {
       _lastCamTime = video.currentTime;
     }
   }, _CAM_CHECK_MS);
+}
+
+// ── Buy/Sell module (feature-flagged) ────────────────────────────────────────
+let _buyModule = null;
+if (FEATURES.BUY_MODULE) {
+  import('../core/buy.js').then(mod => {
+    _buyModule = mod;
+    mod.initBuyModule({
+      container: buyRow,
+      deps: {
+        t,
+        performLivenessChallenge,
+        callWorker,
+        videoEl:           video,
+        getActiveAddress:  () => ethAddress?.textContent || null,
+        getCurrentNetwork: () => currentNetwork,
+        setScanning:          (val) => setScanning(val),
+        setMsg:               (msg, type) => setMsg(msg, type ?? ''),
+        ensureCameraForScan:  () => _ensureCameraForScan(),
+      },
+    });
+    if (vaultReady && buyRow)
+      buyRow.style.display = mod.isBuySupported(currentNetwork.chainId) ? '' : 'none';
+  }).catch(e => console.warn('Buy module load failed:', e));
 }
 
 window.addEventListener('unhandledrejection', e => {

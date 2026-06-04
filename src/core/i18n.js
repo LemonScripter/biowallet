@@ -96,6 +96,26 @@ const STRINGS = {
     'sss.lock.paper.ph':     '64 vagy 66 karakter — pl. 3a9f…',
     'footer':             'BioWallet · DCC kauzális lánc · BCH-255 · AES-256-GCM · secp256k1',
 
+    /* ── Buy/Sell module ───────────────────────────────────────────── */
+    'buy.btn':              'Kripto Vétel/Eladás',
+    'buy.btn.sub':          'Transak · EUR ↔ Kripto · arc-scan kötelező',
+    'buy.modal.title':      'Kripto Vétel/Eladás',
+    'buy.tab.buy':          'Vásárlás',
+    'buy.tab.sell':         'Eladás',
+    'buy.desc.buy':         'EUR-ért vásárolhatsz kriptót. Az arc-szkennelés jóváhagyja a fogadó cím-et.',
+    'buy.desc.sell':        'Kriptót adhatsz el EUR-ért. A tranzakciót arc-szkennelés hagyja jóvá.',
+    'buy.desc.buy.short':   'EUR → Kripto',
+    'buy.desc.sell.short':  'Kripto → EUR',
+    'buy.confirm.buy':      'Folytatás arc-szkennelással',
+    'buy.confirm.sell':     'Folytatás arc-szkennelással',
+    'buy.scanning':         'Arc-szkennelés…',
+    'buy.loading':          'Szolgáltató betöltése…',
+    'buy.success':          'Sikeres tranzakció!',
+    'buy.popup.opened':     'Transak megnyílt — fejezd be a vásárlást az új ablakban.',
+    'buy.err.liveness':     'Élőség-ellenőrzés sikertelen. Próbáld újra.',
+    'buy.err.no_address':   'Nincs aktív wallet cím.',
+    'buy.err.provider':     'Szolgáltató nem elérhető',
+
     /* ── Dynamic messages ──────────────────────────────────────────── */
     'msg.camera.init':        'Kamera inicializálása…',
     'msg.camera.error':       'Kamera nem érhető el — ellenőrizze, hogy egy másik alkalmazás nem foglalja le, majd próbálja újra.',
@@ -453,6 +473,26 @@ const STRINGS = {
     'sss.lock.paper.label':  'Paper share (if no enrolled device)',
     'sss.lock.paper.ph':     '64 or 66 chars — e.g. 3a9f…',
     'footer':             'BioWallet · DCC causal chain · BCH-255 · AES-256-GCM · secp256k1',
+
+    /* ── Buy/Sell module ───────────────────────────────────────────── */
+    'buy.btn':              'Buy / Sell Crypto',
+    'buy.btn.sub':          'Transak · EUR ↔ Crypto · face scan required',
+    'buy.modal.title':      'Buy / Sell Crypto',
+    'buy.tab.buy':          'Buy',
+    'buy.tab.sell':         'Sell',
+    'buy.desc.buy':         'Purchase crypto with EUR. Face scan confirms the receiving address.',
+    'buy.desc.sell':        'Sell crypto for EUR. Transaction approval requires face scan.',
+    'buy.desc.buy.short':   'EUR → Crypto',
+    'buy.desc.sell.short':  'Crypto → EUR',
+    'buy.confirm.buy':      'Continue with face scan',
+    'buy.confirm.sell':     'Continue with face scan',
+    'buy.scanning':         'Face scanning…',
+    'buy.loading':          'Loading provider…',
+    'buy.success':          'Transaction successful!',
+    'buy.popup.opened':     'Transak opened — complete the purchase in the new window.',
+    'buy.err.liveness':     'Liveness check failed. Please try again.',
+    'buy.err.no_address':   'No active wallet address.',
+    'buy.err.provider':     'Provider unavailable',
 
     /* ── Dynamic messages ──────────────────────────────────────────── */
     'msg.camera.init':        'Initialising camera…',
