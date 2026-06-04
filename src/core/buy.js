@@ -1,35 +1,44 @@
 /**
- * BioWallet Protected Buy/Sell — v36
+ * BioWallet Protected Buy/Sell — v36 (Ramp Network)
  *
  * Flow:
  *   1. [Buy/Sell Crypto] gomb → döntési modal (Vétel / Eladás)
- *   2. Választás → modal bezárul → kamera felugrik a főképernyőn (setScanning)
- *   3. Liveness fut a fő UI-ban (nem a modal-ban)
- *   4. Sikeres scan → Transak widget overlay-ként nyílik
+ *   2. Választás → modal bezárul → kamera felugrik a főképernyőn
+ *   3. Liveness fut a fő UI-ban (DCC gate)
+ *   4. Sikeres scan → Ramp widget popup ablakban nyílik
  *
  * Protection chain:
  *   Ring 0 (code integrity) + DCC (biometric gate) + Worker (key isolation)
+ *
+ * Ramp Network integration:
+ *   - No IP whitelist required
+ *   - No domain whitelist for demo
+ *   - URL built client-side (no server session needed)
+ *   - postMessage events for order tracking
  */
 
-// ── Supported networks ────────────────────────────────────────────────────────
+// ── Supported networks (Ramp Network asset format) ───────────────────────────
+// rampAsset: NETWORK_TOKEN format used by Ramp
 export const BUY_NETWORKS = new Map([
-  // transakNet = Transak API network identifier (NOT the display name)
-  [1,        { name: 'Ethereum',  transakNet: 'ethereum',  fiatCurrencies: ['EUR','USD','GBP'], cryptoCurrencies: ['ETH','USDC','USDT'] }],
-  [56,       { name: 'BNB Chain', transakNet: 'bsc',       fiatCurrencies: ['EUR','USD'],       cryptoCurrencies: ['BNB','USDC']        }],
-  [137,      { name: 'Polygon',   transakNet: 'polygon',   fiatCurrencies: ['EUR','USD'],       cryptoCurrencies: ['MATIC','USDC']      }],
-  [42161,    { name: 'Arbitrum',  transakNet: 'arbitrum',  fiatCurrencies: ['EUR','USD'],       cryptoCurrencies: ['ETH','USDC']        }],
-  [8453,     { name: 'Base',      transakNet: 'base',      fiatCurrencies: ['EUR','USD'],       cryptoCurrencies: ['ETH','USDC']        }],
-  [10,       { name: 'Optimism',  transakNet: 'optimism',  fiatCurrencies: ['EUR','USD'],       cryptoCurrencies: ['ETH','USDC']        }],
+  [1,        { name: 'Ethereum',  rampAsset: 'ETH_ETH',       fiatCurrencies: ['EUR','USD','GBP'], cryptoCurrencies: ['ETH','USDC','USDT'] }],
+  [56,       { name: 'BNB Chain', rampAsset: 'BSC_BNB',       fiatCurrencies: ['EUR','USD'],       cryptoCurrencies: ['BNB','USDC']        }],
+  [137,      { name: 'Polygon',   rampAsset: 'MATIC_MATIC',   fiatCurrencies: ['EUR','USD'],       cryptoCurrencies: ['MATIC','USDC']      }],
+  [42161,    { name: 'Arbitrum',  rampAsset: 'ARBITRUM_ETH',  fiatCurrencies: ['EUR','USD'],       cryptoCurrencies: ['ETH','USDC']        }],
+  [8453,     { name: 'Base',      rampAsset: 'BASE_ETH',      fiatCurrencies: ['EUR','USD'],       cryptoCurrencies: ['ETH','USDC']        }],
+  [10,       { name: 'Optimism',  rampAsset: 'OPTIMISM_ETH',  fiatCurrencies: ['EUR','USD'],       cryptoCurrencies: ['ETH','USDC']        }],
 ]);
 
-// ── Transak config ────────────────────────────────────────────────────────────
-const TRANSAK_SANDBOX_KEY = 'BIOWALLET_TRANSAK_KEY_PLACEHOLDER';
-const TRANSAK_WIDGET_URL  = 'https://global-stg.transak.com';  // sandbox
+// ── Ramp config ───────────────────────────────────────────────────────────────
+const RAMP_DEMO_URL  = 'https://app.demo.ramp.network/';   // no API key needed
+const RAMP_PROD_URL  = 'https://app.ramp.network/';
+const RAMP_APP_NAME  = 'BioWallet';
+const RAMP_LOGO_URL  = 'https://biowallet.metaspace.bio/app/icon-192.png';
 
 // ── Module state ──────────────────────────────────────────────────────────────
-let _deps      = null;
-let _container = null;
-let _modal     = null;
+let _deps       = null;
+let _container  = null;
+let _modal      = null;
+let _rampWindow = null;
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -44,7 +53,9 @@ export function teardownBuyModule() {
   _modal?.remove();
   const btn = document.getElementById('btn-buy-sell');
   if (btn) btn.replaceWith(btn.cloneNode(true));
-  _deps = null; _container = null; _modal = null;
+  _rampWindow?.close();
+  window.removeEventListener('message', _handleRampMessage);
+  _deps = null; _container = null; _modal = null; _rampWindow = null;
 }
 
 export function isBuySupported(chainId) {
@@ -64,7 +75,7 @@ function _injectStyles() {
     }
     .buy-modal {
       background:var(--surface);border:1px solid var(--border);border-radius:16px;
-      width:100%;max-width:480px;padding:1.2rem;
+      width:100%;max-width:420px;padding:1.2rem;
     }
     .buy-modal-header {
       display:flex;justify-content:space-between;align-items:center;
@@ -74,9 +85,7 @@ function _injectStyles() {
       background:none;border:none;color:var(--muted);font-size:1.4rem;
       cursor:pointer;width:auto;padding:0 .4rem;line-height:1;
     }
-    .buy-choice-row {
-      display:flex;gap:.75rem;
-    }
+    .buy-choice-row { display:flex;gap:.75rem; }
     .buy-choice-btn {
       flex:1;width:auto;padding:1rem .8rem;border-radius:12px;
       border:1px solid var(--border);background:var(--surface2);
@@ -87,10 +96,6 @@ function _injectStyles() {
     .buy-choice-btn .buy-choice-icon { font-size:1.6rem;color:var(--accent); }
     .buy-choice-btn strong { font-size:.95rem;color:var(--text); }
     .buy-choice-btn small  { font-size:.72rem;color:var(--muted);line-height:1.3; }
-    .buy-success {
-      text-align:center;padding:2rem 1rem;
-    }
-    .buy-success-icon { font-size:2.5rem;color:var(--ok);margin-bottom:.75rem; }
   `;
   document.head.appendChild(s);
 }
@@ -108,7 +113,6 @@ function _onBuySellClick() {
   _showChoiceModal(network);
 }
 
-// Step 1: Döntési modal — csak Vétel / Eladás, nincs scan gomb
 function _showChoiceModal(network) {
   _modal?.remove();
   const netInfo = BUY_NETWORKS.get(network.chainId);
@@ -149,150 +153,95 @@ function _closeChoiceModal() {
 
 // ── Core flow ─────────────────────────────────────────────────────────────────
 
-// Step 2: Választás → modal bezár → kamera felugrik → liveness → Transak
 async function _startFlow(mode, network) {
   _closeChoiceModal();
 
-  // Kamera megnyitása + scroll top (mint a Sign TX flow)
   try {
     await _deps.ensureCameraForScan();
-  } catch (e) {
+  } catch {
     _deps.setMsg(_deps.t('buy.err.provider') + ': camera unavailable', 'error');
     return;
   }
+
   _deps.setScanning(true);
   _deps.setMsg(_deps.t('buy.scanning'));
 
   try {
-    // DCC Gate: liveness a főképernyőn
     await _deps.performLivenessChallenge(_deps.videoEl, m => _deps.setMsg(m));
     await new Promise(r => setTimeout(r, 1500));
 
     const address = _deps.getActiveAddress();
     if (!address) throw new Error(_deps.t('buy.err.no_address'));
 
-    _deps.setMsg(_deps.t('buy.loading'));
     _deps.setScanning(false);
+    _deps.setMsg(_deps.t('buy.popup.opened'));
 
-    // Try session endpoint first (production, IP whitelisted)
-    // Fall back to direct URL (staging/dev)
-    let widgetUrl = null;
-    try {
-      const netInfo = BUY_NETWORKS.get(network.chainId);
-      widgetUrl = await _loadTransakSession(mode, netInfo, address);
-    } catch {
-      // Session not available (IP not whitelisted yet) → direct URL
-      const config = await _loadTransakConfig();
-      widgetUrl = _buildDirectUrl(mode, network, address, config);
-    }
-    _openTransakWindow(widgetUrl);
+    _openRampWindow(mode, network, address);
 
   } catch (e) {
     _deps.setScanning(false);
     const isLiveness = e.message === 'LIVENESS_TIMEOUT' || (e.message ?? '').includes('LIVENESS');
     _deps.setMsg(
-      isLiveness ? _deps.t('buy.err.liveness') : _deps.t('buy.err.provider') + ': ' + (e.message ?? '').slice(0, 60),
+      isLiveness
+        ? _deps.t('buy.err.liveness')
+        : _deps.t('buy.err.provider') + ': ' + (e.message ?? '').slice(0, 60),
       'error'
     );
   }
 }
 
-// ── Transak config ────────────────────────────────────────────────────────────
+// ── Ramp window ───────────────────────────────────────────────────────────────
 
-async function _loadTransakConfig() {
-  // 1. Production: server session endpoint (Ring 0 protected, IP whitelisted)
-  //    Returns { widgetUrl } directly — used when IP is whitelisted at Transak
-  //    Activated once Transak IP whitelist is configured
-
-  // 2. Server config endpoint (API key only, no session)
-  try {
-    const r = await fetch('/api/buy/config', { cache: 'no-store' });
-    if (r.ok) return await r.json();
-  } catch { /* try local dev */ }
-
-  // 3. Local dev: buy_local.json (gitignored, never committed)
-  try {
-    const r = await fetch('/config/buy_local.json', { cache: 'no-store' });
-    if (r.ok) return await r.json();
-  } catch { /* fallback placeholder */ }
-
-  return { apiKey: TRANSAK_SANDBOX_KEY, environment: 'STAGING' };
-}
-
-// Called when IP is whitelisted — gets session widgetUrl from server
-async function _loadTransakSession(mode, network, address) {
-  const r = await fetch('/api/buy/session', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      mode, network: network.transakNet,
-      address, currency: network.cryptoCurrencies[0],
-      staging: true,
-    }),
-    cache: 'no-store',
-  });
-  if (!r.ok) throw new Error('Session API error ' + r.status);
-  const data = await r.json();
-  if (!data.widgetUrl) throw new Error(data.error || 'No widgetUrl');
-  return data.widgetUrl;
-}
-
-// ── Transak window ────────────────────────────────────────────────────────────
-
-let _transakWindow = null;
-
-function _buildDirectUrl(mode, network, address, config) {
+function _openRampWindow(mode, network, address) {
   const netInfo = BUY_NETWORKS.get(network.chainId);
+
   const params = new URLSearchParams({
-    apiKey:                   config.apiKey,
-    environment:              config.environment,
-    walletAddress:            address,
-    network:                  netInfo.transakNet,
-    defaultCryptoCurrency:    netInfo.cryptoCurrencies[0],
-    productsAvailed:          mode === 'buy' ? 'BUY' : 'SELL',
-    themeColor:               '6c63ff',
-    hideMenu:                 'true',
-    disableWalletAddressForm: 'true',
+    userAddress:  address,
+    hostAppName:  RAMP_APP_NAME,
+    hostLogoUrl:  RAMP_LOGO_URL,
+    fiatCurrency: 'EUR',
   });
-  return `${TRANSAK_WIDGET_URL}?${params}`;
-}
 
-function _openTransakWindow(url) {
-
-  _transakWindow = window.open(
-    url,
-    'transak_buy',
-    'width=450,height=700,left=100,top=50,resizable=yes,scrollbars=yes'
-  );
-
-  if (!_transakWindow) {
-    // Popup blocked — fallback: new tab
-    _transakWindow = window.open(url, '_blank', 'noopener');
-    _deps.setMsg(_deps.t('buy.popup.opened'));
+  if (mode === 'buy') {
+    params.set('swapAsset', netInfo.rampAsset);
+    params.set('defaultAsset', netInfo.rampAsset);
   } else {
-    _deps.setMsg(_deps.t('buy.popup.opened'));
+    // off-ramp: sell crypto for fiat
+    params.set('offrampAsset', netInfo.rampAsset);
+    params.set('enabledFlows', 'OFF_RAMP');
   }
 
-  // Listen for completion message from Transak popup (window.opener.postMessage)
-  window.addEventListener('message', _handleTransakMessage);
+  const url = RAMP_DEMO_URL + '?' + params;
+
+  _rampWindow = window.open(
+    url,
+    'ramp_buy',
+    'width=480,height=700,left=100,top=50,resizable=yes,scrollbars=yes'
+  );
+
+  if (!_rampWindow) {
+    _rampWindow = window.open(url, '_blank', 'noopener');
+  }
+
+  window.addEventListener('message', _handleRampMessage);
 }
 
-function _handleTransakMessage(event) {
-  if (!event.data?.event_id?.startsWith('TRANSAK_')) return;
-  const { event_id, data } = event.data;
+function _handleRampMessage(event) {
+  // Ramp sends events from app.demo.ramp.network or app.ramp.network
+  if (!event.origin.includes('ramp.network')) return;
 
-  if (event_id === 'TRANSAK_ORDER_SUCCESSFUL') {
-    _transakWindow?.close();
-    _transakWindow = null;
-    window.removeEventListener('message', _handleTransakMessage);
-    _deps.setMsg(
-      _deps.t('buy.success') +
-      (data?.cryptoAmount ? ' ' + data.cryptoAmount + ' ' + (data.cryptoCurrency ?? '') : '')
-    );
+  const { type, payload } = event.data ?? {};
+
+  if (type === 'PURCHASE_CREATED' || type === 'PURCHASE_SUCCESSFUL') {
+    const amount = payload?.purchase?.cryptoAmount ?? '';
+    const asset  = payload?.purchase?.asset?.symbol ?? '';
+    _deps.setMsg(_deps.t('buy.success') + (amount ? ` ${amount} ${asset}` : ''));
     setTimeout(() => window.dispatchEvent(new CustomEvent('biowallet:balance-refresh')), 3000);
-  } else if (event_id === 'TRANSAK_WIDGET_CLOSE') {
-    _transakWindow?.close();
-    _transakWindow = null;
-    window.removeEventListener('message', _handleTransakMessage);
+  }
+
+  if (type === 'WIDGET_CLOSE') {
+    _rampWindow?.close();
+    _rampWindow = null;
+    window.removeEventListener('message', _handleRampMessage);
   }
 }
