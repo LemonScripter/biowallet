@@ -98,7 +98,7 @@ const STRINGS = {
 
     /* ── Buy/Sell module ───────────────────────────────────────────── */
     'buy.btn':              'Kripto Vétel/Eladás',
-    'buy.btn.sub':          'Ramp Network · EUR ↔ Kripto · arc-scan kötelező',
+    'buy.btn.sub':          'MoonPay · EUR ↔ Kripto · arc-scan kötelező',
     'buy.modal.title':      'Kripto Vétel/Eladás',
     'buy.tab.buy':          'Vásárlás',
     'buy.tab.sell':         'Eladás',
@@ -476,7 +476,7 @@ const STRINGS = {
 
     /* ── Buy/Sell module ───────────────────────────────────────────── */
     'buy.btn':              'Buy / Sell Crypto',
-    'buy.btn.sub':          'Ramp Network · EUR ↔ Crypto · face scan required',
+    'buy.btn.sub':          'MoonPay · EUR ↔ Crypto · face scan required',
     'buy.modal.title':      'Buy / Sell Crypto',
     'buy.tab.buy':          'Buy',
     'buy.tab.sell':         'Sell',

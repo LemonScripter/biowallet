@@ -1,44 +1,42 @@
 /**
- * BioWallet Protected Buy/Sell — v36 (Ramp Network)
+ * BioWallet Protected Buy/Sell — v36 (MoonPay)
  *
  * Flow:
  *   1. [Buy/Sell Crypto] gomb → döntési modal (Vétel / Eladás)
  *   2. Választás → modal bezárul → kamera felugrik a főképernyőn
  *   3. Liveness fut a fő UI-ban (DCC gate)
- *   4. Sikeres scan → Ramp widget popup ablakban nyílik
+ *   4. Sikeres scan → MoonPay widget popup ablakban nyílik
  *
  * Protection chain:
  *   Ring 0 (code integrity) + DCC (biometric gate) + Worker (key isolation)
  *
- * Ramp Network integration:
- *   - No IP whitelist required
- *   - No domain whitelist for demo
- *   - URL built client-side (no server session needed)
- *   - postMessage events for order tracking
+ * MoonPay integration:
+ *   - No domain/IP whitelist required for widget URL
+ *   - Test key (pk_test_...) from moonpay.com/dashboard
+ *   - Production key (pk_live_...) for live use
  */
 
-// ── Supported networks (Ramp Network asset format) ───────────────────────────
-// rampAsset: NETWORK_TOKEN format used by Ramp
+// ── Supported networks (MoonPay currency codes) ───────────────────────────────
 export const BUY_NETWORKS = new Map([
-  [1,        { name: 'Ethereum',  rampAsset: 'ETH_ETH',       fiatCurrencies: ['EUR','USD','GBP'], cryptoCurrencies: ['ETH','USDC','USDT'] }],
-  [56,       { name: 'BNB Chain', rampAsset: 'BSC_BNB',       fiatCurrencies: ['EUR','USD'],       cryptoCurrencies: ['BNB','USDC']        }],
-  [137,      { name: 'Polygon',   rampAsset: 'MATIC_MATIC',   fiatCurrencies: ['EUR','USD'],       cryptoCurrencies: ['MATIC','USDC']      }],
-  [42161,    { name: 'Arbitrum',  rampAsset: 'ARBITRUM_ETH',  fiatCurrencies: ['EUR','USD'],       cryptoCurrencies: ['ETH','USDC']        }],
-  [8453,     { name: 'Base',      rampAsset: 'BASE_ETH',      fiatCurrencies: ['EUR','USD'],       cryptoCurrencies: ['ETH','USDC']        }],
-  [10,       { name: 'Optimism',  rampAsset: 'OPTIMISM_ETH',  fiatCurrencies: ['EUR','USD'],       cryptoCurrencies: ['ETH','USDC']        }],
+  [1,        { name: 'Ethereum',  buyCurrency: 'eth',           sellCurrency: 'eth',           fiatCurrencies: ['EUR','USD','GBP'] }],
+  [56,       { name: 'BNB Chain', buyCurrency: 'bnb_bsc',       sellCurrency: 'bnb_bsc',       fiatCurrencies: ['EUR','USD']       }],
+  [137,      { name: 'Polygon',   buyCurrency: 'matic_polygon',  sellCurrency: 'matic_polygon', fiatCurrencies: ['EUR','USD']       }],
+  [42161,    { name: 'Arbitrum',  buyCurrency: 'eth_arbitrum',   sellCurrency: 'eth_arbitrum',  fiatCurrencies: ['EUR','USD']       }],
+  [8453,     { name: 'Base',      buyCurrency: 'eth_base',       sellCurrency: 'eth_base',      fiatCurrencies: ['EUR','USD']       }],
+  [10,       { name: 'Optimism',  buyCurrency: 'eth_optimism',   sellCurrency: 'eth_optimism',  fiatCurrencies: ['EUR','USD']       }],
 ]);
 
-// ── Ramp config ───────────────────────────────────────────────────────────────
-const RAMP_DEMO_URL  = 'https://app.demo.ramp.network/';   // no API key needed
-const RAMP_PROD_URL  = 'https://app.ramp.network/';
-const RAMP_APP_NAME  = 'BioWallet';
-const RAMP_LOGO_URL  = 'https://biowallet.metaspace.bio/app/icon-192.png';
+// ── MoonPay config ────────────────────────────────────────────────────────────
+const MOONPAY_BUY_URL  = 'https://buy.sandbox.moonpay.com/';
+const MOONPAY_SELL_URL = 'https://sell.sandbox.moonpay.com/';
+// Production: 'https://buy.moonpay.com/' and 'https://sell.moonpay.com/'
 
 // ── Module state ──────────────────────────────────────────────────────────────
-let _deps       = null;
-let _container  = null;
-let _modal      = null;
-let _rampWindow = null;
+let _deps         = null;
+let _container    = null;
+let _modal        = null;
+let _moonpayWin   = null;
+let _pollInterval = null;
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -53,9 +51,9 @@ export function teardownBuyModule() {
   _modal?.remove();
   const btn = document.getElementById('btn-buy-sell');
   if (btn) btn.replaceWith(btn.cloneNode(true));
-  _rampWindow?.close();
-  window.removeEventListener('message', _handleRampMessage);
-  _deps = null; _container = null; _modal = null; _rampWindow = null;
+  _moonpayWin?.close();
+  if (_pollInterval) clearInterval(_pollInterval);
+  _deps = null; _container = null; _modal = null; _moonpayWin = null;
 }
 
 export function isBuySupported(chainId) {
@@ -173,10 +171,12 @@ async function _startFlow(mode, network) {
     const address = _deps.getActiveAddress();
     if (!address) throw new Error(_deps.t('buy.err.no_address'));
 
+    const apiKey = await _loadApiKey();
+    if (!apiKey) throw new Error('MoonPay API key not configured');
+
     _deps.setScanning(false);
     _deps.setMsg(_deps.t('buy.popup.opened'));
-
-    _openRampWindow(mode, network, address);
+    _openMoonpayWindow(mode, network, address, apiKey);
 
   } catch (e) {
     _deps.setScanning(false);
@@ -184,64 +184,78 @@ async function _startFlow(mode, network) {
     _deps.setMsg(
       isLiveness
         ? _deps.t('buy.err.liveness')
-        : _deps.t('buy.err.provider') + ': ' + (e.message ?? '').slice(0, 60),
+        : _deps.t('buy.err.provider') + ': ' + (e.message ?? '').slice(0, 80),
       'error'
     );
   }
 }
 
-// ── Ramp window ───────────────────────────────────────────────────────────────
+// ── API key loading ───────────────────────────────────────────────────────────
 
-function _openRampWindow(mode, network, address) {
+async function _loadApiKey() {
+  // 1. Server endpoint (Ring 0 protected)
+  try {
+    const r = await fetch('/api/buy/config', { cache: 'no-store' });
+    if (r.ok) {
+      const d = await r.json();
+      if (d.apiKey) return d.apiKey;
+    }
+  } catch { /* try local */ }
+
+  // 2. Local dev file (gitignored)
+  try {
+    const r = await fetch('/config/buy_local.json', { cache: 'no-store' });
+    if (r.ok) {
+      const d = await r.json();
+      if (d.apiKey) return d.apiKey;
+    }
+  } catch { /* no local key */ }
+
+  return null;
+}
+
+// ── MoonPay window ────────────────────────────────────────────────────────────
+
+function _openMoonpayWindow(mode, network, address, apiKey) {
   const netInfo = BUY_NETWORKS.get(network.chainId);
+  const baseUrl = mode === 'buy' ? MOONPAY_BUY_URL : MOONPAY_SELL_URL;
 
   const params = new URLSearchParams({
-    userAddress:  address,
-    hostAppName:  RAMP_APP_NAME,
-    hostLogoUrl:  RAMP_LOGO_URL,
-    fiatCurrency: 'EUR',
+    apiKey,
+    theme:           'dark',
+    colorCode:       '%236c63ff',
+    language:        document.documentElement.lang === 'hu' ? 'hu' : 'en',
   });
 
   if (mode === 'buy') {
-    params.set('swapAsset', netInfo.rampAsset);
-    params.set('defaultAsset', netInfo.rampAsset);
+    params.set('currencyCode',    netInfo.buyCurrency);
+    params.set('walletAddress',   address);
+    params.set('baseCurrencyCode','eur');
   } else {
-    // off-ramp: sell crypto for fiat
-    params.set('offrampAsset', netInfo.rampAsset);
-    params.set('enabledFlows', 'OFF_RAMP');
+    params.set('baseCurrencyCode', netInfo.sellCurrency);
+    params.set('refundWalletAddress', address);
   }
 
-  const url = RAMP_DEMO_URL + '?' + params;
+  const url = baseUrl + '?' + params;
 
-  _rampWindow = window.open(
+  _moonpayWin = window.open(
     url,
-    'ramp_buy',
+    'moonpay_buy',
     'width=480,height=700,left=100,top=50,resizable=yes,scrollbars=yes'
   );
 
-  if (!_rampWindow) {
-    _rampWindow = window.open(url, '_blank', 'noopener');
+  if (!_moonpayWin) {
+    _moonpayWin = window.open(url, '_blank', 'noopener');
   }
 
-  window.addEventListener('message', _handleRampMessage);
-}
-
-function _handleRampMessage(event) {
-  // Ramp sends events from app.demo.ramp.network or app.ramp.network
-  if (!event.origin.includes('ramp.network')) return;
-
-  const { type, payload } = event.data ?? {};
-
-  if (type === 'PURCHASE_CREATED' || type === 'PURCHASE_SUCCESSFUL') {
-    const amount = payload?.purchase?.cryptoAmount ?? '';
-    const asset  = payload?.purchase?.asset?.symbol ?? '';
-    _deps.setMsg(_deps.t('buy.success') + (amount ? ` ${amount} ${asset}` : ''));
-    setTimeout(() => window.dispatchEvent(new CustomEvent('biowallet:balance-refresh')), 3000);
-  }
-
-  if (type === 'WIDGET_CLOSE') {
-    _rampWindow?.close();
-    _rampWindow = null;
-    window.removeEventListener('message', _handleRampMessage);
-  }
+  // Poll for window close to refresh balance
+  if (_pollInterval) clearInterval(_pollInterval);
+  _pollInterval = setInterval(() => {
+    if (_moonpayWin?.closed) {
+      clearInterval(_pollInterval);
+      _pollInterval = null;
+      _moonpayWin = null;
+      window.dispatchEvent(new CustomEvent('biowallet:balance-refresh'));
+    }
+  }, 1000);
 }
