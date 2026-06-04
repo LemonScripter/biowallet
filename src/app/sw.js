@@ -1,5 +1,5 @@
 // BioWallet ServiceWorker — offline cache (Phase C + WC2)
-const CACHE = 'biowallet-v102';
+const CACHE = 'biowallet-v103';
 
 // Kényszer-aktiválás: ha a főablak küldi, azonnal veszi át az irányítást
 self.addEventListener('message', e => {
@@ -39,6 +39,8 @@ const PRECACHE = [
   '/app/dapp-guide.js',
   '/core/swap.js',
   '/core/prices.js',
+  '/core/buy.js',
+  '/config/features.js',
 ];
 
 // cache: 'reload' — HTTP cache kihagyása, mindig a szerverről tölt

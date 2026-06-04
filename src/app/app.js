@@ -7,7 +7,7 @@
  */
 
 const APP_VERSION = 'v36.0';              // Buy/Sell Crypto module (Transak)
-const SW_CACHE_VERSION = 'biowallet-v102'; // egyezzen a sw.js CACHE értékével
+const SW_CACHE_VERSION = 'biowallet-v103'; // egyezzen a sw.js CACHE értékével
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
 import { openCamera, enrollEmbedding, captureEmbedding, performLivenessChallenge } from '../core/bio_capture.js?v=13';

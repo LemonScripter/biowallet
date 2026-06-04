@@ -9,3 +9,6 @@ export const FEATURES = {
   BUY_MODULE: true,    // BioWallet Protected Buy/Sell (v36)
 };
 
+// Kept for backward compatibility with any cached app.js version
+export const BUY_SUPPORTED_CHAINS = new Set([1, 56, 137, 42161, 8453, 10]);
+
