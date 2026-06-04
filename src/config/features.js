@@ -6,7 +6,7 @@
  *   Disable: sed -i 's/BUY_MODULE: true/BUY_MODULE: false/' src/config/features.js
  */
 export const FEATURES = {
-  BUY_MODULE: true,    // BioWallet Protected Buy/Sell (v36)
+  BUY_MODULE: false,   // BioWallet Protected Buy/Sell (v36) — disabled, pending KYC UX decision
 };
 
 // Kept for backward compatibility with any cached app.js version
