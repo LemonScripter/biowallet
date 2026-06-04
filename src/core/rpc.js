@@ -43,16 +43,25 @@ export const NETWORKS = {
 
 // ── JSON-RPC base ─────────────────────────────────────────────────────────
 
+const RPC_TIMEOUT_MS = 12000;
+
 async function rpcCall(rpcUrl, method, params = []) {
-  const res = await fetch(rpcUrl, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method, params }),
-  });
-  if (!res.ok) throw new Error(`RPC HTTP ${res.status}`);
-  const { result, error } = await res.json();
-  if (error) throw new Error(error.message ?? 'RPC hiba');
-  return result;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), RPC_TIMEOUT_MS);
+  try {
+    const res = await fetch(rpcUrl, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method, params }),
+      signal:  controller.signal,
+    });
+    if (!res.ok) throw new Error(`RPC HTTP ${res.status}`);
+    const { result, error } = await res.json();
+    if (error) throw new Error(error.message ?? 'RPC error');
+    return result;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // ── Queries ───────────────────────────────────────────────────────────────
@@ -192,11 +201,18 @@ export function encodeTransfer(to, amount) {
  * network: network object (blockscout field required), otherwise throws.
  */
 export async function fetchTxHistory(address, network, limit = 5) {
-  if (!network?.blockscout) throw new Error('TX history nem elérhető ezen a hálózaton');
-  const res = await fetch(
-    `${network.blockscout}/api/v2/addresses/${address}/transactions`
-  );
-  if (!res.ok) throw new Error(`Blockscout ${res.status}`);
-  const { items } = await res.json();
-  return (items ?? []).slice(0, limit);
+  if (!network?.blockscout) throw new Error('TX history not available on this network');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), RPC_TIMEOUT_MS);
+  try {
+    const res = await fetch(
+      `${network.blockscout}/api/v2/addresses/${address}/transactions`,
+      { signal: controller.signal }
+    );
+    if (!res.ok) throw new Error(`Blockscout ${res.status}`);
+    const { items } = await res.json();
+    return (items ?? []).slice(0, limit);
+  } finally {
+    clearTimeout(timer);
+  }
 }
