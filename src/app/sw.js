@@ -1,5 +1,5 @@
 // BioWallet ServiceWorker — offline cache (Phase C + WC2)
-const CACHE = 'biowallet-v98';
+const CACHE = 'biowallet-v99';
 
 // Kényszer-aktiválás: ha a főablak küldi, azonnal veszi át az irányítást
 self.addEventListener('message', e => {
