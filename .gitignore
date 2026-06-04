@@ -32,3 +32,13 @@ dev.py
 .DS_Store
 Thumbs.db
 desktop.ini
+src/config/buy_local.json
+
+# Local dev assets — downloaded from server, never commit
+vendor/
+src/vendor/
+src/models/
+src/models*
+
+# Garbage files from failed bash commands
+"src/vendor*"
