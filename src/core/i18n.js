@@ -263,6 +263,7 @@ const STRINGS = {
     'net.add.err.chain':  'Érvénytelen ChainID.',
     'net.add.err.rpc':    'RPC URL https://-vel kell kezdődjön.',
     'net.add.err.exp':    'Explorer URL https://-vel kell kezdődjön.',
+    'net.add.verifying':  'RPC ellenőrzése...',
 
     /* ── Recovery paper modal ──────────────────────────────────────── */
     'paper.step.label':  '2 LÉPÉSES FOLYAMAT — 1. LÉPÉS',
@@ -617,6 +618,7 @@ const STRINGS = {
     'net.add.err.chain':  'Invalid ChainID.',
     'net.add.err.rpc':    'RPC URL must start with https://.',
     'net.add.err.exp':    'Explorer URL must start with https://.',
+    'net.add.verifying':  'Verifying RPC...',
 
     /* ── Recovery paper modal ──────────────────────────────────────── */
     'paper.step.label':  '2-STEP PROCESS — STEP 1',

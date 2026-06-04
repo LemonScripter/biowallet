@@ -23,8 +23,8 @@ import {
   getFeeData, estimateGas, broadcastTx,
   ethToWei, weiToEth, isValidAddress, resolveENS,
   getTokenBalance, formatToken, fetchTxHistory,
-  tokenToRaw, encodeTransfer, getAllowance,
-} from '../core/rpc.js?v=26';
+  tokenToRaw, encodeTransfer, getAllowance, verifyChainId,
+} from '../core/rpc.js?v=27';
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
@@ -4094,18 +4094,35 @@ function showAddNetworkModal() {
 
     const err = box.querySelector('#_cn_err');
     box.querySelector('#_cn_cancel').addEventListener('click', () => { ov.remove(); resolve(); });
-    box.querySelector('#_cn_add').addEventListener('click', () => {
+    box.querySelector('#_cn_add').addEventListener('click', async () => {
       const name    = box.querySelector('#_cn_name').value.trim();
       const chainId = parseInt(box.querySelector('#_cn_chain').value.trim(), 10);
       const rpc     = box.querySelector('#_cn_rpc').value.trim();
       const explorer= box.querySelector('#_cn_exp').value.trim();
       const sym     = box.querySelector('#_cn_sym').value.trim() || 'ETH';
+      const addBtn  = box.querySelector('#_cn_add');
 
-      if (!name)                         { err.textContent = t('net.add.err.name'); return; }
-      if (!chainId || isNaN(chainId))    { err.textContent = t('net.add.err.chain'); return; }
-      if (!rpc.startsWith('https://'))   { err.textContent = t('net.add.err.rpc'); return; }
-      if (!explorer.startsWith('https://')) { err.textContent = t('net.add.err.exp'); return; }
+      if (!name)                            { err.textContent = t('net.add.err.name');  return; }
+      if (!chainId || isNaN(chainId))       { err.textContent = t('net.add.err.chain'); return; }
+      if (!rpc.startsWith('https://'))      { err.textContent = t('net.add.err.rpc');   return; }
+      if (!explorer.startsWith('https://')) { err.textContent = t('net.add.err.exp');   return; }
 
+      // Verify chainId against the RPC endpoint before saving
+      addBtn.disabled  = true;
+      err.textContent  = '';
+      err.style.color  = 'var(--muted)';
+      err.textContent  = t('net.add.verifying');
+      try {
+        await verifyChainId(rpc, chainId);
+      } catch (e) {
+        err.style.color = 'var(--danger)';
+        err.textContent = e.message;
+        addBtn.disabled = false;
+        return;
+      }
+
+      err.textContent = '';
+      err.style.color = '';
       const net = { key: `custom_${chainId}`, name, chainId, rpc, explorer, nativeSymbol: sym, blockscout: null, testnet: false };
       saveCustomNetwork(net);
       ov.remove();

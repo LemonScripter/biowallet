@@ -176,6 +176,18 @@ export async function resolveENS(name) {
   }
 }
 
+/**
+ * Verify that the RPC endpoint reports the expected chainId.
+ * Returns true if match, throws with descriptive message if mismatch or unreachable.
+ */
+export async function verifyChainId(rpcUrl, expectedChainId) {
+  const hex = await rpcCall(rpcUrl, 'eth_chainId', []);
+  const actual = parseInt(hex, 16);
+  if (actual !== expectedChainId)
+    throw new Error(`Chain ID mismatch: entered ${expectedChainId}, RPC reports ${actual}`);
+  return true;
+}
+
 /** ERC-20 balanceOf(address) — raw eth_call. Returns: BigInt (wei equivalent). */
 export async function getTokenBalance(tokenAddress, walletAddress, rpcUrl) {
   const data = '0x70a08231' + walletAddress.slice(2).padStart(64, '0');
