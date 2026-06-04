@@ -7,7 +7,7 @@
  */
 
 const APP_VERSION = 'v36.0';              // Buy/Sell Crypto module (Transak)
-const SW_CACHE_VERSION = 'biowallet-v101'; // egyezzen a sw.js CACHE értékével
+const SW_CACHE_VERSION = 'biowallet-v102'; // egyezzen a sw.js CACHE értékével
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
 import { openCamera, enrollEmbedding, captureEmbedding, performLivenessChallenge } from '../core/bio_capture.js?v=13';
@@ -17,7 +17,8 @@ import {
 } from '../core/wc2.js';
 import { isSwapSupported, buildSwapTx, buildApproveTx, getParaswapSpender, formatOutput, ETH_ADDR } from '../core/swap.js';
 import { fetchPricesUsd, fmtUsd, PRICE_NATIVE_ADDR } from '../core/prices.js';
-import { FEATURES, BUY_SUPPORTED_CHAINS } from '../config/features.js';
+import { FEATURES } from '../config/features.js';
+const BUY_SUPPORTED_CHAINS = new Set([1, 56, 137, 42161, 8453, 10]);
 import {
   BUILTIN_NETWORKS, getAllNetworks, saveCustomNetwork, deleteCustomNetwork,
   getBalance, getNonce,
