@@ -1,0 +1,12 @@
+# BioWallet — funding sources
+# Docs: https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+#
+# GitHub Sponsors listing is live: https://github.com/sponsors/LemonScripter
+github: [LemonScripter]
+
+custom:
+  # Direct ETH / EVM donations (Ethereum, Arbitrum, Base, Polygon, etc.)
+  - "https://etherscan.io/address/0x305Bc09fc3260077F81Fa1389284E83084477892"
+  # Added once the projects are live:
+  # - "https://giveth.io/project/biowallet"
+  # - "https://explorer.gitcoin.co/"

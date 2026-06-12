@@ -14,7 +14,7 @@
 
 <p align="center">
   <a href="https://biowallet.metaspace.bio"><img src="https://img.shields.io/badge/live-biowallet.metaspace.bio-6c63ff" alt="Live" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Non--Commercial-orange" alt="License: Non-Commercial" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue" alt="License: AGPL-3.0" /></a>
   <a href="tests/verify_biowallet.py"><img src="https://img.shields.io/badge/Z3%20invariants-71%2F71%20PASS-brightgreen" alt="Z3 71/71" /></a>
   <a href="tests/verify_sss_gf256.py"><img src="https://img.shields.io/badge/SSS%20GF(2%E2%81%B8)-13%2F13%20PASS-brightgreen" alt="SSS GF(2^8)" /></a>
   <img src="https://img.shields.io/badge/CDN%20dependencies-zero-blue" alt="No CDN" />
@@ -296,8 +296,21 @@ biowallet/
 
 ---
 
+## Support the project
+
+BioWallet is independent, self-funded, and has no token, no VC, and no server that monetizes your data. If it is useful to you, you can help keep it maintained and audited:
+
+- **GitHub Sponsors** — the ❤️ Sponsor button at the top of the repo
+- **Gitcoin / Giveth** — quadratic-funding rounds (links in [`.github/FUNDING.yml`](.github/FUNDING.yml))
+- **Direct (crypto)** — see [`.github/FUNDING.yml`](.github/FUNDING.yml)
+
+Small recurring donations from many supporters matter far more than a few large ones — under quadratic funding, 50 people giving a little unlocks much more matching than one large gift.
+
 ## License
 
-MIT + Commons Clause (Non-Commercial) © 2025–2026 Szőke László-Ferenc — [MetaSpace.Bio Logic Engine](https://metaspace.bio) | admin@metaspace.bio
+BioWallet is **dual-licensed**:
 
-BioWallet is open source. You are free to audit, fork, and self-host for personal or research use. Commercial use requires written permission. If you find a security issue, please read [SECURITY.md](SECURITY.md) before disclosing publicly.
+- **Open source:** [GNU AGPL-3.0](LICENSE) — free to use, study, modify, and self-host. If you run a modified version as a network service, you must publish your source.
+- **Commercial:** for closed-source or hosted-without-disclosure use, a separate commercial license is available — see [COMMERCIAL.md](COMMERCIAL.md) or contact **admin@metaspace.bio**.
+
+© 2025–2026 Szőke László-Ferenc — [MetaSpace.Bio Logic Engine](https://metaspace.bio). If you find a security issue, please read [SECURITY.md](SECURITY.md) before disclosing publicly.
