@@ -244,10 +244,23 @@ NEGATÍV / ÖNGYÓGYÍTÁS
 | **H4** | (Opcionális, MetaSpace) `spec/biowallet.bio`: a „nincs kiúttalan állapot" invariáns formalizálása (STATES + TRANSITION lefedettség). |
 
 ```
-[ ] Phase 4 kód kész
-[ ] STANDARD CHECKLIST (teljes negatív blokk: C11–C15)
+[x] Phase 4 kód kész (2026-06-20)
+[x] CHK-1/CHK-3 build OK; CHK-2 gyors tesztek PASS
+[x] STATIKUS: err.scan.stuck watchdog a bundle-ben
+[ ] MANUÁLIS (C11–C15) — PWA-ban push előtt
 [ ] Commit: "v37 Phase 4: self-healing state guarantees"
 ```
+
+### Phase 4 — audit + watchdog
+- **H1 audit (kód nélkül):** a scan-flow minden ága KORLÁTOZOTT időre fut:
+  liveness 8s (`bio_capture.js` `LIVENESS_TIMEOUT`), worker-hívás 30s (`callWorker`),
+  kamera-init 2s fallback. Minden `catch` visszaállítja a UI-t (`setScanning(false)` + `btnScan.disabled=false`),
+  és `window.unhandledrejection` → `setScanning(false)`. → nincs ismert örök-beragadás.
+- **H2 (Phase 1-ben kész):** worker-respawn + retry; `_workerDead` → reload-banner.
+- **H3 watchdog (új):** `setScanning(true)` → 90s biztonsági timer; ha addig nem zárul,
+  kényszer-visszaállás (gomb engedélyezve, `err.scan.stuck`, adat érintetlen). Belt-and-suspenders.
+- **H4 (.bio formalizálás):** elhalasztva — a runtime öngyógyítás a lényeg; a `spec/biowallet.bio`
+  invariáns-bővítés opcionális későbbi feladat.
 
 ---
 

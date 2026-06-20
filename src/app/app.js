@@ -3887,9 +3887,21 @@ function showPanel(name) {
   }
 }
 
+let _scanWatchdog = null;
 function setScanning(on, detected = false) {
   faceGuide.className = 'face-guide' + (on ? ' scanning' : detected ? ' detected' : '');
   scanHint.textContent = on ? t('scan.hint.active') : t('scan.hint.done');
+  // Öngyógyítás: a szkennelés SOHA ne ragadjon be. A legitim leghosszabb út ~75s
+  // (liveness 8s + worker 2×30s); 90s után kényszer-visszaállás, az adat érintetlen.
+  clearTimeout(_scanWatchdog);
+  if (on) {
+    _scanWatchdog = setTimeout(() => {
+      faceGuide.className  = 'face-guide';
+      scanHint.textContent = t('scan.hint.done');
+      btnScan.disabled     = false;
+      setMsg(t('err.scan.stuck'), 'error');
+    }, 90_000);
+  }
 }
 
 function setMsg(text, type = '', i18nKey = null) {
