@@ -211,10 +211,26 @@ NEGATÍV / ÖNGYÓGYÍTÁS
 | **A1-5** | WC: sikeres váltás-`OPEN` után `emitSessionEvent('accountsChanged', [újCím])` minden aktív sessionre. | `app.js:1544`, `wc2.js:77` |
 
 ```
-[ ] Phase 3 kód kész
-[ ] STANDARD CHECKLIST (fókusz: C4 — a FŐ bug, + C10 WC)
+[x] Phase 3 kód kész (2026-06-20)
+[x] CHK-1 szintaxis: app.js / wc2.js / i18n.js OK
+[x] CHK-3 build OK
+[x] CHK-2 gyors tesztek: recovery_math / bch / tx_commitment PASS
+[x] STATIKUS: switch.scan + accountsChanged a bundle-ben
+[ ] MANUÁLIS (C4 a FŐ bug + C10 WC) — PWA-ban push előtt
 [ ] Commit: "v37 Phase 3: safe wallet switch (A1) + WC accountsChanged"
 ```
+
+### Phase 3 — mit változott (app.js, wc2.js, i18n.js)
+- **A1-1:** váltáskor egyértelmű üzenet — `msg.wallet.switch.scan` („🔒 {name} kiválasztva —
+  scanneld az arcod a váltáshoz"), nem a félrevezető „Vault betöltve".
+- **A1-2:** `_walletsSaveCurrent()` minden in-place mutáció után (2× re-enroll + device-enroll) →
+  a per-wallet snapshot `vaultJson`-ja nem avul el switch-away/visszaváltáskor.
+- **A1-3:** switch guard — hiányos cél-snapshot (`!vaultJson`) → `msg.wallet.switch.incomplete`,
+  nincs néma elhalás; a váltás `_initVaultWithRetry`-t használ (worker-respawn öngyógyítás).
+- **A1-4:** BroadcastChannel `senderId` — a saját üzenetet kihagyja (önzárolás megelőzése);
+  a valódi „másik lapfül" lock megmarad.
+- **A1-5:** `wcEmitAccountsChanged()` — sikeres open/váltás után minden aktív WC-session
+  megkapja az ÚJ címet → a csatlakozott dApp tényleg vált.
 
 ---
 

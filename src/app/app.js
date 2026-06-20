@@ -13,7 +13,7 @@ import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } fr
 import { openCamera, enrollEmbedding, captureEmbedding, performLivenessChallenge } from '../core/bio_capture.js?v=13';
 import {
   WC_PROJECT_ID, initWC, wcPair, wcApprove, wcRejectProposal, wcEmitChainChanged,
-  wcRespondOk, wcRespondError, wcGetSessions, wcDisconnect, wcReady,
+  wcEmitAccountsChanged, wcRespondOk, wcRespondError, wcGetSessions, wcDisconnect, wcReady,
 } from '../core/wc2.js';
 import { isSwapSupported, buildSwapTx, buildApproveTx, getParaswapSpender, formatOutput, ETH_ADDR } from '../core/swap.js';
 import { fetchPricesUsd, fmtUsd, PRICE_NATIVE_ADDR } from '../core/prices.js';
@@ -89,10 +89,14 @@ window.addEventListener('unhandledrejection', e => {
 // ── GAP-4: BroadcastChannel — egyszerre csak egy tab-ban legyen nyitva a vault ──
 // Ha egy másik tab megnyitja a vaultot, ez a tab automatikusan zárolódik.
 const _vaultBC = ('BroadcastChannel' in self) ? new BroadcastChannel('biowallet-session') : null;
+// A1-4: egyedi sender-azonosító — a saját üzeneteinket SOHA ne kezeljük úgy,
+// mintha egy másik lapfül nyitotta volna meg a vaultot (önzárolás megelőzése).
+const _bcSenderId = (crypto.randomUUID?.() ?? String(Math.random()));
 if (_vaultBC) {
   _vaultBC.onmessage = (e) => {
+    if (e.data?.sender === _bcSenderId) return;   // saját üzenet — kihagyjuk
     if (e.data?.type === 'VAULT_OPEN') {
-      // Másik tab megnyitotta a vaultot — zárjuk ezt
+      // Másik lapfül megnyitotta a vaultot — egy aktív munkamenet elve → zárjuk ezt
       callWorker('LOCK').catch(() => {});
       showPanel('lock');
       const isHu = document.documentElement.lang !== 'en';
@@ -103,8 +107,8 @@ if (_vaultBC) {
     }
   };
 }
-function _bcVaultOpen(vaultId)   { _vaultBC?.postMessage({ type: 'VAULT_OPEN',   vaultId }); }
-function _bcVaultLocked(vaultId) { _vaultBC?.postMessage({ type: 'VAULT_LOCKED', vaultId }); }
+function _bcVaultOpen(vaultId)   { _vaultBC?.postMessage({ type: 'VAULT_OPEN',   vaultId, sender: _bcSenderId }); }
+function _bcVaultLocked(vaultId) { _vaultBC?.postMessage({ type: 'VAULT_LOCKED', vaultId, sender: _bcSenderId }); }
 
 // ── Multi-wallet storage ──────────────────────────────────────────────────
 // biowallet_meta            = active wallet (unchanged — backward compat)
@@ -1147,14 +1151,22 @@ btnSwitchWallet.addEventListener('click', async () => {
   }
 
   if (action === 'switch' && meta?.vaultId) {
+    // A1-3: hiányos cél-snapshot → érthető hiba, ne kerüljünk vak lock-állapotba.
+    if (!meta.vaultJson) {
+      setMsg(t('msg.wallet.switch.incomplete'), 'error');
+      return;
+    }
     callWorker('LOCK').catch(() => {});
-    await callWorker('INIT_VAULT', { vaultId: meta.vaultId, bfState: _bfGet() });
+    // Öngyógyítás: worker-hiba esetén respawn + retry (Phase 1), nincs beragadás.
+    const ok = await _initVaultWithRetry(meta.vaultId);
+    if (!ok) { _showReloadNeeded(); return; }
     vaultReady = true;
-    _applyVaultJson(meta, meta.vaultJson ?? '');
+    _applyVaultJson(meta, meta.vaultJson);
     _showWalletBadge(meta);
     _showReenrollReminder(_reenrollReminderDays(meta));
     showPanel('lock');
-    setMsg(t('msg.vault.loaded'), '');
+    // A1-1: egyértelmű üzenet — a váltás arc-scant igényel (nem „betöltve").
+    setMsg(t('msg.wallet.switch.scan', { name: meta.walletName || '' }), '');
     return;
   }
 
@@ -1590,6 +1602,10 @@ btnScan.addEventListener('click', async () => {
     _bcVaultOpen(meta.vaultId);   // GAP-4: értesítjük a többi tabot
     showPanel('vault');
     _showWalletBadge(meta);
+    // A1-5: wallet-váltás/újranyitás után a csatlakozott dApp-ok az ÚJ címet kapják.
+    if (wcReady()) {
+      for (const s of wcGetSessions()) wcEmitAccountsChanged(s.topic, address, currentNetwork.chainId).catch(() => {});
+    }
     ensureWCInit().catch(() => {});
     if (pendingWCReq) {
       const req = pendingWCReq;
@@ -2288,6 +2304,7 @@ async function _mandatoryReenroll(meta) {
 
       await showSaveModal(encryptedVault, JSON.stringify(P), 'reenroll', meta.walletName || 'biowallet');
       localStorage.setItem('biowallet_meta', JSON.stringify(meta));
+      _walletsSaveCurrent();   // A1-2: a per-wallet snapshot ne avuljon el
 
       setMsg(t('msg.reenroll.done'), 'ok');
       showPanel('vault');
@@ -2359,6 +2376,7 @@ document.getElementById('btn-reenroll')?.addEventListener('click', async () => {
     const walletName = await showSaveModal(encryptedVault, JSON.stringify(P), 'reenroll', meta.walletName || 'biowallet');
     meta.walletName = walletName;
     localStorage.setItem('biowallet_meta', JSON.stringify(meta));
+    _walletsSaveCurrent();   // A1-2: a per-wallet snapshot ne avuljon el
 
     setMsg(t('msg.reenroll.done'), 'ok');
   } catch (e) {
@@ -2507,6 +2525,7 @@ btnDevice.addEventListener('click', async () => {
     const walletName = await showSaveModal(encryptedVault, null, 'device', meta.walletName || 'biowallet');
     meta.walletName = walletName;
     localStorage.setItem('biowallet_meta', JSON.stringify(meta));
+    _walletsSaveCurrent();   // A1-2: a per-wallet snapshot ne avuljon el
 
     _updateDeviceRow(true, true);
     setMsg(t('msg.device.enrolled'), 'ok');

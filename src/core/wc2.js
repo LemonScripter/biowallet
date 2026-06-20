@@ -81,6 +81,16 @@ export async function wcEmitChainChanged(topic, chainId) {
   }).catch(() => {});
 }
 
+// A1-5: wallet-váltás után a csatlakozott dApp-ok az ÚJ címet kapják.
+export async function wcEmitAccountsChanged(topic, address, chainId) {
+  if (!_wallet) return;
+  return _wallet.emitSessionEvent({
+    topic,
+    event: { name: 'accountsChanged', data: [address] },
+    chainId: `eip155:${chainId}`,
+  }).catch(() => {});
+}
+
 export function wcGetSessions() {
   return _wallet ? Object.values(_wallet.getActiveSessions()) : [];
 }
