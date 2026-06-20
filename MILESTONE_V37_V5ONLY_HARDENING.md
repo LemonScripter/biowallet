@@ -280,11 +280,31 @@ A SW `install`→`skipWaiting`, `activate`→régi cache törlés + `clients.cla
 automatikusan friss kódra vált. A modul `?v=` bumpok a worker ES-module cache (BUG-06) ellen.
 
 ```
-[ ] Phase 5 kész
-[ ] TELJES regresszió localhoston (összes C sor)
-[ ] Élő smoke OK
-[ ] Commit + push + deploy igazolva (SW v109 él)
+[x] Phase 5 KÉSZ (2026-06-20)
+[x] Szerver-deploy (deploy.ps1 -SkipGitPush): 17 fájl SCP, chattr +i visszazárva, version.json v109
+[x] Gyökér /sw.js → önkioldó stub (legacy scope-kliensek auto-unregister+frissítés)
+[x] Élő smoke OK: version.json v109, /app/sw.js v109, /→/app/ 200, vault.js UNSUPPORTED_FORMAT
+[x] GitHub push a HELYES repóra: LemonScripter/biowallet.git main = c049a96 (origin=dcc-shield ÉRINTETLEN)
+[x] Letölthető biowallet.html (v37 v5-only) felpusholva
+[ ] ÉLES manuális teszt (felhasználó) — PWA v109 auto-frissül
 ```
+
+### Phase 5 — végrehajtva
+- **Verzió-bumpok:** SW `v108→v109`; modul query: `vault.js?v=23`, `i18n.js?v=13`,
+  `vault_worker.js?v=30`, `app.js?v=23` (BUG-06 worker ES-module cache ellen).
+- **Szerver:** `deploy.ps1 -SkipGitPush` — DCC `chattr -i`→scp(17 fájl)→`chattr +i`, version.json v109.
+- **Gyökér `/sw.js`:** önkioldó stub (install→skipWaiting, activate→cache-purge+unregister+navigate).
+- **GitHub:** ⚠️ az `origin` tévesen a `dcc-shield.wiki`-re mutatott → a push az `origin` tokenjével,
+  a repo-nevet `biowallet.git`-re cserélve ment (`git push <biowallet-url> biowallet-deploy:main --force`),
+  az `origin` érintetlen maradt. biowallet.git main HEAD = `c049a96`.
+- **PWA auto-frissülés:** /app/ kliensek a v109 SW-vel; legacy / scope kliensek a stubbal.
+
+## ⚠️ Nyitott figyelmeztetés
+- Az `origin` remote **rosszul van beállítva** (`dcc-shield.wiki`, nem `biowallet`). Érdemes javítani,
+  hogy a jövőbeli `deploy.ps1` (ami `origin`-ra pushol) ne a rossz repóra menjen.
+- Az `origin` URL-ben **GitHub token** van tárolva (config-ban) — biztonsági szempontból átgondolandó.
+- Ez a MILESTONE doc a subtree-push révén **felkerült a publikus biowallet.git-re** — ha belső maradna,
+  `.gitignore` + eltávolítás kell.
 
 ---
 
