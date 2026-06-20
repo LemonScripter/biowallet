@@ -30,27 +30,55 @@ import {
 
 // ── Worker init ───────────────────────────────────────────────────────────
 
-const worker  = new Worker('./vault_worker.js?v=29', { type: 'module' });
+let worker;
 let _nextId   = 0;
 const _pending = new Map();
 
-worker.onmessage = ({ data: { id, ok, result, error } }) => {
-  const p = _pending.get(id);
-  if (!p) return;
-  _pending.delete(id);
-  ok ? p.resolve(result) : p.reject(new Error(error));
-};
+// D2b: a worker ÚJRA-példányosítható — egy crash SOHA ne hagyjon halott workert,
+// és SOHA ne vezessen adattörléshez. Crash után minden ragadt promise rejectel,
+// a worker újraindul, a hívó rétegek újrapróbálhatnak. A worker memóriában tartott
+// (feloldott) vault elveszik → vaultReady=false → újra-scan szükséges, de a
+// localStorage kulcsok/backup ÉRINTETLENEK.
+let _workerRespawns = 0;
+let _workerDead     = false;
+const _WORKER_RESPAWN_LIMIT = 5;
 
-// Worker crash: reject minden ragadt promise-t, ne maradjon örök freeze
-worker.onerror = (e) => {
-  console.error('[Worker crash]', e.message);
-  for (const { reject } of _pending.values()) reject(new Error('WORKER_CRASH'));
-  _pending.clear();
-};
-worker.onmessageerror = () => {
-  for (const { reject } of _pending.values()) reject(new Error('WORKER_CRASH'));
-  _pending.clear();
-};
+function _spawnWorker() {
+  const w = new Worker('./vault_worker.js?v=29', { type: 'module' });
+  w.onmessage = ({ data: { id, ok, result, error } }) => {
+    const p = _pending.get(id);
+    if (!p) return;
+    _pending.delete(id);
+    if (ok) { _workerRespawns = 0; p.resolve(result); }   // sikeres válasz → reset backoff
+    else p.reject(new Error(error));
+  };
+  const onDead = (label) => (e) => {
+    console.error(`[Worker ${label}]`, e?.message ?? '');
+    for (const { reject } of _pending.values()) reject(new Error('WORKER_CRASH'));
+    _pending.clear();
+    try { vaultReady = false; } catch {}
+    _respawnWorker();
+  };
+  w.onerror        = onDead('crash');
+  w.onmessageerror = onDead('messageerror');
+  return w;
+}
+
+function _respawnWorker() {
+  if (_workerRespawns >= _WORKER_RESPAWN_LIMIT) {
+    // Tartósan törött worker-script (pl. elavult SW cache) — ne pörögjön végtelenül.
+    // Az ADAT ÉP; a felhasználónak újratöltést jelzünk, NEM törlünk.
+    _workerDead = true;
+    console.error('[Worker] respawn limit reached — reload required');
+    try { _showReloadNeeded(); } catch {}
+    return;
+  }
+  _workerRespawns++;
+  try { worker?.terminate(); } catch {}
+  worker = _spawnWorker();
+}
+
+worker = _spawnWorker();
 
 // Váratlan unhandled rejection → mindig állítsuk le a scanning UI-t
 window.addEventListener('unhandledrejection', e => {
@@ -111,6 +139,70 @@ function _walletsMigrate() {
   }
 }
 
+// ── Öngyógyítás (D1/D2/D4) ──────────────────────────────────────────────────
+// D1: ha az aktív meta sérült/elavult, próbálunk visszaállni az indexből egy ÉP
+// walletre. SOHA nem törlünk tömegesen — az index és a snapshotok érintetlenek.
+function _recoverActiveFromIndex(excludeId = null) {
+  for (const w of _walletsGet()) {
+    if (excludeId && w.vaultId === excludeId) continue;
+    try {
+      const snap = JSON.parse(localStorage.getItem(`biowallet_wallet_${w.vaultId}`) ?? 'null');
+      if (snap?.vaultId && snap.vaultJson) {
+        localStorage.setItem('biowallet_meta', JSON.stringify(snap));
+        return snap;
+      }
+    } catch { /* sérült snapshot — lépjünk a következőre, NE töröljük */ }
+  }
+  return null;
+}
+
+// D2: worker-hibát elkülönítjük az adat-hibától. Respawn + 1 retry. A kulcsok ÉPEK.
+async function _initVaultWithRetry(vaultId) {
+  try { await callWorker('INIT_VAULT', { vaultId, bfState: _bfGet() }); return true; }
+  catch (e) {
+    console.error('[INIT_VAULT failed — respawning worker]', e.message);
+    _respawnWorker();
+    try { await callWorker('INIT_VAULT', { vaultId, bfState: _bfGet() }); return true; }
+    catch (e2) { console.error('[INIT_VAULT retry failed]', e2.message); return false; }
+  }
+}
+
+// Nem-destruktív „újratöltés szükséges" sáv (a meglévő update-banner újrahasznosítva).
+// SOHA nem töröl adatot — a worker nem indult, de a vault-fájlok/backup épek.
+function _showReloadNeeded() {
+  const isHu = document.documentElement.lang !== 'en';
+  setMsg(isHu
+    ? '⚠️ A biztonsági modul nem indult el. Az adataid épek — töltsd újra az oldalt.'
+    : '⚠️ Security module failed to start. Your data is safe — please reload.',
+    'error');
+  const banner = document.getElementById('update-banner');
+  const btn    = document.getElementById('update-reload-btn');
+  const text   = document.getElementById('update-banner-text');
+  if (banner && btn && text) {
+    text.textContent = isHu ? '⚠️ Újratöltés szükséges' : '⚠️ Reload required';
+    btn.textContent  = isHu ? 'Újratöltés' : 'Reload';
+    btn.onclick = () => location.reload();
+    banner.classList.add('visible');
+  }
+}
+
+// D4: tartós tárolás kérése (iOS/Safari 7-napos eviction ellen). Ha nem garantált,
+// figyelmeztetünk — a localStorage NEM backup (D5 is: tartsd meg a fájl-mentéseidet).
+async function _ensurePersistentStorage() {
+  try {
+    if (!navigator.storage?.persist) return;
+    const already = await navigator.storage.persisted?.();
+    const ok = already || await navigator.storage.persist();
+    if (!ok) {
+      const isHu = document.documentElement.lang !== 'en';
+      setMsg(isHu
+        ? 'ℹ️ A böngésző nem garantálja a tartós tárolást. Őrizd meg a .biowallet és .P.json mentéseidet!'
+        : 'ℹ️ Browser does not guarantee persistent storage. Keep your .biowallet and .P.json backups!',
+        '');
+    }
+  } catch { /* storage API hiányzik — nem kritikus */ }
+}
+
 // ── TX calldata decoder (ERC-20 common selectors) ─────────────────────────
 function _decodeCalldata(data) {
   if (!data || data === '0x' || data.length < 10) return null;
@@ -153,6 +245,8 @@ function _paperHexWithCrc(shareBytes) {
 const WORKER_TIMEOUT_MS = 30_000;
 function callWorker(type, payload = {}, transfer = []) {
   return new Promise((resolve, reject) => {
+    // Ha a worker tartósan halott, ne várjunk 30s timeoutot — azonnali tiszta hiba.
+    if (_workerDead) { reject(new Error('WORKER_DEAD')); return; }
     const id = _nextId++;
     const timer = setTimeout(() => {
       _pending.delete(id);
@@ -356,17 +450,32 @@ function _refreshDynamicLabels() {
   }
 
   const stored = localStorage.getItem('biowallet_meta');
-  _walletsMigrate();   // v35.2: single-wallet → multi-wallet index migration
+  _walletsMigrate();          // v35.2: single-wallet → multi-wallet index migration
+  _ensurePersistentStorage(); // D4: tartós tárolás kérése (non-blocking)
+
+  // D1+D2: az indítás SOHA nem hív localStorage.clear()-t. A sérült aktív metát
+  // elkülönítjük a worker-hibától, és minden esetben megőrizzük a wallet-indexet
+  // + a per-wallet snapshotokat. Öngyógyítás: hibás aktív meta → visszaállás indexből.
+  let meta = null;
   if (stored) {
-    try {
-      const meta = JSON.parse(stored);
-      if (meta.P?.version === 'p1') {
-        localStorage.clear();
-        showPanel('setup');
-        setMsgK('msg.vault.outdated', 'error');
-      } else {
-        await callWorker('INIT_VAULT', { vaultId: meta.vaultId, bfState: _bfGet() });
-        vaultReady = true;
+    try { meta = JSON.parse(stored); }
+    catch {
+      console.error('[startup] corrupt active meta — recovering from index');
+      meta = _recoverActiveFromIndex();
+      if (!meta) localStorage.removeItem('biowallet_meta');   // CSAK a sérült kulcs
+    }
+  }
+
+  // Elavult p1 P-formátum: NEM töröljük a többi walletet, ép walletre próbálunk váltani.
+  if (meta && meta.P?.version === 'p1') {
+    meta = _recoverActiveFromIndex(meta.vaultId);
+  }
+
+  if (meta) {
+    const initOk = await _initVaultWithRetry(meta.vaultId);
+    if (initOk) {
+      vaultReady = true;
+      try {
         // Show paper share input field if vault is v4 or v5
         if (meta.vaultJson) {
           const vMatch = meta.vaultJson.match(/"v"\s*:\s*(\d+)/);
@@ -401,18 +510,24 @@ function _refreshDynamicLabels() {
             if (grr) grr.style.display = '';
           }
         }
-        showPanel('lock');
-        setMsgK('msg.vault.loaded');
-        const lvr = document.getElementById('load-vault-row');
-        if (lvr) lvr.style.display = meta.vaultJson ? 'none' : '';
-        _showReenrollReminder(_reenrollReminderDays(meta));
-        _showWalletBadge(meta);
-      }
-    } catch {
-      localStorage.clear();
-      showPanel('setup');
-      setMsgK('msg.vault.corrupted', 'error');
+      } catch (e) { console.error('[startup ui]', e.message); }
+      showPanel('lock');
+      setMsgK('msg.vault.loaded');
+      const lvr = document.getElementById('load-vault-row');
+      if (lvr) lvr.style.display = meta.vaultJson ? 'none' : '';
+      _showReenrollReminder(_reenrollReminderDays(meta));
+      _showWalletBadge(meta);
+    } else {
+      // D2: a worker tartósan nem indult — az ADAT ÉP, csak újratöltés kell. NINCS törlés.
+      vaultReady = false;
+      showPanel('lock');
+      _showWalletBadge(meta);
+      _showReloadNeeded();
     }
+  } else if (stored) {
+    // Volt mentés, de helyreállíthatatlan ÉS nincs ép wallet az indexben — NEM töröltünk tömegesen.
+    showPanel('setup');
+    setMsgK('msg.vault.corrupted', 'error');
   } else {
     showPanel('setup');
     setMsgK('msg.first.launch');
