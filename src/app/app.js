@@ -6,10 +6,10 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v37';                  // v5-only hardening + self-healing
-const SW_CACHE_VERSION = 'biowallet-v110';  // KÖTELEZŐEN egyezzen a sw.js CACHE értékével
+const APP_VERSION = 'v37.1';                // v5-only + wallet-switch snapshot fix
+const SW_CACHE_VERSION = 'biowallet-v111';  // KÖTELEZŐEN egyezzen a sw.js CACHE értékével
 
-import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=13';
+import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=14';
 import { openCamera, enrollEmbedding, captureEmbedding, performLivenessChallenge } from '../core/bio_capture.js?v=13';
 import {
   WC_PROJECT_ID, initWC, wcPair, wcApprove, wcRejectProposal, wcEmitChainChanged,
@@ -1150,6 +1150,13 @@ btnSwitchWallet.addEventListener('click', async () => {
     return;
   }
 
+  if (action === 'incomplete') {
+    // A cél-tárca nincs teljesen elmentve ebben a böngészőben (régi/visszaállított).
+    // NEM váltunk (az nem érintené a jelenlegi aktívat) → útmutatás a visszaállításhoz.
+    setMsg(t('msg.wallet.switch.incomplete', { name: meta?.walletName || '' }), 'error');
+    return;
+  }
+
   if (action === 'switch' && meta?.vaultId) {
     // A1-3: hiányos cél-snapshot → érthető hiba, ne kerüljünk vak lock-állapotba.
     if (!meta.vaultJson) {
@@ -1244,7 +1251,13 @@ function showWalletSwitcherModal() {
       _walletsSaveCurrent();
       const id     = btn.dataset.id;
       const target = JSON.parse(localStorage.getItem(`biowallet_wallet_${id}`) ?? 'null');
-      if (!target) { ov.remove(); resolve({ action: 'error' }); return; }
+      // FIX: hiányos/hiányzó snapshot (régi/visszaállított tárca) → ne váltsunk vakon
+      // a jelenlegi metára (korrupció), hanem kérjük a backupból való visszaállítást.
+      if (!target || !target.vaultJson) {
+        ov.remove();
+        resolve({ action: 'incomplete', meta: { vaultId: id, walletName: target?.walletName } });
+        return;
+      }
       localStorage.setItem('biowallet_meta', JSON.stringify(target));
       ov.remove(); resolve({ action: 'switch', meta: target });
     }));
@@ -1575,6 +1588,7 @@ btnScan.addEventListener('click', async () => {
     updateTokenSelector();
     setScanning(false, true);
     _walletsRegister(meta.vaultId, meta.walletName, address);  // cache address for switcher
+    _walletsSaveCurrent();  // FIX: teljes snapshot (vaultJson+P) mentése → a tárca váltható lesz
 
     _updateDeviceRow(hasDevice, usedDevice);
     deviceRow.style.display = '';
@@ -2430,6 +2444,12 @@ function _applyVaultJson(meta, vaultText) {
     if (grr) grr.style.display = '';
   }
   localStorage.setItem('biowallet_meta', JSON.stringify(meta));
+  // FIX: a betöltött vault azonnal kerüljön az indexbe + teljes snapshotként →
+  // a switcher „Megnyitás" memóriából tudja váltani (nem kell újra fájlt tölteni).
+  if (meta.vaultId && meta.vaultJson) {
+    _walletsRegister(meta.vaultId, meta.walletName || 'Wallet');
+    _walletsSaveCurrent();
+  }
   document.getElementById('load-vault-row').style.display = 'none';
   setMsgK('msg.vault.file.loaded', 'ok');
   _showReenrollReminder(_reenrollReminderDays(meta));

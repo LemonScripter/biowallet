@@ -314,6 +314,23 @@ automatikusan friss kódra vált. A modul `?v=` bumpok a worker ES-module cache 
   `SW_CACHE_VERSION` egyezik-e az `sw.js` CACHE-sel — ezt a preflightba kéne tenni.
 - **Live igazolva:** app.js SW_CACHE_VERSION = version.json = sw.js = **v110**. Commit `4e99158`.
 
+## 🎯 v37.1 (SW v111) — a VALÓDI switch-bug javítása
+- **Gyökér-ok:** OPEN-sikernél (`app.js:1577`) csak `_walletsRegister()` futott (az INDEXET
+  frissíti), de `_walletsSaveCurrent()` NEM → a **per-wallet snapshot (`biowallet_wallet_${id}`,
+  ami a `vaultJson`-t tartja) megnyitáskor SOHA nem mentődött.** Ezért a (pl. backupból
+  visszaállított) tárcáknak nem volt teljes snapshotjuk → a switcher „Megnyitás" `target=null`
+  → marad az aktuális; a rákövetkező `.biowallet`-betöltés a ROSSZ (aktuális) metára került.
+  → Ez az A1 (Phase 3) tüneti javítás MÖGÖTTI valódi ok, amit elsőre nem találtam el.
+- **Javítás:**
+  - `app.js:1577` OPEN-siker → `_walletsSaveCurrent()` (minden megnyitott tárca teljes,
+    váltható snapshotot kap).
+  - `_applyVaultJson()` → `.biowallet` betöltésekor azonnal `_walletsRegister()` + `_walletsSaveCurrent()`.
+  - switcher `_sw_open`: hiányos/hiányzó snapshot → `{action:'incomplete'}` (NEM vált vakon,
+    nincs meta-korrupció) → útmutató üzenet a backup-visszaállításhoz.
+- **Felhasználói teendő a meglévő törött állapotra:** minden NEM-aktív tárcát egyszer
+  vissza kell állítani a `.P.json` + `.biowallet` fájljaiból (Restore) — utána a snapshot
+  elmentődik és a váltás memóriából megy. Az aktív tárca a következő megnyitáskor magától elmentődik.
+
 ## ⚠️ Nyitott figyelmeztetés
 - Az `origin` remote **rosszul van beállítva** (`dcc-shield.wiki`, nem `biowallet`). Érdemes javítani,
   hogy a jövőbeli `deploy.ps1` (ami `origin`-ra pushol) ne a rossz repóra menjen.
