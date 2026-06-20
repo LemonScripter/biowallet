@@ -331,6 +331,27 @@ automatikusan friss kódra vált. A modul `?v=` bumpok a worker ES-module cache 
   vissza kell állítani a `.P.json` + `.biowallet` fájljaiból (Restore) — utána a snapshot
   elmentődik és a váltás memóriából megy. Az aktív tárca a következő megnyitáskor magától elmentődik.
 
+## 🔧 nginx PWA-frissülés fix (2026-06-21)
+- **Hiba:** az nginx configban a `# sw.js: ... komment` és a `location = /app/sw.js {...}`
+  blokk UGYANAZON a soron volt → a `#` a sor végéig komment → a **sw.js no-cache szabály
+  ki volt kommentezve, inaktív** → a `/app/sw.js` a `.js` regex szabályra esett:
+  `Cache-Control: max-age=604800` (7 nap). Emiatt a böngésző a natív SW-frissítést
+  késleltette (a `version.json` no-cache fallback kompenzálta, ezért MŰKÖDÖTT a frissülés,
+  de extra clear+reload ciklussal).
+- **Javítás:** a komment külön sorba került → a `location = /app/sw.js` blokk aktív.
+  `sudo nginx -t` OK → `systemctl reload nginx`. Backup: `…/biowallet.metaspace.bio.bak-v111`.
+- **Élő igazolás:** `/app/sw.js` → `Cache-Control: no-cache, no-store, must-revalidate`.
+  → a SW-frissülés mostantól AZONNALI minden megnyitáskor (nem kell a fallbackre hagyatkozni).
+- **Megj.:** ez SZERVER-OLDALI nginx konfig (nincs a repóban), nem igényel verzió-bumpot.
+
+### PWA-frissülés rétegek (mind aktív)
+| Réteg | Header | Szerep |
+|---|---|---|
+| `/app/sw.js` | `no-cache` | böngésző azonnal érzékeli az új SW-t → skipWaiting→activate→reload |
+| `/version.json` | `no-cache` | kényszerfrissítés-fallback (verzió-mismatch → clear+reload) |
+| `/app/index.html` | `no-cache` | friss belépő → friss `app.js?v=N` |
+| modul `?v=` bumpok | — | a worker ES-module HTTP-cache megkerülése (BUG-06) |
+
 ## ⚠️ Nyitott figyelmeztetés
 - Az `origin` remote **rosszul van beállítva** (`dcc-shield.wiki`, nem `biowallet`). Érdemes javítani,
   hogy a jövőbeli `deploy.ps1` (ami `origin`-ra pushol) ne a rossz repóra menjen.
