@@ -703,73 +703,7 @@ async function showVersionHash() {
 
 // ── PIN modal ─────────────────────────────────────────────────────────────
 
-function showPinModal(mode) {
-  const isSetup = mode === 'setup';
-  return new Promise(resolve => {
-    const ov = document.createElement('div');
-    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;';
-
-    const inputStyle = [
-      'width:100%', 'background:#1e1e24', 'border:1px solid #2a2a35',
-      'border-radius:10px', 'padding:0.65rem 0.75rem', 'color:#e8e8f0',
-      'font-size:1.1rem', 'letter-spacing:0.25em', 'outline:none',
-      'box-sizing:border-box', 'margin-bottom:0.5rem',
-    ].join(';');
-
-    ov.innerHTML = `
-      <div style="background:#16161a;border:1px solid #2a2a35;border-radius:16px;
-                  width:100%;max-width:340px;padding:1.5rem;">
-        <div style="font-size:1rem;font-weight:700;color:#6c63ff;margin-bottom:0.5rem;">
-          ${t(isSetup ? 'pin.setup.title' : 'pin.open.title')}
-        </div>
-        <div style="font-size:0.78rem;color:#6b6b80;margin-bottom:1rem;line-height:1.5;">
-          ${t(isSetup ? 'pin.setup.desc' : 'pin.open.desc')}
-        </div>
-        <div style="font-size:0.72rem;color:#a0a0b0;margin-bottom:0.3rem;">${t('pin.label')}</div>
-        <input id="_pin1" type="password" autocomplete="off" style="${inputStyle}" placeholder="••••">
-        ${isSetup ? `
-          <div style="font-size:0.72rem;color:#a0a0b0;margin-bottom:0.3rem;">${t('pin.confirm.label')}</div>
-          <input id="_pin2" type="password" autocomplete="off" style="${inputStyle}" placeholder="••••">
-        ` : ''}
-        <div id="_pin_err" style="font-size:0.72rem;color:#ff4757;min-height:1.2em;margin-bottom:0.6rem;"></div>
-        <div style="display:flex;gap:0.75rem;">
-          <button id="_pin_cancel" style="flex:1;padding:0.75rem;border-radius:10px;
-            border:1px solid #2a2a35;background:#1e1e24;color:#e8e8f0;
-            font-size:0.9rem;font-weight:600;cursor:pointer;">${t('pin.btn.cancel')}</button>
-          <button id="_pin_ok" style="flex:1;padding:0.75rem;border-radius:10px;
-            border:none;background:#6c63ff;color:#fff;
-            font-size:0.9rem;font-weight:600;cursor:pointer;">
-            ${t(isSetup ? 'pin.btn.set' : 'pin.btn.open')}
-          </button>
-        </div>
-      </div>`;
-
-    document.body.appendChild(ov);
-
-    const pin1   = ov.querySelector('#_pin1');
-    const pin2   = ov.querySelector('#_pin2');
-    const errEl  = ov.querySelector('#_pin_err');
-    const okBtn  = ov.querySelector('#_pin_ok');
-
-    setTimeout(() => pin1.focus(), 80);
-
-    const submit = () => {
-      const v1 = pin1.value;
-      if (v1.length < 4) { errEl.textContent = t('pin.min.hint'); return; }
-      if (isSetup && pin2 && v1 !== pin2.value) {
-        errEl.textContent = t('pin.mismatch');
-        pin2.focus();
-        return;
-      }
-      ov.remove();
-      resolve(v1);
-    };
-
-    okBtn.addEventListener('click', submit);
-    ov.querySelector('#_pin_cancel').addEventListener('click', () => { ov.remove(); resolve(null); });
-    [pin1, pin2].filter(Boolean).forEach(inp => inp.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); }));
-  });
-}
+// showPinModal eltávolítva (v37, v5-only): a PIN csak a legacy v2/v3 vaultokhoz kellett.
 
 // ── File save (showSaveFilePicker on desktop, <a download> fallback) ────────
 
@@ -1587,13 +1521,17 @@ btnScan.addEventListener('click', async () => {
     // Vault from cache — guaranteed present by the guard above
     const encBuf = new TextEncoder().encode(meta.vaultJson).buffer;
 
-    // v3 vault without device PRF → PIN required
-    // v4 vault → collect paper share from input if provided
-    const vaultVersion = _getVaultVersion(encBuf);
-    let pin = null;
-    let paperShareY = null;
+    // v5-only: minden vault SSS paper share-rel nyílik (a PIN megszűnt).
+    // Régi/idegen formátum → tiszta hiba, NINCS PIN-kérés és NINCS crash.
+    if (_getVaultVersion(encBuf) !== 5) {
+      setScanning(false);
+      btnScan.disabled = false;
+      setMsg(t('msg.vault.unsupported'), 'error');
+      return;
+    }
 
-    if (vaultVersion >= 4) {
+    let paperShareY = null;
+    {
       const paperInput = document.getElementById('sss-paper-input');
       const hexStr = (paperInput?.value ?? '').trim().toLowerCase().replace(/\s/g, '');
       if (hexStr.length === 66 && /^[0-9a-f]+$/.test(hexStr)) {
@@ -1608,22 +1546,14 @@ btnScan.addEventListener('click', async () => {
         }
         paperShareY = Array.from(dataBytes);
       } else if (hexStr.length === 64 && /^[0-9a-f]+$/.test(hexStr)) {
-        // Legacy formátum (v35.0 és korábbi): CRC nélkül elfogadjuk
+        // Legacy paper formátum (v35.0): CRC nélkül elfogadjuk
         paperShareY = Array.from(hexStr.match(/../g).map(x => parseInt(x, 16)));
-      }
-    } else if (vaultVersion === 3 && !devicePrf) {
-      setMsg(t('msg.pin.required'), '');
-      pin = await showPinModal('open');
-      if (pin === null) {
-        setScanning(false);
-        btnScan.disabled = false;
-        return;
       }
     }
 
     const { address, hasDevice, usedDevice, usedFace, isV4, isV5 } = await callWorker(
       'OPEN',
-      { encryptedVault: encBuf, P: meta.P, devicePrf, pin, paperShareY },
+      { encryptedVault: encBuf, P: meta.P, devicePrf, paperShareY },
       [encBuf]
     );
 
@@ -2166,45 +2096,9 @@ document.getElementById('btn-genesis-recover')?.addEventListener('click', async 
 // ── btn-sss info button ───────────────────────────────────────────────────
 document.getElementById('btn-sss-info')?.addEventListener('click', () => showSSSInfoModal());
 
-// ── btn-sss: upgrade vault to 2-of-3 ─────────────────────────────────────
-document.getElementById('btn-sss')?.addEventListener('click', async () => {
-  const meta = JSON.parse(localStorage.getItem('biowallet_meta') ?? 'null');
-  if (!meta) return;
-
-  const confirmed = await showSSSInfoModal();
-  if (!confirmed) return;
-
-  // Try to enroll device factor
-  let wa = null;
-  if (navigator.credentials) {
-    setMsg(t('msg.device.auth'), '');
-    wa = await enrollWebAuthn();
-  }
-
-  try {
-    const { encryptedVault, paperShareY } = await callWorker('UPGRADE_V5', {
-      devicePrf:    wa?.devicePrf    ?? null,
-      credentialId: wa?.credentialId ?? null,
-      prfSalt:      wa?.prfSalt      ?? null,
-    });
-
-    const paperHex = _paperHexWithCrc(paperShareY);
-    await showPaperShareModal(paperHex);
-
-    meta.vaultJson = new TextDecoder().decode(encryptedVault);
-    if (wa) meta.device = { credentialId: wa.credentialId, prfSalt: wa.prfSalt };
-    localStorage.setItem('biowallet_meta', JSON.stringify(meta));
-
-    const walletName = await showSaveModal(encryptedVault, null, 'device', meta.walletName || 'biowallet');
-    meta.walletName = walletName;
-    localStorage.setItem('biowallet_meta', JSON.stringify(meta));
-
-    document.getElementById('sss-row').style.display = 'none';
-    setMsg(t('sss.paper.done'), 'ok');
-  } catch (e) {
-    setMsg(friendlyError(e.message), 'error');
-  }
-});
+// btn-sss („upgrade 2-of-3") eltávolítva (v37, v5-only): minden v5 vault eleve
+// 2-of-3 SSS, az upgrade értelmetlen volt és genesis-sérülést okozhatott (BUGLIST BUG-05).
+// Az sss-row v5-nél amúgy is rejtett.
 
 // ── Re-enrollment emlékeztető (dna_chain kor ellenőrzés) ─────────────────────
 function _reenrollReminderDays(meta) {
@@ -2529,6 +2423,8 @@ function _validateAndApplyVault(meta, vaultText) {
   let vaultObj;
   try { vaultObj = JSON.parse(vaultText); } catch { setMsg(t('msg.invalid.vault.file'), 'error'); return false; }
   if (!vaultObj.salt || !vaultObj.vaultId) { setMsg(t('msg.invalid.vault.file'), 'error'); return false; }
+  // v5-only: régi/idegen formátumot nem fogadunk be (nem visz a scan-be, tiszta üzenet).
+  if (vaultObj.v !== 5) { setMsg(t('msg.vault.unsupported'), 'error'); return false; }
   _applyVaultJson(meta, vaultText);
   return true;
 }

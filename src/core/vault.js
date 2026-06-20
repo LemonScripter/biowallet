@@ -76,75 +76,7 @@ class BioVault {
 
   // ── Vault creation ────────────────────────────────────────────────────────
 
-  static async create(embedding, pin = null, devicePrf = null, credentialId = null, prfSalt = null) {
-    const seed = crypto.getRandomValues(new Uint8Array(32));
-    try {
-      return await BioVault._encryptSeed(seed, embedding, pin, devicePrf, credentialId, prfSalt);
-    } finally { seed.fill(0); }
-  }
-
-  // ── Vault v4 creation (SSS 2-of-3) ───────────────────────────────────────
-  //
-  // Returns { vaultId, P, encryptedVault, paperShareY: Uint8Array }
-  // paperShareY (32 bytes) must be shown to the user — it is NOT stored in the vault.
-  // No PIN in v4: the second factor requirement replaces PIN security.
-  static async createV4(embedding, devicePrf = null, credentialId = null, prfSalt = null) {
-    const seed = crypto.getRandomValues(new Uint8Array(32));
-    try {
-      return await BioVault._encryptSeedV4(seed, embedding, devicePrf, credentialId, prfSalt);
-    } finally { seed.fill(0); }
-  }
-
-  static async _encryptSeedV4(seedBytes, embedding, devicePrf, credentialId, prfSalt) {
-    const vaultId = crypto.randomUUID();
-    const { R, P } = await fuzzyCommit(embedding);
-    const salt     = crypto.getRandomValues(new Uint8Array(32));
-
-    const vaultKeyRaw = crypto.getRandomValues(new Uint8Array(32));
-    try {
-      const vaultKey  = await importRawKey(vaultKeyRaw);
-      const plaintext = encode({ seed: toHex(seedBytes), accounts: [], vaultId, created: Date.now() });
-      const { iv, ciphertext } = await aesEncrypt(vaultKey, plaintext);
-
-      const shares = sssSplit(vaultKeyRaw, 3, 2); // [{x:1,y}, {x:2,y}, {x:3,y}]
-      try {
-        const faceKey   = await deriveKey(R, salt, null);
-        const faceShare = { x: shares[0].x, ...await wrapBytes(faceKey, shares[0].y) };
-
-        let deviceShare = null;
-        if (devicePrf && credentialId && prfSalt) {
-          const devKey = await deriveKeyDevice(R, devicePrf, salt);
-          deviceShare  = {
-            x: shares[1].x,
-            ...await wrapBytes(devKey, shares[1].y),
-            credentialId: toHex(new Uint8Array(credentialId)),
-            prfSalt:      toHex(new Uint8Array(prfSalt)),
-          };
-        }
-
-        const paperShareY = shares[2].y.slice(); // caller must show this to the user
-
-        const vault = {
-          v: 4, vaultId,
-          salt: toHex(salt),
-          iv:   toHex(iv),
-          ct:   toHex(new Uint8Array(ciphertext)),
-          sss: { faceShare, deviceShare, paperX: 3 },
-        };
-
-        return {
-          vaultId,
-          P,
-          encryptedVault: new TextEncoder().encode(JSON.stringify(vault)).buffer,
-          paperShareY,
-        };
-      } finally {
-        shares[0].y.fill(0);
-        shares[1].y.fill(0);
-        shares[2].y.fill(0);
-      }
-    } finally { vaultKeyRaw.fill(0); }
-  }
+  // v37 v5-only: a legacy create() (v2/v3), createV4() és _encryptSeedV4() eltávolítva.
 
   // ── genesis DNA helpers (v5) ──────────────────────────────────────────────
 
@@ -268,13 +200,6 @@ class BioVault {
     } finally { vaultKeyRaw.fill(0); }
   }
 
-  static async importFromMnemonic(mnemonic, embedding, pin = null) {
-    const seedBytes = mnemonicToSeed(mnemonic);
-    try {
-      return await BioVault._encryptSeed(seedBytes, embedding, pin);
-    } finally { seedBytes.fill(0); }
-  }
-
   // ── Vault v5 creation (SSS 2-of-3 + genesis DNA chain) ───────────────────
   static async createV5(embedding, devicePrf = null, credentialId = null, prfSalt = null) {
     const seed = crypto.getRandomValues(new Uint8Array(32));
@@ -301,42 +226,7 @@ class BioVault {
     } finally { seedBytes.fill(0); }
   }
 
-  static async _encryptSeed(seedBytes, embedding, pin = null, devicePrf = null, credentialId = null, prfSalt = null) {
-    const vaultId  = crypto.randomUUID();
-    const { R, P } = await fuzzyCommit(embedding);
-    const salt     = crypto.getRandomValues(new Uint8Array(32));
-
-    const vaultKeyRaw = crypto.getRandomValues(new Uint8Array(32));
-    try {
-      const vaultKey  = await importRawKey(vaultKeyRaw);
-      const plaintext = encode({ seed: toHex(seedBytes), accounts: [], vaultId, created: Date.now() });
-      const { iv, ciphertext } = await aesEncrypt(vaultKey, plaintext);
-
-      const faceAesKey = await deriveKey(R, salt, pin);
-      const faceWrap   = await wrapBytes(faceAesKey, vaultKeyRaw);
-
-      let deviceWrap = null;
-      if (devicePrf && credentialId && prfSalt) {
-        const devKey = await deriveKeyDevice(R, devicePrf, salt);
-        deviceWrap = {
-          ...await wrapBytes(devKey, vaultKeyRaw),
-          credentialId: toHex(new Uint8Array(credentialId)),
-          prfSalt:      toHex(new Uint8Array(prfSalt)),
-        };
-      }
-
-      const vault = {
-        v: pin ? 3 : 2, vaultId,
-        salt: toHex(salt),
-        iv:   toHex(iv),
-        ct:   toHex(new Uint8Array(ciphertext)),
-        faceWrap,
-        deviceWrap,
-      };
-
-      return { vaultId, P, encryptedVault: new TextEncoder().encode(JSON.stringify(vault)).buffer };
-    } finally { vaultKeyRaw.fill(0); }
-  }
+  // v37 v5-only: a legacy _encryptSeed() (v2/v3 faceWrap) eltávolítva.
 
   // ── OPEN ──────────────────────────────────────────────────────────────────
 
@@ -345,318 +235,121 @@ class BioVault {
     const R = this.#chain.gate('OPEN', this.#vaultId);
     this.#faceR = R.slice();
 
-    if (isV2(encryptedVault)) {
-      const v2   = JSON.parse(new TextDecoder().decode(encryptedVault));
-      const salt = fromHex(v2.salt);
-
-      // ── v4 / v5: SSS reconstruction ──────────────────────────────────────
-      if (v2.v === 4 || v2.v === 5) {
-        if (!v2.sss) { this.lock(); throw new DCCError('VAULT_CORRUPTED', 'OPEN'); }
-
-        // New v5 structure: device is a direct K-wrap (deviceWrap field present),
-        // SSS only covers face(x=1) + paper(x=3).
-        // Legacy v4/v5: device was an SSS share (sss.deviceShare present, no top-level deviceWrap).
-        const isNewV5 = v2.v === 5 && 'deviceWrap' in v2;
-
-        if (isNewV5) {
-          let vaultKeyRaw = null;
-          let usedDevice  = false;
-
-          // Path 1: device direct K-wrap (fastest — no SSS needed)
-          if (devicePrf && v2.deviceWrap) {
-            try {
-              const devKey = await deriveKeyDevice(R, new Uint8Array(devicePrf), salt);
-              vaultKeyRaw  = await unwrapBytes(devKey, v2.deviceWrap);
-              usedDevice   = true;
-            } catch { /* device PRF mismatch or wrong browser */ }
-          }
-
-          // Path 2: SSS face(x=1) + paper(x=3)
-          let shareA = null;
-          if (!vaultKeyRaw) {
-            try {
-              const faceKey = await deriveKey(R, salt, null);
-              const y1      = await unwrapBytes(faceKey, v2.sss.faceShare);
-              shareA = { x: v2.sss.faceShare.x, y: y1 };
-            } catch {}
-
-            let finalA = shareA;
-            let finalB = paperShare ?? null;
-            if (!finalA && finalB) { finalA = finalB; finalB = null; }
-
-            if (finalA && finalB) {
-              vaultKeyRaw = sssCombine([finalA, finalB]);
-              if (shareA?.y) shareA.y.fill(0);
-            }
-          }
-
-          if (!vaultKeyRaw) { this.lock(); throw new DCCError('BIO_MISMATCH', 'OPEN'); }
-
-          this.#vaultKeyRaw = vaultKeyRaw;
-          this.#cryptoKey   = await importRawKey(vaultKeyRaw);
-          this.#vaultFormat = v2;
-
-          try {
-            const plaintext = await crypto.subtle.decrypt(
-              { name: AES_MODE, iv: fromHex(v2.iv) }, this.#cryptoKey, fromHex(v2.ct)
-            );
-            this.#vaultData = decode(plaintext);
-          } catch { this.lock(); throw new DCCError('BIO_MISMATCH', 'OPEN'); }
-
-          if (v2.genesis_hmac) {
-            const expected = await BioVault._computeGenesisHmac(vaultKeyRaw, v2.genesis, v2.dna_chain);
-            if (expected !== v2.genesis_hmac) {
-              this.lock();
-              throw new DCCError('GENESIS_HMAC_MISMATCH', 'OPEN');
-            }
-          }
-
-          const seedBytes = fromHex(this.#vaultData.seed);
-          const address   = await seedToAddress(seedBytes, this.#vaultData.keyType ?? 'raw');
-          seedBytes.fill(0);
-
-          // When opened via device, also check if face share still decodes (drift detection).
-          // If face share fails → usedFace=false → _mandatoryReenroll triggered in app.js.
-          let usedFace = shareA !== null;
-          if (usedDevice && !usedFace) {
-            try {
-              const faceKey = await deriveKey(R, salt, null);
-              await unwrapBytes(faceKey, v2.sss.faceShare);
-              usedFace = true;
-            } catch { /* face has drifted — mandatory re-enroll will be triggered */ }
-          }
-
-          if (v2.genesis) this.#genesis = v2.genesis;
-          this.#openedViaFace = usedFace;
-
-          return {
-            address,
-            hasDevice:  !!(v2.deviceWrap),
-            usedDevice,
-            usedFace,
-            isV4:  false,
-            isV5:  true,
-            genesis: v2.genesis ?? null,
-          };
-        }
-
-        // ── Legacy v4 / old v5 (sss.deviceShare) ─────────────────────────────
-        let shareA = null; // face share
-        let shareB = null; // device or paper share
-
-        try {
-          const faceKey = await deriveKey(R, salt, null);
-          const y1      = await unwrapBytes(faceKey, v2.sss.faceShare);
-          shareA = { x: v2.sss.faceShare.x, y: y1 };
-        } catch { /* biometric mismatch — try device+paper fallback */ }
-
-        if (devicePrf && v2.sss?.deviceShare) {
-          try {
-            const devKey = await deriveKeyDevice(R, new Uint8Array(devicePrf), salt);
-            const y2     = await unwrapBytes(devKey, v2.sss.deviceShare);
-            shareB = { x: v2.sss.deviceShare.x, y: y2 };
-          } catch { /* device PRF mismatch */ }
-        }
-
-        // Pick the best 2-of-3 combination:
-        //   face + device (priority 1), face + paper (priority 2), device + paper (priority 3)
-        let finalA = shareA; // face  (x=1) or null
-        let finalB = shareB; // device (x=2) or null
-        if (!finalA && paperShare) finalA = paperShare; // paper replaces missing face
-        else if (!finalB && paperShare) finalB = paperShare; // paper replaces missing device
-
-        if (!finalA || !finalB) {
-          this.lock();
-          throw new DCCError('BIO_MISMATCH', 'OPEN');
-        }
-
-        const vaultKeyRaw = sssCombine([finalA, finalB]);
-        if (shareA?.y) shareA.y.fill(0);
-        if (shareB?.y) shareB.y.fill(0);
-
-        this.#vaultKeyRaw = vaultKeyRaw;
-        this.#cryptoKey   = await importRawKey(vaultKeyRaw);
-        this.#vaultFormat = v2;
-
-        try {
-          const plaintext = await crypto.subtle.decrypt(
-            { name: AES_MODE, iv: fromHex(v2.iv) }, this.#cryptoKey, fromHex(v2.ct)
-          );
-          this.#vaultData = decode(plaintext);
-        } catch {
-          this.lock();
-          throw new DCCError('BIO_MISMATCH', 'OPEN');
-        }
-
-        const seedBytes2 = fromHex(this.#vaultData.seed);
-        const address2   = await seedToAddress(seedBytes2, this.#vaultData.keyType ?? 'raw');
-        seedBytes2.fill(0);
-
-        if (v2.v === 5 && v2.genesis) this.#genesis = v2.genesis;
-        this.#openedViaFace = (shareA !== null);
-
-        return {
-          address:    address2,
-          hasDevice:  !!v2.sss.deviceShare,
-          usedDevice: shareB?.x === 2,
-          usedFace:   shareA !== null,
-          isV4:       v2.v === 4,
-          isV5:       v2.v === 5,
-          genesis:    v2.v === 5 ? (v2.genesis ?? null) : null,
-        };
-      }
-      // ── end v4/v5 ──────────────────────────────────────────────────────────
-
-      let vaultKeyRaw  = null;
-      let usedDevice   = false;
-
-      if (devicePrf && v2.deviceWrap) {
-        try {
-          const devKey = await deriveKeyDevice(R, devicePrf, salt);
-          vaultKeyRaw  = await unwrapBytes(devKey, v2.deviceWrap);
-          usedDevice   = true;
-        } catch { /* fall through to face path */ }
-      }
-
-      if (!vaultKeyRaw) {
-        // v3 vault: faceWrap key = PBKDF2(face_R ‖ PIN, salt) — PIN required on new devices
-        const faceKey = await deriveKey(R, salt, v2.v === 3 ? pin : null);
-        try {
-          vaultKeyRaw = await unwrapBytes(faceKey, v2.faceWrap);
-        } catch {
-          this.lock();
-          throw new DCCError('BIO_MISMATCH', 'OPEN');
-        }
-      }
-
-      this.#vaultKeyRaw = vaultKeyRaw;
-      this.#cryptoKey   = await importRawKey(vaultKeyRaw);
-      this.#vaultFormat = v2;
-
-      try {
-        const plaintext = await crypto.subtle.decrypt(
-          { name: AES_MODE, iv: fromHex(v2.iv) }, this.#cryptoKey, fromHex(v2.ct)
-        );
-        this.#vaultData = decode(plaintext);
-      } catch {
-        this.lock();
-        throw new DCCError('BIO_MISMATCH', 'OPEN');
-      }
-
-      const seedBytes = fromHex(this.#vaultData.seed);
-      const address   = await seedToAddress(seedBytes, this.#vaultData.keyType ?? 'raw');
-      seedBytes.fill(0);
-
-      return { address, hasDevice: !!v2.deviceWrap, usedDevice };
-
-    } else {
-      // v1 legacy
-      const { salt, iv, ciphertext } = unpack(encryptedVault);
-      this.#cryptoKey = await deriveKey(R, salt);
-      try {
-        const plaintext = await aesDecrypt(this.#cryptoKey, iv, ciphertext);
-        this.#vaultData = decode(plaintext);
-      } catch {
-        this.lock();
-        throw new DCCError('BIO_MISMATCH', 'OPEN');
-      }
-
-      const seedBytes = fromHex(this.#vaultData.seed);
-      const address   = await seedToAddress(seedBytes, this.#vaultData.keyType ?? 'raw');
-      seedBytes.fill(0);
-
-      return { address, hasDevice: false, usedDevice: false };
+    // v5-only: kizárólag az aktuális v5 formátum nyitható (deviceWrap mező + SSS).
+    // Minden más (v1–v4, idegen JSON) → UNSUPPORTED_FORMAT (nincs PIN, nincs néma hiba).
+    let v2;
+    try { v2 = JSON.parse(new TextDecoder().decode(encryptedVault)); }
+    catch { this.lock(); throw new DCCError('UNSUPPORTED_FORMAT', 'OPEN'); }
+    if (!(v2 && v2.v === 5 && 'deviceWrap' in v2 && v2.sss)) {
+      this.lock();
+      throw new DCCError('UNSUPPORTED_FORMAT', 'OPEN');
     }
+    const salt = fromHex(v2.salt);
+
+    let vaultKeyRaw = null;
+    let usedDevice  = false;
+
+    // Path 1: device direct K-wrap (fastest — no SSS needed)
+    if (devicePrf && v2.deviceWrap) {
+      try {
+        const devKey = await deriveKeyDevice(R, new Uint8Array(devicePrf), salt);
+        vaultKeyRaw  = await unwrapBytes(devKey, v2.deviceWrap);
+        usedDevice   = true;
+      } catch { /* device PRF mismatch or wrong browser */ }
+    }
+
+    // Path 2: SSS face(x=1) + paper(x=3)
+    let shareA = null;
+    if (!vaultKeyRaw) {
+      try {
+        const faceKey = await deriveKey(R, salt, null);
+        const y1      = await unwrapBytes(faceKey, v2.sss.faceShare);
+        shareA = { x: v2.sss.faceShare.x, y: y1 };
+      } catch {}
+
+      let finalA = shareA;
+      let finalB = paperShare ?? null;
+      if (!finalA && finalB) { finalA = finalB; finalB = null; }
+
+      if (finalA && finalB) {
+        vaultKeyRaw = sssCombine([finalA, finalB]);
+        if (shareA?.y) shareA.y.fill(0);
+      }
+    }
+
+    if (!vaultKeyRaw) { this.lock(); throw new DCCError('BIO_MISMATCH', 'OPEN'); }
+
+    this.#vaultKeyRaw = vaultKeyRaw;
+    this.#cryptoKey   = await importRawKey(vaultKeyRaw);
+    this.#vaultFormat = v2;
+
+    try {
+      const plaintext = await crypto.subtle.decrypt(
+        { name: AES_MODE, iv: fromHex(v2.iv) }, this.#cryptoKey, fromHex(v2.ct)
+      );
+      this.#vaultData = decode(plaintext);
+    } catch { this.lock(); throw new DCCError('BIO_MISMATCH', 'OPEN'); }
+
+    if (v2.genesis_hmac) {
+      const expected = await BioVault._computeGenesisHmac(vaultKeyRaw, v2.genesis, v2.dna_chain);
+      if (expected !== v2.genesis_hmac) {
+        this.lock();
+        throw new DCCError('GENESIS_HMAC_MISMATCH', 'OPEN');
+      }
+    }
+
+    const seedBytes = fromHex(this.#vaultData.seed);
+    const address   = await seedToAddress(seedBytes, this.#vaultData.keyType ?? 'raw');
+    seedBytes.fill(0);
+
+    // When opened via device, also check if face share still decodes (drift detection).
+    // If face share fails → usedFace=false → _mandatoryReenroll triggered in app.js.
+    let usedFace = shareA !== null;
+    if (usedDevice && !usedFace) {
+      try {
+        const faceKey = await deriveKey(R, salt, null);
+        await unwrapBytes(faceKey, v2.sss.faceShare);
+        usedFace = true;
+      } catch { /* face has drifted — mandatory re-enroll will be triggered */ }
+    }
+
+    if (v2.genesis) this.#genesis = v2.genesis;
+    this.#openedViaFace = usedFace;
+
+    return {
+      address,
+      hasDevice:  !!(v2.deviceWrap),
+      usedDevice,
+      usedFace,
+      isV4:  false,
+      isV5:  true,
+      genesis: v2.genesis ?? null,
+    };
   }
 
   // ── Device enrollment / re-enrollment ────────────────────────────────────
 
+  // v5-only: csak a deviceWrap (direkt K-wrap) frissül; az SSS és a paper kód érintetlen.
   async enrollDevice(devicePrf, credentialId, prfSalt) {
     if (!this.#vaultData || !this.#faceR) throw new DCCError('VAULT_LOCKED', 'ENROLL_DEVICE');
+    if (!(this.#vaultFormat?.v === 5 && 'deviceWrap' in this.#vaultFormat))
+      throw new DCCError('UNSUPPORTED_FORMAT', 'ENROLL_DEVICE');
 
-    const R = this.#faceR;
+    const R    = this.#faceR;
+    const salt = fromHex(this.#vaultFormat.salt);
 
-    if (this.#vaultFormat?.v >= 4) {
-      const salt = fromHex(this.#vaultFormat.salt);
-
-      // New v5 structure (deviceWrap field present): only update deviceWrap, SSS untouched.
-      // Paper code stays permanently valid — no re-split needed.
-      if (this.#vaultFormat.v === 5 && 'deviceWrap' in this.#vaultFormat) {
-        const devKey = await deriveKeyDevice(R, new Uint8Array(devicePrf), salt);
-        const newDeviceWrap = {
-          ...await wrapBytes(devKey, this.#vaultKeyRaw),
-          credentialId: toHex(new Uint8Array(credentialId)),
-          prfSalt:      toHex(new Uint8Array(prfSalt)),
-        };
-        const vault = { ...this.#vaultFormat, deviceWrap: newDeviceWrap };
-        this.#vaultFormat = vault;
-        return {
-          encryptedVault: new TextEncoder().encode(JSON.stringify(vault)).buffer,
-          paperShareY: null,  // paper code unchanged — no new paper to show
-        };
-      }
-
-      // Legacy v4 / old v5 (sss.deviceShare): re-split SSS as before.
-      // Paper code changes one last time — isReenroll=true warning shown in UI.
-      const shares = sssSplit(this.#vaultKeyRaw, 3, 2);
-      try {
-        const faceKey    = await deriveKey(R, salt, null);
-        const faceShare  = { x: shares[0].x, ...await wrapBytes(faceKey, shares[0].y) };
-        const devKey     = await deriveKeyDevice(R, new Uint8Array(devicePrf), salt);
-        const deviceShare = {
-          x: shares[1].x,
-          ...await wrapBytes(devKey, shares[1].y),
-          credentialId: toHex(new Uint8Array(credentialId)),
-          prfSalt:      toHex(new Uint8Array(prfSalt)),
-        };
-        const paperShareY = shares[2].y.slice();
-        const vault = { ...this.#vaultFormat, sss: { faceShare, deviceShare, paperX: 3 } };
-        this.#vaultFormat = vault;
-        return {
-          encryptedVault: new TextEncoder().encode(JSON.stringify(vault)).buffer,
-          paperShareY,
-        };
-      } finally {
-        shares[0].y.fill(0);
-        shares[1].y.fill(0);
-        shares[2].y.fill(0);
-      }
-    }
-
-    // Legacy v1/v2/v3: faceWrap + deviceWrap approach
-    let salt, faceWrap, iv, ct;
-    if (!this.#vaultFormat) {
-      salt = crypto.getRandomValues(new Uint8Array(32));
-      const vaultKeyRaw = crypto.getRandomValues(new Uint8Array(32));
-      try {
-        const vaultKey  = await importRawKey(vaultKeyRaw);
-        const { iv: _iv, ciphertext } = await aesEncrypt(vaultKey, encode(this.#vaultData));
-        iv       = toHex(_iv);
-        ct       = toHex(new Uint8Array(ciphertext));
-        faceWrap = await wrapBytes(await deriveKey(R, salt), vaultKeyRaw);
-        this.#vaultKeyRaw = vaultKeyRaw.slice();
-        this.#cryptoKey   = await importRawKey(this.#vaultKeyRaw);
-        vaultKeyRaw.fill(0);
-      } catch (e) { throw e; }
-    } else {
-      salt     = fromHex(this.#vaultFormat.salt);
-      faceWrap = this.#vaultFormat.faceWrap;
-      iv       = this.#vaultFormat.iv;
-      ct       = this.#vaultFormat.ct;
-    }
-
-    const devKey     = await deriveKeyDevice(R, new Uint8Array(devicePrf), salt);
-    const deviceWrap = {
+    const devKey = await deriveKeyDevice(R, new Uint8Array(devicePrf), salt);
+    const newDeviceWrap = {
       ...await wrapBytes(devKey, this.#vaultKeyRaw),
       credentialId: toHex(new Uint8Array(credentialId)),
       prfSalt:      toHex(new Uint8Array(prfSalt)),
     };
-
-    const vaultId  = this.#vaultFormat?.vaultId ?? this.#vaultId;
-    const vVersion = this.#vaultFormat?.v ?? 2;
-    const vaultJSON = { v: vVersion, vaultId, salt: toHex(salt), iv, ct, faceWrap, deviceWrap };
-    this.#vaultFormat = vaultJSON;
-    return { encryptedVault: new TextEncoder().encode(JSON.stringify(vaultJSON)).buffer };
+    const vault = { ...this.#vaultFormat, deviceWrap: newDeviceWrap };
+    this.#vaultFormat = vault;
+    return {
+      encryptedVault: new TextEncoder().encode(JSON.stringify(vault)).buffer,
+      paperShareY: null,  // paper code unchanged — no new paper to show
+    };
   }
 
   // ── SIGN ──────────────────────────────────────────────────────────────────
@@ -698,123 +391,7 @@ class BioVault {
     return sig;
   }
 
-  // ── Upgrade v2/v3 → v4 (SSS 2-of-3) ─────────────────────────────────────
-  // Vault must be open (#faceR and #vaultData in memory).
-  // No fresh scan needed — uses the face_R from the current session.
-  async upgradeToV4(devicePrf = null, credentialId = null, prfSalt = null) {
-    if (!this.#vaultData || !this.#faceR) throw new DCCError('VAULT_LOCKED', 'UPGRADE_V4');
-
-    const R    = this.#faceR;
-    const salt = crypto.getRandomValues(new Uint8Array(32));
-
-    const vaultKeyRaw = crypto.getRandomValues(new Uint8Array(32));
-    try {
-      const vaultKey  = await importRawKey(vaultKeyRaw);
-      const { iv, ciphertext } = await aesEncrypt(vaultKey, encode(this.#vaultData));
-
-      const shares = sssSplit(vaultKeyRaw, 3, 2);
-      try {
-        const faceKey   = await deriveKey(R, salt, null);
-        const faceShare = { x: shares[0].x, ...await wrapBytes(faceKey, shares[0].y) };
-
-        let deviceShare = null;
-        if (devicePrf && credentialId && prfSalt) {
-          const devKey = await deriveKeyDevice(R, new Uint8Array(devicePrf), salt);
-          deviceShare  = {
-            x: shares[1].x,
-            ...await wrapBytes(devKey, shares[1].y),
-            credentialId: toHex(new Uint8Array(credentialId)),
-            prfSalt:      toHex(new Uint8Array(prfSalt)),
-          };
-        }
-
-        const paperShareY = shares[2].y.slice();
-
-        const vault = {
-          v: 4, vaultId: this.#vaultId,
-          salt: toHex(salt),
-          iv:   toHex(iv),
-          ct:   toHex(new Uint8Array(ciphertext)),
-          sss:  { faceShare, deviceShare, paperX: 3 },
-        };
-
-        this.#vaultKeyRaw = vaultKeyRaw.slice();
-        this.#cryptoKey   = await importRawKey(this.#vaultKeyRaw);
-        this.#vaultFormat = vault;
-
-        return {
-          encryptedVault: new TextEncoder().encode(JSON.stringify(vault)).buffer,
-          paperShareY,
-        };
-      } finally {
-        shares[0].y.fill(0);
-        shares[1].y.fill(0);
-        shares[2].y.fill(0);
-      }
-    } finally { vaultKeyRaw.fill(0); }
-  }
-
-  // ── Upgrade v2/v3 → v5 (SSS 2-of-3 + genesis DNA chain) ─────────────────
-  async upgradeToV5(devicePrf = null, credentialId = null, prfSalt = null) {
-    if (!this.#vaultData || !this.#faceR) throw new DCCError('VAULT_LOCKED', 'UPGRADE_V5');
-
-    const R    = this.#faceR;
-    const ts   = Date.now();
-    const salt = crypto.getRandomValues(new Uint8Array(32));
-
-    const genesisDna = await BioVault._computeGenesisDna(R, ts);
-    const chainEntry = await BioVault._buildChainEntry('', genesisDna, ts, 0, 'initial_enrollment');
-
-    const vaultKeyRaw = crypto.getRandomValues(new Uint8Array(32));
-    try {
-      const vaultKey  = await importRawKey(vaultKeyRaw);
-      const { iv, ciphertext } = await aesEncrypt(vaultKey, encode(this.#vaultData));
-
-      const shares = sssSplit(vaultKeyRaw, 3, 2);
-      try {
-        const faceKey   = await deriveKey(R, salt, null);
-        const faceShare = { x: shares[0].x, ...await wrapBytes(faceKey, shares[0].y) };
-
-        let deviceShare = null;
-        if (devicePrf && credentialId && prfSalt) {
-          const devKey = await deriveKeyDevice(R, new Uint8Array(devicePrf), salt);
-          deviceShare  = {
-            x: shares[1].x,
-            ...await wrapBytes(devKey, shares[1].y),
-            credentialId: toHex(new Uint8Array(credentialId)),
-            prfSalt:      toHex(new Uint8Array(prfSalt)),
-          };
-        }
-
-        const paperShareY = shares[2].y.slice();
-
-        const vault = {
-          v: 5, vaultId: this.#vaultId,
-          salt:      toHex(salt),
-          iv:        toHex(iv),
-          ct:        toHex(new Uint8Array(ciphertext)),
-          genesis:   { dna: genesisDna, ts },
-          dna_chain: [chainEntry],
-          sss:       { faceShare, deviceShare, paperX: 3 },
-        };
-
-        this.#vaultKeyRaw   = vaultKeyRaw.slice();
-        this.#cryptoKey     = await importRawKey(this.#vaultKeyRaw);
-        this.#vaultFormat   = vault;
-        this.#genesis       = { dna: genesisDna, ts };
-        this.#openedViaFace = true;
-
-        return {
-          encryptedVault: new TextEncoder().encode(JSON.stringify(vault)).buffer,
-          paperShareY,
-        };
-      } finally {
-        shares[0].y.fill(0);
-        shares[1].y.fill(0);
-        shares[2].y.fill(0);
-      }
-    } finally { vaultKeyRaw.fill(0); }
-  }
+  // v37 v5-only: upgradeToV4() és upgradeToV5() eltávolítva — minden vault eleve v5.
 
   // ── Face re-enrollment (v5 only) ──────────────────────────────────────────
   // Re-commits face BCH, refreshes SSS share wrappings, appends chain entry.
@@ -1056,25 +633,7 @@ async function aesEncrypt(key, plaintext) {
   return { iv, ciphertext };
 }
 
-async function aesDecrypt(key, iv, ciphertext) {
-  return crypto.subtle.decrypt({ name: AES_MODE, iv }, key, ciphertext);
-}
-
-function isV2(buf) {
-  try { return new Uint8Array(buf)[0] === 0x7b; } // '{'
-  catch { return false; }
-}
-
-function pack({ salt, iv, ciphertext }) {
-  const buf = new Uint8Array(32 + 12 + ciphertext.byteLength);
-  buf.set(salt, 0); buf.set(iv, 32); buf.set(new Uint8Array(ciphertext), 44);
-  return buf.buffer;
-}
-
-function unpack(buf) {
-  const b = new Uint8Array(buf);
-  return { salt: b.slice(0, 32), iv: b.slice(32, 44), ciphertext: b.slice(44) };
-}
+// v37 v5-only: aesDecrypt/isV2/pack/unpack (v1 legacy helperek) eltávolítva.
 
 const encode = (v) => new TextEncoder().encode(typeof v === 'string' ? v : JSON.stringify(v));
 const decode = (b) => JSON.parse(new TextDecoder().decode(b));

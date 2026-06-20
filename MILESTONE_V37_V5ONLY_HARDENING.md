@@ -175,10 +175,28 @@ NEGATÍV / ÖNGYÓGYÍTÁS
 | **S5** | Régi fájl betöltése (C14): `_validateAndApplyVault` adjon „nem támogatott formátum" üzenetet, ne engedje a scan-be. | `app.js:2412` |
 
 ```
-[ ] Phase 2 kód kész
-[ ] STANDARD CHECKLIST (fókusz: C1, C2, C5, C6, C14 — PIN SEHOL ne jelenjen meg)
+[x] Phase 2 kód kész (2026-06-20)
+[x] CHK-1 szintaxis: vault.js / vault_worker.js / app.js / i18n.js mind OK
+[x] CHK-3 build OK (worker 401→393 KB, app 244→241 KB; createV4/upgradeToV4 maradvány NINCS)
+[x] CHK-2 gyors tesztek: recovery_math / bch / tx_commitment PASS
+[x] STATIKUS: UNSUPPORTED_FORMAT a bundle-ben; PIN-ág és showPinModal eltávolítva
+[ ] MANUÁLIS (C1,C2,C5,C6,C14) — PWA-ban push előtt (PIN SEHOL ne jelenjen meg)
 [ ] Commit: "v37 Phase 2: v5-only strip, legacy + PIN removed"
 ```
+
+### Phase 2 — mit változott
+- **vault.js `open()`** → kizárólag v5 (deviceWrap + sss); minden más → `UNSUPPORTED_FORMAT`.
+  Törölve a v1 / v2 / v3 (PIN) / v4 / old-v5 (sss.deviceShare) olvasó ág (~180 sor).
+- **vault.js törölt metódusok:** `create`, `_encryptSeed` (v2/v3), `createV4`, `_encryptSeedV4`,
+  `importFromMnemonic` (v2), `upgradeToV4`, `upgradeToV5`; dead helperek: `isV2`, `pack`, `unpack`, `aesDecrypt`.
+- **vault.js `enrollDevice`** → v5-only (csak deviceWrap frissül; SSS+paper érintetlen).
+- **vault_worker.js törölt case-ek:** `ENROLL`, `IMPORT`, `CREATE_V4`, `UPGRADE_V4`, `UPGRADE_V5`.
+  Maradék felület tisztán v5 (CREATE_V5 / IMPORT_V5 / IMPORT_PK_V5 / OPEN / …).
+- **app.js:** a PIN-ág (`vaultVersion===3`) + `showPinModal` eltávolítva; a scan v5-ellenőrzést végez
+  (`_getVaultVersion !== 5` → `msg.vault.unsupported`); `_validateAndApplyVault` régi fájlt elutasít;
+  a `btn-sss` (upgrade 2-of-3) handler törölve (BUGLIST BUG-05 footgun megszűnt).
+- **i18n.js:** új `msg.vault.unsupported` (HU+EN).
+- **Hatás:** a PIN-anomália véglegesen megszűnt (nincs v3-ág sehol). Régi/idegen fájl → tiszta hibaüzenet.
 
 ---
 

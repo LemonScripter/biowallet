@@ -7,22 +7,20 @@
  * Protokoll → main thread: { id, type, payload }
  * Válasz ← Worker:         { id, ok, result } | { id, ok:false, error }
  *
- * Típusok:
+ * Típusok (v37 v5-only — a legacy ENROLL/IMPORT/CREATE_V4/UPGRADE_V4/UPGRADE_V5 eltávolítva):
  *   INIT_VAULT        { vaultId }
- *   ENROLL            { embedding: Float32Array }                          → { vaultId, P, encryptedVault }
- *   IMPORT            { mnemonic: string, embedding: Float32Array }        → { vaultId, P, encryptedVault }
- *   CREATE_V4         { embedding, devicePrf?, credentialId?, prfSalt? }   → { vaultId, P, encryptedVault, paperShareY }
  *   CREATE_V5         { embedding, devicePrf?, credentialId?, prfSalt? }   → { vaultId, P, encryptedVault, paperShareY }
  *   IMPORT_V5         { mnemonic, embedding, devicePrf?, credentialId?, prfSalt? } → { vaultId, P, encryptedVault, paperShareY }
+ *   IMPORT_PK_V5      { privKey, embedding, devicePrf?, credentialId?, prfSalt? } → { vaultId, P, encryptedVault, paperShareY }
  *   COMMIT_TX         { tx: object }                                       → { fingerprint: string }
  *   CANCEL_TX         {}
  *   BIO_CAPTURE       { embedding: Float32Array, P, userInput?: string }
- *   OPEN              { encryptedVault, P, devicePrf?, pin?, paperShareY? } → { address, hasDevice, usedDevice, isV4, isV5, genesis? }
+ *   OPEN              { encryptedVault, P, devicePrf?, paperShareY? }       → { address, hasDevice, usedDevice, usedFace, isV4, isV5, genesis? }
  *   ENROLL_DEVICE     { devicePrf, credentialId, prfSalt }                → { encryptedVault }
  *   SIGN              { tx: object }
  *   PERSONAL_SIGN     { message: string }
+ *   SIGN_TYPED_DATA   { typedDataJson: string }
  *   RECOVERY_FORMULA  {}
- *   UPGRADE_V5        { devicePrf?, credentialId?, prfSalt? }              → { encryptedVault, paperShareY }
  *   RE_ENROLL_FACE    { embedding, devicePrf?, credentialId?, prfSalt? }   → { P, encryptedVault, paperShareY }
  *   ADD_CHAIN_ENTRY   { method: string }                                   → { encryptedVault }
  *   GENESIS_RECOVER   { encryptedVault, embedding, P }                    → { mnemonic }
@@ -79,18 +77,6 @@ async function handle(type, p) {
       return {};
     }
 
-    case 'ENROLL': {
-      const res = await BioVault.create(p.embedding, p.pin ?? null);
-      vault = new BioVault(res.vaultId);
-      return { vaultId: res.vaultId, P: res.P, encryptedVault: res.encryptedVault };
-    }
-
-    case 'IMPORT': {
-      const res = await BioVault.importFromMnemonic(p.mnemonic, p.embedding, p.pin ?? null);
-      vault = new BioVault(res.vaultId);
-      return { vaultId: res.vaultId, P: res.P, encryptedVault: res.encryptedVault };
-    }
-
     case 'COMMIT_TX': {
       if (!vault) throw new Error('No vault initialised');
       const fingerprint = await vault.commitTx(p.tx);
@@ -106,20 +92,6 @@ async function handle(type, p) {
       if (!vault) throw new Error('No vault initialised');
       await vault.onBioCapture(p.embedding, p.P, p.userInput ?? null);
       return {};
-    }
-
-    case 'CREATE_V4': {
-      const dPrf  = p.devicePrf    ? new Uint8Array(p.devicePrf)    : null;
-      const cId   = p.credentialId ? new Uint8Array(p.credentialId) : null;
-      const pSalt = p.prfSalt      ? new Uint8Array(p.prfSalt)      : null;
-      const res = await BioVault.createV4(p.embedding, dPrf, cId, pSalt);
-      vault = new BioVault(res.vaultId);
-      return {
-        vaultId:        res.vaultId,
-        P:              res.P,
-        encryptedVault: res.encryptedVault,
-        paperShareY:    Array.from(res.paperShareY),
-      };
     }
 
     case 'CREATE_V5': {
@@ -233,24 +205,6 @@ async function handle(type, p) {
       if (!vault) throw new Error('No vault initialised');
       const { rawA, r } = await vault.makeRecoveryFormula();
       return { rawA, r };
-    }
-
-    case 'UPGRADE_V4': {
-      if (!vault) throw new Error('No vault initialised');
-      const dPrf  = p.devicePrf    ? new Uint8Array(p.devicePrf)    : null;
-      const cId   = p.credentialId ? new Uint8Array(p.credentialId) : null;
-      const pSalt = p.prfSalt      ? new Uint8Array(p.prfSalt)      : null;
-      const { encryptedVault, paperShareY } = await vault.upgradeToV4(dPrf, cId, pSalt);
-      return { encryptedVault, paperShareY: Array.from(paperShareY) };
-    }
-
-    case 'UPGRADE_V5': {
-      if (!vault) throw new Error('No vault initialised');
-      const dPrf  = p.devicePrf    ? new Uint8Array(p.devicePrf)    : null;
-      const cId   = p.credentialId ? new Uint8Array(p.credentialId) : null;
-      const pSalt = p.prfSalt      ? new Uint8Array(p.prfSalt)      : null;
-      const { encryptedVault, paperShareY } = await vault.upgradeToV5(dPrf, cId, pSalt);
-      return { encryptedVault, paperShareY: Array.from(paperShareY) };
     }
 
     case 'RE_ENROLL_FACE': {
