@@ -6,8 +6,8 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v36.1';              // Buy/Sell Crypto module (MoonPay)
-const SW_CACHE_VERSION = 'biowallet-v108'; // egyezzen a sw.js CACHE értékével
+const APP_VERSION = 'v37';                  // v5-only hardening + self-healing
+const SW_CACHE_VERSION = 'biowallet-v110';  // KÖTELEZŐEN egyezzen a sw.js CACHE értékével
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=13';
 import { openCamera, enrollEmbedding, captureEmbedding, performLivenessChallenge } from '../core/bio_capture.js?v=13';
