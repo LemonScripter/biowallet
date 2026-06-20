@@ -1,27 +1,32 @@
-# BioWallet v35.4 � Canonical File Hashes
-# Date: 2026-06-03
-# Commit: 7626226
+# BioWallet v37.1 — Canonical File Hashes
+# Date: 2026-06-21
+# Commit: 9860eb3 (SW biowallet-v111)
 # Verify: sha256sum -c checksums.txt
 #
+# Footer 'Build:' fingerprint (live) == HASHES.md Combined → server authentic.
 # The constitution anchor is spec/biowallet.bio.
 # Blockchain anchor TX: see CONSTITUTION.md
-
-793cac74939d658e3cebde0e8066b2ac754ab34e9c85657043c5f58a0a1866e2  spec/biowallet.bio
-740f1ea4d8ebd020ade795a8a0caa0ae2f77026ccf0c935b3e5a55b7900c0e39  src/core/causal_chain.js
-5db91d6ddf78382c3c6b56ab1e480b1446cf88a02b686653f23fdf4ce718ac4c  src/core/vault.js
-f0b77111a307f8582a4ae7402fd28ab96e0575904253a1067cf07a3674d26b96  src/core/sss.js
-9a6912650e4780e8de8d078ce626a0cd1019a03f27599e1e2af25a166aa97876  src/core/fuzzy_extractor.js
-33670ce647166190346be137a41761caee8c570c8046b0f242f716cb5379d837  src/core/wallet.js
-dae76b4d4e7232481fc534cf44eb6e46cc1c43d872aaadefb558709e9ab0d833  src/core/recovery_formula.js
-fba25c166327dd7c53c95b4f6a01314f427865fe5b4d01a29aaf5d14114a1a28  src/core/bio_capture.js
-31c7f86f0a26d956cdf82f3e3766f461914aca243c2895a55385af80243ec625  src/core/rpc.js
-2124f8b4854c8795464ecdaea31a92655b55e56fa00c92f9cf4b16fbbc6b092d  src/core/wc2.js
-2529cab7cf83e5eda96f85a2df2f6d3fe66b17043a92dea361eb15e9379cf745  src/core/i18n.js
-b526a1798c961c38d7f176dd730d298ab32cf8aafa219bf5383ecc20e1e72ac4  src/core/swap.js
-cea9956359f02aadf0927f1b5b9cdf1b5fc9cd58c273ac7b3019d14919b741f1  src/app/vault_worker.js
-8c00975192be516e0f97a4ae6e937a95c2213d5df42eda112a4a308a0f3ff63f  src/app/app.js
-52eec84a35b40a5cd32363e47b0a8a0f0f6e1d2fe7916eaad2576bdfa44a73e5  src/app/sw.js
-271e606edbc5a36928eb8e84e3f41d77da7e9e43ec86fcb4b4bfa7e2f9602d10  src/app/index.html
-488565bf977d55a16e4615740bd312bcecbb335279867f741aefac80462c7ef1  recovery_tool.html
-8092420c33973ea23acfad3aa4fe58ee3b6e0af7fb6597f58f4ada55c925b5b0  src/app/dapp-guide.html
-86bf498d2edad52823ff038c6a0c56747d04243e57f81205f90c4265cdbda7eb  src/app/dapp-guide.js
+#
+# Downloadable air-gap single-file:
+a87772169aae5ce1e9a2c69a021fdbbd43b206af2659a0219707b0d739107876 *biowallet.html
+#
+df60de6e3a1adb7c89ad3bc20bdb9dd06d11994c4a9c109a0273ea9cdd80d84f *spec/biowallet.bio
+740f1ea4d8ebd020ade795a8a0caa0ae2f77026ccf0c935b3e5a55b7900c0e39 *src/core/causal_chain.js
+4e458607c47aab21e07a3f71b8496220beb906b6149e034ca32883abb75c6596 *src/core/vault.js
+f0b77111a307f8582a4ae7402fd28ab96e0575904253a1067cf07a3674d26b96 *src/core/sss.js
+9a6912650e4780e8de8d078ce626a0cd1019a03f27599e1e2af25a166aa97876 *src/core/fuzzy_extractor.js
+33670ce647166190346be137a41761caee8c570c8046b0f242f716cb5379d837 *src/core/wallet.js
+dae76b4d4e7232481fc534cf44eb6e46cc1c43d872aaadefb558709e9ab0d833 *src/core/recovery_formula.js
+fba25c166327dd7c53c95b4f6a01314f427865fe5b4d01a29aaf5d14114a1a28 *src/core/bio_capture.js
+8425955917148900654aba99d4feddfde4e3a494e0bf9f84e25e38755511face *src/core/rpc.js
+77376c8a7258b81286414f289f10b0ac6ed12076d65ec1e64bc9a146904ee138 *src/core/wc2.js
+71043645655c2aac1a03291b2a0910d2caf5dac740e54920e9e162f756b52cdc *src/core/i18n.js
+b526a1798c961c38d7f176dd730d298ab32cf8aafa219bf5383ecc20e1e72ac4 *src/core/swap.js
+11bcabfcb65cab904fbfdb9ccbdc8047f32a48f5fcd224e56d3eabf2a7d790cb *src/core/prices.js
+2de5146c63daf2e8dbe792f03121406cec40c5941f607c1240ec0cbee61a11e8 *src/app/vault_worker.js
+51d3dbb91ef1ed891416f2bef00486c3d7ffda85d2d90376617c3306360363fa *src/app/app.js
+a5e3a5645eb0e25cea2f97971ea6ae219942e7a7c9b064e20ee0e2ed69388a94 *src/app/sw.js
+1cae922e193ba2e36f3154a6f6fa89aabafd3dcb07b22da641a0456b2a861fa9 *src/app/index.html
+01a20fc9525f86e8bd3b7b16c941fd24287e6410906c30507d24537181f731bf *recovery_tool.html
+8092420c33973ea23acfad3aa4fe58ee3b6e0af7fb6597f58f4ada55c925b5b0 *src/app/dapp-guide.html
+86bf498d2edad52823ff038c6a0c56747d04243e57f81205f90c4265cdbda7eb *src/app/dapp-guide.js
