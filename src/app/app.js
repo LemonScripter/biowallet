@@ -9,7 +9,7 @@
 const APP_VERSION = 'v36.1';              // Buy/Sell Crypto module (MoonPay)
 const SW_CACHE_VERSION = 'biowallet-v108'; // egyezzen a sw.js CACHE értékével
 
-import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=12';
+import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=13';
 import { openCamera, enrollEmbedding, captureEmbedding, performLivenessChallenge } from '../core/bio_capture.js?v=13';
 import {
   WC_PROJECT_ID, initWC, wcPair, wcApprove, wcRejectProposal, wcEmitChainChanged,
@@ -44,7 +44,7 @@ let _workerDead     = false;
 const _WORKER_RESPAWN_LIMIT = 5;
 
 function _spawnWorker() {
-  const w = new Worker('./vault_worker.js?v=29', { type: 'module' });
+  const w = new Worker('./vault_worker.js?v=30', { type: 'module' });
   w.onmessage = ({ data: { id, ok, result, error } }) => {
     const p = _pending.get(id);
     if (!p) return;

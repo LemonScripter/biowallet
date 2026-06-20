@@ -31,7 +31,7 @@
 import * as _ethersLib from '../vendor/ethers.bundle.js';
 self.ethers = _ethersLib;
 
-import { BioVault } from '../core/vault.js?v=22';
+import { BioVault } from '../core/vault.js?v=23';
 
 // GAP-2: DATA_FLOW védelme — a Worker konzolján Uint8Array/ArrayBuffer
 // (potenciális seed/kulcs) nem naplózható. Programozási hibák ellen véd.

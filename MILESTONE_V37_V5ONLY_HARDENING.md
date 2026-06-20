@@ -268,11 +268,16 @@ NEGATÍV / ÖNGYÓGYÍTÁS
 
 | ID | Teendő |
 |----|--------|
-| **D3** | Szerveren a maradék gyökér `/var/www/biowallet/sw.js` (v30) eltávolítása; egyetlen SW scope (`/app/`). Régi scope unregisztrálása kliensen (app.js takarító). |
-| **P5-1** | SW verzió bump → v109, `version.json`, `build_single.py` futtatás. |
-| **P5-2** | Deploy: `deploy.ps1` (DCC `chattr -i` → scp → `chattr +i`), version.json auto. |
-| **P5-3** | Push: subtree-split → GitHub main (ellenőrzéssel). |
+| **D3** | Szerveren a maradék gyökér `/var/www/biowallet/sw.js` (v30) eltávolítása; egyetlen SW scope (`/app/`). |
+| **P5-1** | ✅ SW verzió bump → **v109**; modul query-bumpok: `vault.js?v=23`, `i18n.js?v=13`, `vault_worker.js?v=30`, `app.js?v=23`; `build_single.py` lefuttatva (biowallet.html 11.5 MB). |
+| **P5-2** | Deploy: `deploy.ps1 -SkipGitPush` (DCC `chattr -i`→scp→`chattr +i`), version.json auto. |
+| **P5-3** | Push: subtree-split → GitHub main (remote-ellenőrzés UTÁN). |
 | **P5-4** | Élő smoke a https://biowallet.metaspace.bio-n: C2, C3, C4, C14. |
+
+### PWA auto-frissítés (igazolva a sw.js-ből)
+A SW `install`→`skipWaiting`, `activate`→régi cache törlés + `clients.claim` + `SW_ACTIVATED`
+üzenet → az app `window.location.reload()`-ot hív. A v109 bump → minden nyitott PWA
+automatikusan friss kódra vált. A modul `?v=` bumpok a worker ES-module cache (BUG-06) ellen.
 
 ```
 [ ] Phase 5 kész
