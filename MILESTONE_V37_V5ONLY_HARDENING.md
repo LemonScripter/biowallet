@@ -299,6 +299,21 @@ automatikusan friss kódra vált. A modul `?v=` bumpok a worker ES-module cache 
   az `origin` érintetlen maradt. biowallet.git main HEAD = `c049a96`.
 - **PWA auto-frissülés:** /app/ kliensek a v109 SW-vel; legacy / scope kliensek a stubbal.
 
+## 🚨 v110 HOTFIX (2026-06-21) — reload-hurok javítás
+- **Hiba:** a v109 deploynál az `app.js` `SW_CACHE_VERSION` konstans **v108** maradt, miközben
+  `version.json`/`sw.js` v109 lett. Az SW-független verzió-ellenőrző (`app.js:403-419`) a
+  `sw_update_done`-t a szerver-verzióra állítja, de a guard a (rossz) `SW_CACHE_VERSION`-höz
+  hasonlít → a feltétel sosem teljesül → **végtelen unregister+cache-clear+reload hurok**.
+  Mellékhatás: a PWA-k SOHA nem kapták meg a v37 kódot (a switch-fix sem) → a felhasználó
+  továbbra is a régi, törött váltást látta.
+- **Javítás:** minden v110-re konzisztensen: `app.js` `APP_VERSION='v37'` +
+  `SW_CACHE_VERSION='biowallet-v110'`, `sw.js` CACHE v110, version.json v110 (deploy auto).
+  A hurokban lévő kliensek a version.json=v110 miatt egyszer kitisztulnak és a JAVÍTOTT
+  kódot töltik be → a guard egyezik → hurok megáll.
+- **Tanulság / TODO:** a `deploy.ps1` preflight NEM ellenőrzi, hogy az `app.js`
+  `SW_CACHE_VERSION` egyezik-e az `sw.js` CACHE-sel — ezt a preflightba kéne tenni.
+- **Live igazolva:** app.js SW_CACHE_VERSION = version.json = sw.js = **v110**. Commit `4e99158`.
+
 ## ⚠️ Nyitott figyelmeztetés
 - Az `origin` remote **rosszul van beállítva** (`dcc-shield.wiki`, nem `biowallet`). Érdemes javítani,
   hogy a jövőbeli `deploy.ps1` (ami `origin`-ra pushol) ne a rossz repóra menjen.
