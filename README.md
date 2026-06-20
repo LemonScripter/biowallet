@@ -174,6 +174,7 @@ Full analysis with data tables and bar charts: <a href="https://biowallet.metasp
 | v35.3 | *Argon2id v6 attempt — rolled back due to stability issues* |
 | v35.3s | **Stable baseline (v35.2 core + DCC hardening):** reverted to v35.2 codebase (v5 PBKDF2, no Argon2id, no liveness). **DCC GAP fixes:** GAP-2 Worker console blocks `Uint8Array`/`ArrayBuffer` logging; GAP-3 `issue()` validates R is 32-byte `Uint8Array`; GAP-4 `BroadcastChannel` enforces single vault session across tabs. **PWA auto-update:** `version.json` (no-cache) + SW unregister + cache clear on version mismatch — SW-independent, no banner required. **WC session expiry:** countdown in session bar |
 | v35.4 | **Liveness / PAD:** dynamic head-turn challenge using `faceLandmark68Net` (already loaded, zero extra dependency) — baseline nose-ratio calibration (~1.2 s), detects ~20° turn in either direction, 8 s timeout; active at vault OPEN, face re-enrollment, and emergency seed recovery. Defeats static-photo attacks. `captureEmbedding` / `enrollEmbedding` untouched — only pre-scan challenge added. **Local-first:** tested on `localhost:8080` before deploy |
+| v37 (SW v109) | **v5-only hardening + self-healing.** **Data-loss fix:** both startup `localStorage.clear()` paths removed — a corrupt active meta now recovers from the wallet index (`_recoverActiveFromIndex`) instead of wiping all wallets; `navigator.storage.persist()` requested against eviction. **Worker self-heal:** respawnable worker (`_spawnWorker`/`_respawnWorker`, backoff limit 5), `_initVaultWithRetry`, fast-fail when worker dead — a worker error never causes data loss. **v5-only:** `open()` accepts only the current v5 format (deviceWrap + SSS); everything else → `UNSUPPORTED_FORMAT`. Removed legacy v1–v4 read/create paths, the spurious PIN prompt, and the 'upgrade to 2-of-3' footgun. **Wallet switch:** clear "scan to switch" message, per-wallet snapshot sync after re-enroll/device-enroll, `BroadcastChannel` `senderId` (no self-lock), WC `accountsChanged` so connected dApps follow the active wallet. **Scan watchdog:** 90 s safety timer guarantees the scan UI never stays stuck. **Cache-bust:** module `?v=` bumps (vault 23, i18n 13, worker 30, app 23), root `/sw.js` → self-unregistering stub |
 
 ---
 
@@ -267,6 +268,9 @@ Both scripts are self-contained and produce human-readable PASS/FAIL output for 
 - [x] **PWA auto-update** — `version.json` SW-independent forced update *(LIVE since v35.3s)*
 - [ ] **Argon2id KDF** — replace PBKDF2 with memory-hard KDF (v6 vault format, pending stable implementation)
 - [x] **Liveness / PAD** — dynamic head-turn challenge at vault open, re-enrollment, emergency recovery *(LIVE since v35.4)*
+- [x] **v5-only vault format** — single canonical format; legacy v1–v4 and the PIN path removed *(LIVE since v37)*
+- [x] **Data-loss guard** — no startup `localStorage.clear()`; corrupt meta recovers from the wallet index *(LIVE since v37)*
+- [x] **Worker self-heal** — respawnable crypto worker + retry; a worker error never wipes data *(LIVE since v37)*
 - [ ] **External security audit** — independent third-party review (Trail of Bits / Least Authority)
 
 ---
