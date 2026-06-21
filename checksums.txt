@@ -1,6 +1,6 @@
 # BioWallet v37.3 — Canonical File Hashes
 # Date: 2026-06-21
-# Commit: 54b8edd (SW biowallet-v113)
+# Commit: 82c21fd (SW biowallet-v113)
 # Verify: sha256sum -c checksums.txt
 #
 # Footer 'Build:' fingerprint (live) == HASHES.md Combined -> server authentic.
