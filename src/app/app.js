@@ -6,8 +6,8 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v37.1';                // v5-only + wallet-switch snapshot fix
-const SW_CACHE_VERSION = 'biowallet-v111';  // KÖTELEZŐEN egyezzen a sw.js CACHE értékével
+const APP_VERSION = 'v37.2';                // wallet-switch: vaultId egyeztetés a .biowallet belső id-jához
+const SW_CACHE_VERSION = 'biowallet-v112';  // KÖTELEZŐEN egyezzen a sw.js CACHE értékével
 
 import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=14';
 import { openCamera, enrollEmbedding, captureEmbedding, performLivenessChallenge } from '../core/bio_capture.js?v=13';
@@ -1302,6 +1302,11 @@ btnRestore.addEventListener('click', async () => {
 
     const vaultId = pFile.name.replace(/\.P\.json$/i, '').replace(/^.*[/\\]/, '');
 
+    // FIX (v37.2): a kilépő aktív tárca snapshotja ne vesszen el, mielőtt a metát felülírjuk
+    // az új (visszaállítandó) tárcával. A fájlnévből származó vaultId csak ideiglenes — a
+    // .biowallet betöltésekor a _validateAndApplyVault a fájl belső vaultId-jához egyezteti.
+    _walletsSaveCurrent();
+
     localStorage.setItem('biowallet_meta', JSON.stringify({ vaultId, P, walletName: vaultId }));
     await callWorker('INIT_VAULT', { vaultId, bfState: _bfGet() });
     vaultReady = true;
@@ -2463,6 +2468,14 @@ function _validateAndApplyVault(meta, vaultText) {
   if (!vaultObj.salt || !vaultObj.vaultId) { setMsg(t('msg.invalid.vault.file'), 'error'); return false; }
   // v5-only: régi/idegen formátumot nem fogadunk be (nem visz a scan-be, tiszta üzenet).
   if (vaultObj.v !== 5) { setMsg(t('msg.vault.unsupported'), 'error'); return false; }
+  // FIX (v37.2): a .biowallet BELSŐ vaultId-ja a mérvadó identitás — NEM a fájlnév.
+  // Restore-nál a meta.vaultId a fájlnévből származott (btnRestore), ami eltér a
+  // létrehozáskori crypto.randomUUID()-tól → ugyanaz a tárca KÉT index-kulcsot kapott →
+  // a switcher fantom-duplikátumot mutatott és „Megnyitás" a régi/aktív tárcára esett vissza.
+  // A belső id-hoz egyeztetjük → restore és create UGYANARRA a snapshotra/index-bejegyzésre mutat.
+  // Kripto-biztos: vault.open() a this.#vaultId-t csak session-belső causal-chain címkeként
+  // használja, sosem hasonlítja a fájl vaultId-jához (vault.js:235).
+  meta.vaultId = vaultObj.vaultId;
   _applyVaultJson(meta, vaultText);
   return true;
 }
