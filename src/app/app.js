@@ -6,10 +6,10 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v37.2';                // wallet-switch: vaultId egyeztetés a .biowallet belső id-jához
-const SW_CACHE_VERSION = 'biowallet-v112';  // KÖTELEZŐEN egyezzen a sw.js CACHE értékével
+const APP_VERSION = 'v37.3';                // SEND gomb anti-stick (lánc-váltás) + kék scan gomb + tisztább flow
+const SW_CACHE_VERSION = 'biowallet-v113';  // KÖTELEZŐEN egyezzen a sw.js CACHE értékével
 
-import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=14';
+import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=15';
 import { openCamera, enrollEmbedding, captureEmbedding, performLivenessChallenge } from '../core/bio_capture.js?v=13';
 import {
   WC_PROJECT_ID, initWC, wcPair, wcApprove, wcRejectProposal, wcEmitChainChanged,
@@ -2904,6 +2904,7 @@ async function handleWCSwitchChain(topic, id, { chainId: hexChain }) {
   currentNetwork = match;
   btnNetwork.textContent = currentNetwork.name;
   btnNetwork.classList.toggle('mainnet', !currentNetwork.testnet);
+  selectedToken = null; updateTokenSelector();   // FIX (v37.3): token-választó + SEND gomb frissítése WC-lánc-váltáskor
   await wcRespondOk(topic, id, null);
   await wcEmitChainChanged(topic, currentNetwork.chainId);
   setMsg(t('msg.network.switch', { name: currentNetwork.name }), 'ok');
@@ -2938,6 +2939,7 @@ async function handleWCAddChain(topic, id, chainParams) {
     currentNetwork = existing;
     btnNetwork.textContent = currentNetwork.name;
     btnNetwork.classList.toggle('mainnet', !currentNetwork.testnet);
+    selectedToken = null; updateTokenSelector();   // FIX (v37.3): token-választó + SEND gomb frissítése WC-lánc-váltáskor
     await wcRespondOk(topic, id, null);
     await wcEmitChainChanged(topic, currentNetwork.chainId);
     return;
@@ -3704,33 +3706,36 @@ function showWCSignModal(hexMsg) {
 function updateTokenSelector() {
   const sym    = currentNetwork.nativeSymbol ?? 'ETH';
   const tokens = [...(TOKEN_LIST[currentNetwork.key] ?? []), ...getCustomTokens(currentNetwork.key)];
-  tokenSelector.innerHTML = '';
 
+  // FIX (v37.3): ha a kiválasztott token nincs az aktuális láncon (lánc-váltás), essünk
+  // vissza a natív tokenre — egy másik lánc token-objektuma (címe) érvénytelen itt.
+  // Szimbólum + cím alapján egyeztetünk (az azonos nevű, más láncon lévő token NEM ugyanaz).
+  if (selectedToken && !tokens.find(tk =>
+        tk.symbol === selectedToken.symbol &&
+        (tk.address ?? '').toLowerCase() === (selectedToken.address ?? '').toLowerCase())) {
+    selectedToken = null;
+  }
+
+  tokenSelector.innerHTML = '';
   for (const tok of [{ symbol: sym }, ...tokens]) {
     const isNative = tok.symbol === sym && !tok.address;
-    const isActive = isNative ? selectedToken === null : selectedToken?.symbol === tok.symbol;
-    const btn      = document.createElement('button');
-    btn.className  = 'token-pill' + (isActive ? ' active' : '');
+    const isActive = isNative
+      ? selectedToken === null
+      : selectedToken?.symbol === tok.symbol &&
+        (selectedToken?.address ?? '').toLowerCase() === (tok.address ?? '').toLowerCase();
+    const btn       = document.createElement('button');
+    btn.className   = 'token-pill' + (isActive ? ' active' : '');
     btn.textContent = tok.symbol;
     btn.addEventListener('click', () => {
       selectedToken = isNative ? null : tok;
-      const label = t('btn.send.token', { sym: selectedToken?.symbol ?? sym });
-      sendCardLabel.textContent = label;
-      amountUnit.textContent    = selectedToken?.symbol ?? sym;
-      sendBtnLabel.textContent  = label;
-      updateTokenSelector();
+      updateTokenSelector();   // a SEND gomb feliratát a függvény végi _refreshDynamicLabels() szinkronizálja
     });
     tokenSelector.appendChild(btn);
   }
 
-  if (selectedToken && !tokens.find(t => t.symbol === selectedToken.symbol)) {
-    selectedToken = null;
-    const label = t('btn.send.token', { sym });
-    sendCardLabel.textContent = label;
-    amountUnit.textContent    = sym;
-    sendBtnLabel.textContent  = label;
-    updateTokenSelector();
-  }
+  // FIX (v37.3): a SEND gomb felirata MINDIG a selectedToken-t tükrözze (egyetlen igazságforrás)
+  // → nem ragad be lánc-/token-váltáskor.
+  _refreshDynamicLabels();
 }
 
 // ── Token timer (Worker STATUS polling) ───────────────────────────────────
@@ -4128,6 +4133,7 @@ function _switchNetwork(net) {
   currentNetwork = net;
   btnNetwork.textContent = currentNetwork.name;
   btnNetwork.classList.toggle('mainnet', !currentNetwork.testnet);
+  selectedToken = null;   // FIX (v37.3): másik láncon a korábbi token érvénytelen → natívra váltunk
   updateTokenSelector();
   if (vaultReady) {
     swapRow.style.display = isSwapSupported(currentNetwork.chainId) ? '' : 'none';

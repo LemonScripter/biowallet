@@ -1,14 +1,14 @@
-# BioWallet v37.2 — Canonical File Hashes
+# BioWallet v37.3 — Canonical File Hashes
 # Date: 2026-06-21
-# Commit: 469c130 (SW biowallet-v112)
+# Commit: 54b8edd (SW biowallet-v113)
 # Verify: sha256sum -c checksums.txt
 #
-# Footer 'Build:' fingerprint (live) == HASHES.md Combined → server authentic.
+# Footer 'Build:' fingerprint (live) == HASHES.md Combined -> server authentic.
 # The constitution anchor is spec/biowallet.bio.
 # Blockchain anchor TX: see CONSTITUTION.md
 #
 # Downloadable air-gap single-file:
-ce0ee937378e0c310fa2b4c764ba4e7501f54ef6b567f6252fad0990dc966e1c *biowallet.html
+47d50949df80967f2ab2a8a8fc81d7a3fffbb97c56b1b0b1a9b11dd0b6549857 *biowallet.html
 #
 df60de6e3a1adb7c89ad3bc20bdb9dd06d11994c4a9c109a0273ea9cdd80d84f *spec/biowallet.bio
 740f1ea4d8ebd020ade795a8a0caa0ae2f77026ccf0c935b3e5a55b7900c0e39 *src/core/causal_chain.js
@@ -20,13 +20,13 @@ dae76b4d4e7232481fc534cf44eb6e46cc1c43d872aaadefb558709e9ab0d833 *src/core/recov
 fba25c166327dd7c53c95b4f6a01314f427865fe5b4d01a29aaf5d14114a1a28 *src/core/bio_capture.js
 8425955917148900654aba99d4feddfde4e3a494e0bf9f84e25e38755511face *src/core/rpc.js
 77376c8a7258b81286414f289f10b0ac6ed12076d65ec1e64bc9a146904ee138 *src/core/wc2.js
-71043645655c2aac1a03291b2a0910d2caf5dac740e54920e9e162f756b52cdc *src/core/i18n.js
+fdcfde991e053d440988f38c25abd866343f9a9df8a321c755bae1fa6112d199 *src/core/i18n.js
 b526a1798c961c38d7f176dd730d298ab32cf8aafa219bf5383ecc20e1e72ac4 *src/core/swap.js
 11bcabfcb65cab904fbfdb9ccbdc8047f32a48f5fcd224e56d3eabf2a7d790cb *src/core/prices.js
 2de5146c63daf2e8dbe792f03121406cec40c5941f607c1240ec0cbee61a11e8 *src/app/vault_worker.js
-32749e4d86588c5d37d37d5479dfa56434071d62ca31cdb76fef5d4048fe5775 *src/app/app.js
-131f3a1fa42cd4a4c8594468cc1c7b520b91cfa303b1e67ee8920734b4ee5e71 *src/app/sw.js
-719ada76cd18ac3205ab2c1b4a1d2d65ea0963c12764c3e44ba26ca07f823319 *src/app/index.html
+c8482230e69edb4fdbe8108689e3cf66ee410502da76afa86eacd5bdc3995dac *src/app/app.js
+d6eee9dd65f3fb3b467b9569983c543bfdf69368fc2f13f168d4c1e529fa4d9f *src/app/sw.js
+99ad25e49b6e005ada2258536582c57a5205f6ed5a01c625e5a2d77e83daa0f1 *src/app/index.html
 01a20fc9525f86e8bd3b7b16c941fd24287e6410906c30507d24537181f731bf *recovery_tool.html
 8092420c33973ea23acfad3aa4fe58ee3b6e0af7fb6597f58f4ada55c925b5b0 *src/app/dapp-guide.html
 86bf498d2edad52823ff038c6a0c56747d04243e57f81205f90c4265cdbda7eb *src/app/dapp-guide.js
