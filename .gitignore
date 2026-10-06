@@ -27,6 +27,17 @@ STATUS.md
 ARCHITECTURE_PLAN.md
 ANNOUNCEMENT_DRAFTS.md
 dev.py
+PLAN_*.md
+
+# Talk / conference materials (slides, screenshots, handout PDF)
+_eloadas_deck/
+
+# Security-tooling session logs (membrane audit)
+.metaspace/
+
+# DCC / patent-related reports — not for public repo until filing
+DCC_RING0_VALIDATION_REPORT.pdf
+MetaSpace__Deterministic_Formal_Verification_*.pdf
 
 # OS
 .DS_Store
