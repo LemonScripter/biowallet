@@ -28,6 +28,8 @@ ARCHITECTURE_PLAN.md
 ANNOUNCEMENT_DRAFTS.md
 dev.py
 PLAN_*.md
+CLAUDE.md
+.claude/
 
 # Talk / conference materials (slides, screenshots, handout PDF)
 _eloadas_deck/
