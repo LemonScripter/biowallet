@@ -52,7 +52,7 @@ Most wallets tell you they are secure. BioWallet shows you the proof.
 | DCC constitution tamper-evident | SHA-256 of `spec/biowallet.bio` anchored on Arbitrum One blockchain | [CONSTITUTION.md](CONSTITUTION.md) |
 | Genesis identity chain tamper-evident | `genesis_hmac` = HMAC-SHA256(HKDF(vault\_key, "biowallet-genesis-hmac-v1"), JSON(genesis + dna\_chain)); verified on every vault open | [src/core/vault.js](src/core/vault.js) |
 | MetaMask-compatible address derivation | Three key types: `raw` (native), `bip39` (BIP39 PBKDF2 → BIP32, matches MetaMask HD accounts), `privkey` (raw 32-byte key, matches MetaMask imported accounts) | [src/core/wallet.js](src/core/wallet.js) |
-| Served JavaScript cannot be silently replaced | `ext4 chattr +i` kernel immutable flag on all critical source files + DCC Ring 0 eBPF audit layer — active in production at `biowallet.metaspace.bio` | [SECURITY.md](SECURITY.md#server-side-hardening-biowallet--bioos-production-active) |
+| Served JavaScript cannot be replaced by an unprivileged attacker on the server | `ext4 chattr +i` kernel immutable flag on all critical source files + DCC Ring 0 eBPF audit layer — active in production at `biowallet.metaspace.bio`. Does not resist root on the server (see THREAT_MODEL T11b) | [SECURITY.md](SECURITY.md#server-side-hardening-biowallet--bioos-production-active) |
 
 ### Formal verification results
 

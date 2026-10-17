@@ -39,18 +39,21 @@ The fuzzy extractor tolerates small biometric variations; however, a face scan f
 **CDN supply chain attacks**
 All vendor libraries (FaceNet, ethers.js, WalletConnect, QRCode) are bundled at build time and served from the same origin. No runtime CDN fetch occurs. All four vendor files carry SHA-384 SRI integrity attributes — a tampered file is rejected by the browser before execution.
 
-**Server-side supply chain attacks**
-The canonical deployment at `biowallet.metaspace.bio` operates under two independent kernel-level protections that prevent the served JavaScript from being silently replaced:
+**Server-side supply chain attacks (unprivileged attacker)**
+The canonical deployment at `biowallet.metaspace.bio` has two kernel-level layers that stop an *unprivileged* attacker on the server — for example, code execution through the web server — from replacing the served JavaScript:
 
-1. **`ext4 immutable flag` (`chattr +i`)** — all critical source files carry the Linux immutable attribute. The ext4 kernel driver rejects any write at the VFS layer, regardless of process privileges. A root-level RCE exploit, a compromised web server process, or any automated system process cannot overwrite the served files. Modification requires a legitimate, authenticated SSH session and an explicit `chattr -i` command — the same path used for authorised deployments.
+1. **`ext4 immutable flag` (`chattr +i`)** — all critical source files carry the Linux immutable attribute. While the flag is set, the kernel rejects every write to these files, from any process. Clearing the flag requires `CAP_LINUX_IMMUTABLE`, which every root process holds. The flag therefore stops non-root attackers and accidental writes, not root.
 
-2. **DCC Ring 0 BPF audit** — 8 eBPF LSM programs run continuously in the kernel. Every write attempt against the protected files is intercepted at the `lsm/file_permission` hook, logged with PID and process name, and the `token_map` is frozen at load time (`bpf_map_freeze`) to prevent fake-token injection. This provides a tamper-evident audit trail independent of userspace logging.
+2. **DCC Ring 0 audit** — eBPF LSM programs log write attempts against the protected files with PID and process name. In this deployment the layer runs in audit mode: it records, it does not block. The log is stored on the same host.
 
-Together these layers mean: the JavaScript your browser downloads is cryptographically identical to the code in the audited source tree. An attacker who can serve you modified JavaScript must first obtain authenticated SSH access to the server — the same level of access required for a legitimate deployment.
+A root-level compromise of the server is **not** covered — see *What BioWallet does NOT protect against* below.
 
 ---
 
 ### What BioWallet does NOT protect against
+
+**A root-level compromise of the hosting server**
+An attacker with root on the server can clear the immutable flag, stop the audit layer, and serve modified JavaScript to every user on their next load; an installed PWA accepts an updated service worker like any other update. The on-host audit log is not tamper-evident against root. See [THREAT_MODEL.md](THREAT_MODEL.md) T11b. Planned: independently published, signed releases, so the served code can be checked against a source the server cannot alter.
 
 **A fully compromised browser**
 If the browser process itself is controlled by an attacker, Worker isolation provides no protection. Use a dedicated browser profile for high-value wallets. See *Hardened Deployment* below for a kernel-level mitigation.
@@ -160,10 +163,10 @@ you download before any cryptographic guarantee can apply.
 
 **Layer 1 — ext4 immutable (kernel VFS)**
 
-Critical source files carry `chattr +i`. The ext4 driver returns `EPERM` on
-any write syscall against these files, at the VFS layer, before any userspace
-process can act. This applies unconditionally — regardless of process UID,
-capabilities, or whether the process believes it has root.
+Critical source files carry `chattr +i`. While the flag is set, the ext4
+driver returns `EPERM` on any write against these files, regardless of process
+UID. The flag itself can be cleared by any process holding
+`CAP_LINUX_IMMUTABLE` — which includes every root process.
 
 Protected files: `app.js`, `vault_worker.js`, `sw.js`, `bio_capture.js`,
 `causal_chain.js`, `vault.js`, `sss.js`, `fuzzy_extractor.js`, `wallet.js`,
@@ -171,45 +174,35 @@ Protected files: `app.js`, `vault_worker.js`, `sw.js`, `bio_capture.js`,
 
 **Layer 2 — DCC Ring 0 BPF (kernel LSM)**
 
-8 eBPF programs run continuously in the kernel via Linux Security Module hooks:
+eBPF programs attached to Linux Security Module hooks (file write, file open,
+outbound connect, exec, BPF program load, signals to the loader) record the
+security-relevant actions of non-whitelisted processes, including every write
+attempt against the protected files.
 
-| BPF program | Hook | Function |
-|---|---|---|
-| `dcc_causality_monitor` | `raw_tp/input_event` | Issues causal tokens on hardware IRQ events |
-| `dcc_axiom_validator` | `lsm/file_permission` | Audits every file write; blocks non-token writes in blocking mode |
-| `dcc_read_guard` | `lsm/file_open` | Audits file reads for non-whitelisted processes |
-| `dcc_network_guard` | `lsm/socket_connect` | Audits outbound connections for non-whitelisted processes |
-| `dcc_exec_guard` | `lsm/bprm_check_security` | Audits exec calls for non-whitelisted processes |
-| `dcc_fork_inherit` | `raw_tp/sched_process_fork` | Enforces token inheritance at fork |
-| `dcc_bpf_prog_guard` | `lsm/bpf_prog` | Prevents loading of additional BPF programs without a valid token |
-| `dcc_task_kill_guard` | `lsm/task_kill` | Blocks attempts to kill the DCC loader itself without a valid token |
-
-`token_map` is frozen at load time (`bpf_map_freeze`) — fake token injection
-via `bpftool` returns `EPERM`. The loader's own PID is recorded in
-`loader_pid_map`; any kill attempt without a valid causal token is rejected.
+**Deployment mode:** audit (log-only). The layer records; it does not block.
 
 **What this guarantees**
 
-An attacker who achieves remote code execution on the server — through a web
-exploit, a vulnerable dependency, or a compromised process running as root —
-cannot modify the served JavaScript files. Both protections must be defeated
-independently, and both operate below the userspace boundary.
+An attacker who gains code execution on the server *without root* — through a
+web exploit or a vulnerable dependency running as an unprivileged user —
+cannot modify the served JavaScript files, and the attempt is logged.
 
-The only authorised modification path is: authenticated SSH access → explicit
-`chattr -i` → file write → `chattr +i` restore. This is the same path used for
-every legitimate deployment, and it is logged by the BPF audit layer.
+**What this does not guarantee**
+
+An attacker with root can clear the immutable flag, stop or reconfigure the
+audit layer, and replace the files. The deployment path itself
+(authenticated SSH → `chattr -i` → write → `chattr +i`) is available to anyone
+who obtains root by any means. The audit log lives on the same host and is not
+tamper-evident against root.
 
 **Known limitations**
 
-- Comm-based process whitelist is spoofable via `prctl(PR_SET_NAME)` if an
-  attacker already has code execution — inode-based fix planned (Phase 11)
+- The production whitelist identifies processes by name (`comm`), which is
+  spoofable via `prctl(PR_SET_NAME)`. An inode-based identification has been
+  implemented and measured on a test VM; it is not yet deployed.
 - BPF programs are not formally Z3-verified (DCC protocol logic is; BPF
   implementation is audited manually)
 - No external security audit of the kernel-level components yet
-
-**Deployment mode:** `file_axiom_map` loaded (write-audit active), `config_map
-log_only = 1` (audit mode). Blocking mode available via runtime BPF map
-update without service restart.
 
 ---
 
@@ -227,7 +220,7 @@ update without service restart.
 | WalletConnect v2 | — | ✅ Internal | — |
 | Paraswap swap integration | — | ✅ Internal | — |
 | Liveness / PAD | ✅ LIV1–4 Z3-verified *(v35.4)* — head-turn at OPEN, re-enroll, genesis recovery | ✅ Internal | — |
-| Server-side supply chain | ✅ `chattr +i` (ext4 kernel) + DCC Ring 0 BPF audit — active in production | ✅ Internal | — |
+| Server-side supply chain | ⚠️ Partial — `chattr +i` (ext4 kernel) + DCC Ring 0 audit stop unprivileged writers, not root ([T11b](THREAT_MODEL.md)) | ✅ Internal | — |
 | DCC constitution | ✅ SHA-256 anchored on Arbitrum One blockchain · [CONSTITUTION.md](CONSTITUTION.md) | ✅ Internal | — |
 | External audit | ❌ Not yet performed | | |
 

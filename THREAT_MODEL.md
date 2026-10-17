@@ -1,6 +1,6 @@
 # Threat Model — BioWallet
 
-**Version:** v35.4a · **Date:** 2026-06-04 · **Scope:** browser PWA + Tokyo GCP deployment
+**Version:** v35.4a · **Date:** 2026-06-04 · **Revised:** 2026-10-17 (server-side compromise, T11) · **Scope:** browser PWA + Tokyo GCP deployment
 
 ---
 
@@ -55,6 +55,8 @@
 | T8 | RPC endpoint MITM / compromised node | Modified responses | TX fee, balance | DCC commit + fingerprint; HTTPS; 12 s AbortController timeout (v35.4a); chainId verification on custom networks (v35.4a); Ethereum fallback RPC | ⚠️ No certificate pinning |
 | T9 | Supply chain (npm, CDN) | Modified bundle | Everything | No CDN; SRI hash verification; local bundle | ✅ |
 | T10 | Brute-force / rainbow table | Offline vault file | Vault key | BCH fuzzy R not reproducible without the enrolled face; 300k PBKDF2 | ✅ |
+| T11a | Server compromise, unprivileged (e.g. web-server RCE) | Code execution as a non-root user on the hosting VM | Served JavaScript | Files are root-owned, read-only to the web server, and carry the ext4 immutable flag (`chattr +i`); write attempts are logged by DCC Ring 0 (eBPF LSM, audit mode) | ✅ Cannot overwrite |
+| T11b | Server compromise, root | Root on the hosting VM | Served JavaScript → every user's vault on next load | Not prevented. Root can clear the immutable flag (`CAP_LINUX_IMMUTABLE`) and stop the DCC audit layer, which runs in audit mode and is not designed to resist root. The audit log lives on the same host, so it is not tamper-evident against root. An installed PWA accepts an updated `sw.js` like any other browser update | ❌ Not mitigated — planned: independently published, verifiable releases |
 
 ---
 
@@ -62,7 +64,8 @@
 
 | Not protected | Rationale |
 |---------------|-----------|
-| OS-level compromise via local access | Worker isolation is browser-level only. Note: the canonical deployment at `biowallet.metaspace.bio` runs DCC Ring 0 (eBPF LSM) + `chattr +i` kernel immutable protection — a server-side RCE cannot silently replace the served JavaScript. A local OS compromise on the *user's* device remains out of scope. |
+| OS-level compromise of the *user's* device | Worker isolation is browser-level only. |
+| Root-level compromise of the hosting server | See T11b. The server-side layers (`chattr +i`, DCC Ring 0 in audit mode) stop an unprivileged attacker, not root. |
 | Jailbroken / rooted device | Trusted Execution Environment assumption violated |
 | Physically compromised hardware | TPM / Secure Enclave bypass is out of scope |
 | Key voluntarily disclosed by user | Social engineering is not a cryptographic problem |
@@ -90,3 +93,4 @@
 | Stolen `.biowallet` file (T1) | Medium | Low (brute-force infeasible) | Low | ✅ AES-256-GCM |
 | RPC MITM (T8) | Low | Medium | Low | ⚠️ HTTPS only; no pinning. Mitigated by timeout (12 s), chainId verify, fallback RPC (v35.4a) |
 | Supply chain attack (T9) | Very low | Critical | Medium | ✅ SRI + local bundle |
+| Server root compromise (T11b) | Low | Critical | High | ❌ Not mitigated; verifiable releases planned |
