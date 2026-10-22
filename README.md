@@ -3,7 +3,7 @@
   <p align="center"><strong>Your face is the key. Your secret stays offline.</strong></p>
   <p align="center">
     <a href="https://biowallet.metaspace.bio">Live demo</a> ·
-    <a href="../../releases/latest">⬇ Download</a> ·
+    <a href="#air-gapped--offline-use">Single-file build</a> ·
     <a href="README.hu.md">Magyar</a> ·
     <a href="SECURITY.md">Security policy</a> ·
     <a href="THREAT_MODEL.md">Threat model</a> ·
@@ -19,7 +19,7 @@
   <a href="tests/verify_sss_gf256.py"><img src="https://img.shields.io/badge/SSS%20GF(2%E2%81%B8)-13%2F13%20PASS-brightgreen" alt="SSS GF(2^8)" /></a>
   <img src="https://img.shields.io/badge/CDN%20dependencies-zero-blue" alt="No CDN" />
   <a href="THREAT_MODEL.md"><img src="https://img.shields.io/badge/threat%20model-published-informational" alt="Threat model" /></a>
-  <a href="../../releases/latest"><img src="https://img.shields.io/badge/air--gap%20build-11.5%20MB-success" alt="Air-gap build" /></a>
+  <a href="build_single.py"><img src="https://img.shields.io/badge/single--file%20build-from%20source-informational" alt="Single-file build from source" /></a>
   <a href="https://doi.org/10.5281/zenodo.20517348"><img src="https://img.shields.io/badge/DOI-10.5281%2Fzenodo.20517348-blue" alt="DOI" /></a>
 </p>
 
@@ -197,25 +197,28 @@ See [docs/cryptography.md](docs/cryptography.md) for the full cryptographic spec
 
 ## Air-gapped / offline use
 
-BioWallet ships as a **single self-contained HTML file** with every asset inlined — no internet required after download.
+BioWallet can be built into a **single self-contained HTML file** with every asset inlined (`python build_single.py` in the repo root, ~12 MB).
 
-**[⬇ Download biowallet.html from the latest release](../../releases/latest)**
+> **Status:** this build is not yet published as a release asset, and its behaviour outside the official origin (`file://`, other hosts) has **not been tested yet**. The latest published release predates the current version — do not use it for real funds. Build from source and compare against the hashes below.
 
 ```bash
-# Verify before opening (optional but recommended)
+python build_single.py
 sha256sum biowallet.html
-# Compare against the fingerprint published in HASHES.md
+# Compare against the biowallet.html line in checksums.txt (same commit)
 ```
 
-| Property | Value |
-|----------|-------|
-| File size | ~11.5 MB |
-| Contents | All JS, CSS, face-api models, ethers.js, WalletConnect — all inlined |
-| Network | Zero outbound connections (no CDN, no telemetry) |
-| Works offline | ✅ — open as `file://` or serve locally |
-| Build from source | `python build_single.py` in the repo root |
+| Property | Status |
+|----------|--------|
+| Contents | All JS, CSS, face-api models, ethers.js, WalletConnect inlined; no CDN, no telemetry |
+| Reproducible | Yes — the build is deterministic; the hash is listed in `checksums.txt` |
+| Served from `localhost` / other HTTPS host | Expected to work; **not yet tested** |
+| Opened as `file://` | **Not tested.** Browsers may block the camera there |
+| Device key (WebAuthn) | Bound to the origin it was enrolled on — on any other origin only face + paper recovery code can open the wallet |
+| Build-fingerprint footer | Only meaningful on the official origin; for the single file use `sha256sum` |
 
-> **Note:** the WalletConnect dApp integration requires internet. All other features (create wallet, import, sign, paper recovery) work fully offline.
+**What works without us today:** the private key can always be recovered from your paper parts with the standalone, offline [`recovery_tool.html`](recovery_tool.html) and moved to any other wallet. The app itself is served from `biowallet.metaspace.bio`; running it independently of that host is work in progress.
+
+> **Note:** balances, sending and dApp connections need internet access (RPC endpoints, WalletConnect).
 
 ---
 
@@ -260,7 +263,7 @@ Both scripts are self-contained and produce human-readable PASS/FAIL output for 
 - [x] **MetaMask import** — BIP39 seed phrase (12–24 words) and raw private key, correct HD derivation *(LIVE since v34)*
 - [x] **Paraswap swap** — ERC-20 token swaps with gas speed selector, balance-checked *(LIVE since v35)*
 - [x] **Genesis HMAC** — tamper-evident identity chain, verified on every vault open *(LIVE since v35)*
-- [x] **Single-file build** — air-gapped `biowallet.html` (~11.5 MB, all assets inlined) — [download latest release](../../releases/latest)
+- [x] **Single-file build** — `python build_single.py` produces `biowallet.html` (~12 MB, all assets inlined); standalone use outside the official origin is still being tested, see [Air-gapped / offline use](#air-gapped--offline-use)
 - [x] **Multi-wallet UI** — wallet switcher, NATIVE/SEED/PRIVKEY type badges, add/delete *(LIVE since v35.2)*
 - [x] **TX ABI decode** — ERC-20 function names shown in confirm dialog *(LIVE since v35.2)*
 - [x] **DCC hardening** — GAP-2 console guard, GAP-3 R validation, GAP-4 single-session enforcement *(LIVE since v35.3s)*
