@@ -49,12 +49,12 @@
 | T2 | Local malware | Reads filesystem and memory | Private key in memory | Exists only in a < 10 s window, Worker-isolated | ⚠️ Partial — OS-level compromise is out of scope |
 | T3 | Compromised browser extension | DOM manipulation, fetch intercept | TX data modification | CSP `script-src 'self'` blocks; Worker unreachable from extensions | ✅ |
 | T4 | Malicious dApp (WalletConnect) | JSON-RPC requests, metadata injection | Approval abuse, XSS | DCC: every tx requires fresh biometric; `h()` escape on all metadata | ✅ |
-| T5 | Stolen device | Physical access, browser session | Vault file + P file | Vault AES-GCM encrypted; not openable without enrolled face | ✅ |
+| T5 | Stolen device | Physical access, browser session | Vault file + P file | Vault AES-GCM encrypted; normal open needs face + (device key or paper share). **Caveat:** `genesis_backup` (emergency recovery) decrypts the seed from the vault file + `P` file + face alone, no device/paper — so the face factor is the only barrier on that path | ⚠️ Depends on face-factor strength (not yet measured) |
 | T6 | Shoulder-surfing | Sees the screen | Seed phrase / recovery formula | Paper formula obfuscated (meaningless without r\_j) | ✅ |
-| T7 | Camera spoofing (photo/mask) | 2D photo or 3D face mask | Biometric authentication | ✅ Head-turn liveness challenge (v35.4) — static photo cannot turn head; 3D mask/video replay partially mitigated by SSS 2-of-3 | ✅ Photo blocked; ⚠️ targeted video/mask residual risk |
+| T7 | Camera spoofing (photo/mask) | 2D photo or 3D face mask | Biometric authentication | Head-turn liveness challenge (v35.4): fixed, predictable (nose offset > 0.10 in either direction within 8 s), UI-level only. It does not protect against an attacker who runs the extractor offline on a copied vault + `P` file, and a recorded/generated video can pass it. Normal open additionally needs device key or paper share; the `genesis_backup` path does not | ⚠️ Static photo hindered at the UI only; video/mask/offline attack **not mitigated**; face-factor impersonation resistance not yet measured |
 | T8 | RPC endpoint MITM / compromised node | Modified responses | TX fee, balance | DCC commit + fingerprint; HTTPS; 12 s AbortController timeout (v35.4a); chainId verification on custom networks (v35.4a); Ethereum fallback RPC | ⚠️ No certificate pinning |
 | T9 | Supply chain (npm, CDN) | Modified bundle | Everything | No CDN; SRI hash verification; local bundle | ✅ |
-| T10 | Brute-force / rainbow table | Offline vault file | Vault key | BCH fuzzy R not reproducible without the enrolled face; 300k PBKDF2 | ✅ |
+| T10 | Brute-force / rainbow table | Offline vault file | Vault key | BCH fuzzy R not reproducible without a close-enough face embedding; 300k PBKDF2. Effective strength = entropy of the face factor, which has not been measured | ⚠️ |
 | T11a | Server compromise, unprivileged (e.g. web-server RCE) | Code execution as a non-root user on the hosting VM | Served JavaScript | Files are root-owned, read-only to the web server, and carry the ext4 immutable flag (`chattr +i`); write attempts are logged by DCC Ring 0 (eBPF LSM, audit mode) | ✅ Cannot overwrite |
 | T11b | Server compromise, root | Root on the hosting VM | Served JavaScript → every user's vault on next load | Not prevented. Root can clear the immutable flag (`CAP_LINUX_IMMUTABLE`) and stop the DCC audit layer, which runs in audit mode and is not designed to resist root. The audit log lives on the same host, so it is not tamper-evident against root. An installed PWA accepts an updated `sw.js` like any other browser update | ❌ Not mitigated — planned: independently published, verifiable releases |
 
@@ -88,7 +88,7 @@
 
 | Risk | Likelihood | Impact | Combined | Mitigation status |
 |------|-----------|--------|----------|-------------------|
-| Photo-based bypass (T7) | Low (liveness blocks static photos) | High | **Medium** | ✅ Head-turn challenge implemented (v35.4); SSS 2-of-3 as second layer |
+| Face spoofing / replay (T7) | Unknown (not measured) | High | **Medium-High** | ⚠️ Head-turn challenge hinders static photos at the UI only; normal open needs a second factor, but `genesis_backup` is face-only. Planned: impersonation measurement, second factor on `genesis_backup` |
 | Compromised browser extension (T3) | Low (CSP blocks) | High | Medium | ✅ CSP + Worker isolation |
 | Stolen `.biowallet` file (T1) | Medium | Low (brute-force infeasible) | Low | ✅ AES-256-GCM |
 | RPC MITM (T8) | Low | Medium | Low | ⚠️ HTTPS only; no pinning. Mitigated by timeout (12 s), chainId verify, fallback RPC (v35.4a) |
