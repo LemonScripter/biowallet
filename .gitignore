@@ -29,6 +29,7 @@ ANNOUNCEMENT_DRAFTS.md
 dev.py
 PLAN_*.md
 .memory_staging/
+BUGLIST_*.md
 CLAUDE.md
 .claude/
 
