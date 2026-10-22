@@ -6,10 +6,10 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v37.3';                // SEND gomb anti-stick (lánc-váltás) + kék scan gomb + tisztább flow
-const SW_CACHE_VERSION = 'biowallet-v113';  // KÖTELEZŐEN egyezzen a sw.js CACHE értékével
+const APP_VERSION = 'v37.4';                // FE_DECODE_FAIL számít hibás próbának + kamera csak scan alatt + barátságos hibaüzenet
+const SW_CACHE_VERSION = 'biowallet-v114';  // KÖTELEZŐEN egyezzen a sw.js CACHE értékével
 
-import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=15';
+import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=16';
 import { openCamera, enrollEmbedding, captureEmbedding, performLivenessChallenge } from '../core/bio_capture.js?v=13';
 import {
   WC_PROJECT_ID, initWC, wcPair, wcApprove, wcRejectProposal, wcEmitChainChanged,
@@ -44,7 +44,7 @@ let _workerDead     = false;
 const _WORKER_RESPAWN_LIMIT = 5;
 
 function _spawnWorker() {
-  const w = new Worker('./vault_worker.js?v=30', { type: 'module' });
+  const w = new Worker('./vault_worker.js?v=31', { type: 'module' });
   w.onmessage = ({ data: { id, ok, result, error } }) => {
     const p = _pending.get(id);
     if (!p) return;
@@ -447,11 +447,8 @@ function _refreshDynamicLabels() {
     });
   }
 
-  try {
-    stream = await openCamera(video, m => setMsg(m, ''));
-  } catch (e) {
-    setMsg(t('msg.camera.error', { err: e.message }), 'error');
-  }
+  // A kamera alapból KI van: a scan indításakor kapcsol be (_ensureCameraForScan),
+  // a scan végén kikapcsol (setScanning(false) → _stopCamera).
 
   const stored = localStorage.getItem('biowallet_meta');
   _walletsMigrate();          // v35.2: single-wallet → multi-wallet index migration
@@ -542,16 +539,22 @@ function _refreshDynamicLabels() {
 })();
 
 // ── Camera helpers ─────────────────────────────────────────────────────────
+function _camOff(off) {
+  document.getElementById('camera-wrap')?.classList.toggle('cam-off', off);
+}
+
 function _stopCamera() {
-  if (!stream) return;
-  stream.getTracks().forEach(t => t.stop());
-  stream = null;
+  if (stream) {
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+  }
   video.srcObject = null;
+  _camOff(true);
 }
 
 async function _ensureCamera() {
-  if (stream && stream.getTracks().every(t => t.readyState === 'live')) return;
-  try { stream = await openCamera(video, m => setMsg(m, '')); }
+  if (stream && stream.getTracks().every(t => t.readyState === 'live')) { _camOff(false); return; }
+  try { stream = await openCamera(video, m => setMsg(m, '')); _camOff(false); }
   catch (e) { setMsg(t('msg.camera.error', { err: e.message }), 'error'); }
 }
 
@@ -563,12 +566,13 @@ async function _ensureCameraForScan() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// ── Restart camera if stream killed when app went to background ───────────────
+// ── Restart camera if stream killed when app went to background (csak scan alatt) ──
 document.addEventListener('visibilitychange', async () => {
   if (document.hidden) return;
+  if (!faceGuide.classList.contains('scanning')) return;
   // Also catches muted tracks (not just ended) for better mobile compat
   if (!stream || stream.getTracks().some(t => t.readyState !== 'live')) {
-    try { stream = await openCamera(video, m => setMsg(m, '')); }
+    try { stream = await openCamera(video, m => setMsg(m, '')); _camOff(false); }
     catch (e) { setMsg(t('msg.camera.error', { err: e.message }), 'error'); }
   }
 });
@@ -619,6 +623,11 @@ function bioSuccess() {
 
 function cooldownMs() {
   return Math.max(0, _bfGet().until - Date.now());
+}
+
+// BIO_MISMATCH és FE_DECODE_FAIL egyaránt hibás biometrikus próbálkozás
+function _isBioFailErr(msg) {
+  return !!msg && (msg.includes('BIO_MISMATCH') || msg.includes('FE_DECODE_FAIL'));
 }
 
 function bioFailHint() {
@@ -1640,7 +1649,7 @@ btnScan.addEventListener('click', async () => {
     }
   } catch (e) {
     setScanning(false);
-    if (e.message.includes('BIO_MISMATCH')) bioFail();
+    if (_isBioFailErr(e.message)) bioFail();
     setMsg(friendlyError(e.message) + bioFailHint(), 'error');
     btnScan.disabled = false;
   }
@@ -1820,7 +1829,7 @@ btnSign.addEventListener('click', async () => {
 
   } catch (e) {
     setScanning(false);
-    if (e.message.includes('BIO_MISMATCH') || e.message.includes('GENESIS_MISMATCH')) bioFail();
+    if (_isBioFailErr(e.message) || e.message.includes('GENESIS_MISMATCH')) bioFail();
     setMsg(friendlyError(e.message) + bioFailHint(), 'error');
     btnSign.disabled = false;
   }
@@ -1849,7 +1858,7 @@ btnPaper.addEventListener('click', async () => {
     bioSuccess();
   } catch (e) {
     setScanning(false);
-    if (e.message.includes('BIO_MISMATCH')) bioFail();
+    if (_isBioFailErr(e.message)) bioFail();
     setMsg(friendlyError(e.message) + bioFailHint(), 'error');
     return;
   }
@@ -2492,8 +2501,6 @@ document.getElementById('btn-load-vault')?.addEventListener('click', async () =>
   } catch (e) {
     if (e.message && !e.message.includes('no.file')) setMsg(friendlyError(e.message), 'error');
   }
-  // File picker may interrupt camera stream on mobile — restart if needed
-  _ensureCamera().catch(() => {});
 });
 
 document.getElementById('btn-vault-paste-close')?.addEventListener('click', () => {
@@ -3104,7 +3111,7 @@ async function handleWCEthSend(topic, id, wcTx) {
     setMsg(t('msg.wc.tx.sent', { hash: txHash.slice(0,10) + '…' }), 'ok');
   } catch (e) {
     setScanning(false);
-    if (e.message?.includes('BIO_MISMATCH') || e.message?.includes('GENESIS_MISMATCH')) bioFail();
+    if (_isBioFailErr(e.message) || e.message?.includes('GENESIS_MISMATCH')) bioFail();
     await wcRespondError(topic, id, e.message);
     setMsg(friendlyError(e.message) + bioFailHint(), 'error');
   }
@@ -3130,7 +3137,7 @@ async function handleWCPersonalSign(topic, id, hexMsg) {
     setMsg(t('msg.wc.msg.signed'), 'ok');
   } catch (e) {
     setScanning(false);
-    if (e.message?.includes('BIO_MISMATCH') || e.message?.includes('GENESIS_MISMATCH')) bioFail();
+    if (_isBioFailErr(e.message) || e.message?.includes('GENESIS_MISMATCH')) bioFail();
     await wcRespondError(topic, id, e.message);
     setMsg(friendlyError(e.message) + bioFailHint(), 'error');
   }
@@ -3156,7 +3163,7 @@ async function handleWCTypedSign(topic, id, typedDataJson) {
     setMsg(t('msg.wc.typed.signed'), 'ok');
   } catch (e) {
     setScanning(false);
-    if (e.message?.includes('BIO_MISMATCH') || e.message?.includes('GENESIS_MISMATCH')) bioFail();
+    if (_isBioFailErr(e.message) || e.message?.includes('GENESIS_MISMATCH')) bioFail();
     await wcRespondError(topic, id, e.message);
     setMsg(friendlyError(e.message) + bioFailHint(), 'error');
   }
@@ -3568,7 +3575,7 @@ async function _executeApproveAndSwap(approveResult, swapResult, gasSpeed = 'nor
     setMsg((isHu ? 'Swap elküldve: ' : 'Swap sent: ') + swapHash.slice(0, 12) + '…', 'ok');
   } catch (e) {
     setScanning(false);
-    if (e.message?.includes('BIO_MISMATCH') || e.message?.includes('WORKER_COOLDOWN')) bioFail();
+    if (_isBioFailErr(e.message) || e.message?.includes('WORKER_COOLDOWN')) bioFail();
     setMsg(friendlyError(e.message) + bioFailHint(), 'error');
   }
 }
@@ -3602,7 +3609,7 @@ async function _executeSwap(swapResult, gasSpeed = 'normal') {
     setMsg((isHu ? 'Swap elküldve: ' : 'Swap sent: ') + txHash.slice(0, 12) + '…', 'ok');
   } catch (e) {
     setScanning(false);
-    if (e.message?.includes('BIO_MISMATCH') || e.message?.includes('WORKER_COOLDOWN')) bioFail();
+    if (_isBioFailErr(e.message) || e.message?.includes('WORKER_COOLDOWN')) bioFail();
     setMsg(friendlyError(e.message) + bioFailHint(), 'error');
   }
 }
@@ -3889,12 +3896,8 @@ function showPanel(name) {
   panelLock.classList.toggle('visible',   name === 'lock');
   panelVault.classList.toggle('visible',  name === 'vault');
   ttlBars.classList.toggle('visible',     name === 'vault');
-  // Camera only needed for face panels; stop it during vault (authenticated) and text-input (import)
-  if (name === 'vault' || name === 'import') {
-    _stopCamera();
-  } else {
-    _ensureCamera().catch(() => {});
-  }
+  // A kamera csak scan alatt aktív; panelváltáskor (ha nem fut scan) mindig kikapcsolunk
+  if (!faceGuide.classList.contains('scanning')) _stopCamera();
   if (name !== 'vault') {
     deviceRow.style.display = 'none';
     btnScan.disabled        = false;
@@ -3929,6 +3932,7 @@ let _scanWatchdog = null;
 function setScanning(on, detected = false) {
   faceGuide.className = 'face-guide' + (on ? ' scanning' : detected ? ' detected' : '');
   scanHint.textContent = on ? t('scan.hint.active') : t('scan.hint.done');
+  if (!on) _stopCamera();   // a kamera a scan végén (siker/hiba) mindig leáll
   // Öngyógyítás: a szkennelés SOHA ne ragadjon be. A legitim leghosszabb út ~75s
   // (liveness 8s + worker 2×30s); 90s után kényszer-visszaállás, az adat érintetlen.
   clearTimeout(_scanWatchdog);
@@ -3999,6 +4003,7 @@ function friendlyError(m) {
   if (m.includes('VAULT_CORRUPTED'))           return t('err.vault.corrupted');
   if (m.includes('WORKER_COOLDOWN')) { const sec = m.split(':')[1] ?? '?'; return t('err.bio.mismatch') + ` (${sec}s)`; }
   if (m.includes('BIO_MISMATCH'))             return t('err.bio.mismatch');
+  if (m.includes('FE_DECODE_FAIL'))           return t('err.fe.decode');
   if (m.includes('EXPIRED'))         return t('err.expired');
   if (m.includes('NO_TOKEN'))        return t('err.no.token');
   if (m.includes('VAULT_ID_MISMATCH')) return t('err.vault.mismatch');
@@ -4324,6 +4329,7 @@ function _selfHealReset() {
         try {
           _stopCamera();
           stream = await openCamera(video, () => {});
+          _camOff(false);
           // success — seamless recovery, no message
         } catch {
           _showSelfHealToast('Camera frozen');

@@ -13,6 +13,7 @@ const STRINGS = {
     'scan.hint':       'Nézzen egyenesen a kamerába',
     'scan.hint.active':'Nézzen egyenesen a kamerába...',
     'scan.hint.done':  'Kész — nyomjon egy gombot',
+    'cam.off':         'Kamera kikapcsolva — a scan indításakor bekapcsol',
 
     /* ── TTL labels ────────────────────────────────────────────────── */
     'ttl.open':  'NYITVA',
@@ -329,6 +330,7 @@ const STRINGS = {
     'btn.self.heal.restart':  'Újraindítás',
     'err.vault.corrupted': 'A tárca fájl sérült. Töltse be újra a .biowallet fájlt, vagy hozzon létre új tárcát.',
     'err.bio.mismatch':  'Az arc nem egyezik. Tipp: a tárcát abban a böngészőben nyissa meg, amelyikben létrehozta (Firefox ↔ Chrome eltérő képfeldolgozás).',
+    'err.fe.decode':     'Az arc nem egyezik a mentett mintával. Tipp: hasonló fényben, egyenes tartással, a létrehozáskor használt böngészőben próbálja újra.',
     'err.expired':       'A biometriai token lejárt — próbálja újra.',
     'err.no.token':      'Nincs érvényes biometriai token — szkennelje be arcát.',
     'err.vault.mismatch':'Rossz .biowallet fájl — ez nem az Ön tárcájához tartozik.',
@@ -368,7 +370,7 @@ const STRINGS = {
     'genesis.recover.copy.ok':     '✓ Másolva',
     'genesis.recover.copy.fail':   '✗ Nem sikerült',
     'genesis.recover.close':       'Bezárás és törlés',
-    'bf.remaining':      ' · még {n} próba a zárolásig',
+    'bf.remaining':      ' · még {n} próba, utána várakozás',
 
     /* ── Device enrollment offer (during wallet creation) ─────────── */
     'device.offer.title': 'Ujjlenyomat / Face ID regisztrálása',
@@ -395,6 +397,7 @@ const STRINGS = {
     'scan.hint':       'Look directly into the camera',
     'scan.hint.active':'Look directly into the camera...',
     'scan.hint.done':  'Ready — press a button',
+    'cam.off':         'Camera off — it turns on when a scan starts',
 
     /* ── TTL labels ────────────────────────────────────────────────── */
     'ttl.open':  'OPEN',
@@ -711,6 +714,7 @@ const STRINGS = {
     'btn.self.heal.restart':  'Restart',
     'err.vault.corrupted': 'Vault file is corrupted. Please reload the .biowallet file or create a new wallet.',
     'err.bio.mismatch':  'Face does not match. Tip: open the wallet in the same browser used for enrollment (Firefox ↔ Chrome use different image processing).',
+    'err.fe.decode':     'Face does not match the saved template. Tip: try again in similar lighting, facing the camera straight, in the browser used for enrollment.',
     'err.expired':       'Biometric token expired — please try again.',
     'err.no.token':      'No valid biometric token — scan your face.',
     'err.vault.mismatch':'Wrong .biowallet file — this does not belong to your wallet.',
@@ -750,7 +754,7 @@ const STRINGS = {
     'genesis.recover.copy.ok':     '✓ Copied',
     'genesis.recover.copy.fail':   '✗ Failed',
     'genesis.recover.close':       'Close & wipe',
-    'bf.remaining':      ' · {n} attempts left before lockout',
+    'bf.remaining':      ' · {n} attempts left, then a wait',
 
     /* ── Device enrollment offer (during wallet creation) ─────────── */
     'device.offer.title': 'Set up fingerprint / Face ID',

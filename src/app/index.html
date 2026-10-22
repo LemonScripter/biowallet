@@ -120,6 +120,21 @@
       transform: scaleX(-1);
     }
 
+    .cam-off-note {
+      display: none;
+      position: absolute;
+      inset: 0;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      text-align: center;
+      font-size: 0.8rem;
+      color: #6b6b80;
+      pointer-events: none;
+    }
+    .camera-wrap.cam-off .cam-off-note { display: flex; }
+    .camera-wrap.cam-off #video { visibility: hidden; }
+
     .face-guide {
       position: absolute;
       top: 50%; left: 50%;
@@ -730,8 +745,9 @@
 <main>
 
   <!-- Camera -->
-  <div class="camera-wrap">
+  <div class="camera-wrap cam-off" id="camera-wrap">
     <video id="video" autoplay muted playsinline></video>
+    <div class="cam-off-note" data-i18n="cam.off">Kamera kikapcsolva — a scan indításakor bekapcsol</div>
     <div class="face-guide" id="face-guide"></div>
     <div class="camera-footer">
       <div class="enroll-dots" id="enroll-dots" style="display:none">
@@ -1073,6 +1089,6 @@
 <script src="../vendor/qrcode.min.js" integrity="sha384-B3w4ObQEXH2D3E8FlVZ+pBTHHTrPFwqbXjfU/95D5ekt8DVTeG+cB6s6nVpsvh3m" crossorigin="anonymous"></script>
 <script src="../vendor/face-api.min.js" integrity="sha384-gzn2n++arkvyhdNLmUf1s6F5NZ8iAbZ7FhIt+Zw7Jlf1n/vNTmZ3+cYr7S4ogyco" crossorigin="anonymous"></script>
 <script src="../vendor/ethers.umd.min.js" integrity="sha384-6Zl0Pc8zjSz8KvmNeXRvUQgY4ryFb+BwDvKCmLYcBME0joAaru491tQgi9B7zsMM" crossorigin="anonymous"></script>
-<script type="module" src="app.js?v=26"></script>
+<script type="module" src="app.js?v=27"></script>
 </body>
 </html>

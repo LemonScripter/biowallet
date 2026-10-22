@@ -55,6 +55,20 @@ function _workerCooldownMs() {
   const counts = [0, 0, 0, 30_000, 60_000, 120_000, 240_000];
   return counts[Math.min(_bioFailCount, counts.length - 1)];
 }
+function _gateCooldown() {
+  const now = Date.now();
+  if (now < _cooldownUntil) {
+    throw new Error(`WORKER_COOLDOWN:${Math.ceil((_cooldownUntil - now) / 1000)}`);
+  }
+}
+// BIO_MISMATCH és FE_DECODE_FAIL egyaránt hibás biometrikus próbálkozás
+function _isBioFailure(e) {
+  return !!e.message && (e.message.includes('BIO_MISMATCH') || e.message.includes('FE_DECODE_FAIL'));
+}
+function _noteBioFailure() {
+  _bioFailCount++;
+  _cooldownUntil = Date.now() + _workerCooldownMs();
+}
 
 self.onmessage = async ({ data: { id, type, payload } }) => {
   try {
@@ -90,7 +104,13 @@ async function handle(type, p) {
 
     case 'BIO_CAPTURE': {
       if (!vault) throw new Error('No vault initialised');
-      await vault.onBioCapture(p.embedding, p.P, p.userInput ?? null);
+      _gateCooldown();
+      try {
+        await vault.onBioCapture(p.embedding, p.P, p.userInput ?? null);
+      } catch (e) {
+        if (_isBioFailure(e)) _noteBioFailure();
+        throw e;
+      }
       return {};
     }
 
@@ -138,12 +158,8 @@ async function handle(type, p) {
 
     case 'OPEN': {
       if (!vault) throw new Error('No vault initialised');
-      const now = Date.now();
-      if (now < _cooldownUntil) {
-        const remaining = Math.ceil((_cooldownUntil - now) / 1000);
-        throw new Error(`WORKER_COOLDOWN:${remaining}`);
-      }
-      const devicePrf  = p.devicePrf   ? new Uint8Array(p.devicePrf)  : null;
+      _gateCooldown();
+      const devicePrf = p.devicePrf   ? new Uint8Array(p.devicePrf)  : null;
       const paperShare = p.paperShareY
         ? { x: 3, y: new Uint8Array(p.paperShareY) }
         : null;
@@ -151,10 +167,7 @@ async function handle(type, p) {
       try {
         result = await vault.open(p.encryptedVault, p.P, devicePrf, p.pin ?? null, paperShare);
       } catch (e) {
-        if (e.message?.includes('BIO_MISMATCH')) {
-          _bioFailCount++;
-          _cooldownUntil = Date.now() + _workerCooldownMs();
-        }
+        if (_isBioFailure(e)) _noteBioFailure();
         throw e;
       }
       _bioFailCount  = 0;
