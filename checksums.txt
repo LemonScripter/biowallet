@@ -1,6 +1,6 @@
 # BioWallet v37.5 — Canonical File Hashes
 # Date: 2026-11-26
-# Commit: f55a8c4 (SW biowallet-v115)
+# Commit: 7b121d0 (SW biowallet-v115)
 # Verify: sha256sum -c checksums.txt
 #
 # Footer 'Build:' fingerprint (live) == HASHES.md Combined -> server authentic.
@@ -8,7 +8,7 @@
 # Blockchain anchor TX: see CONSTITUTION.md
 #
 # Downloadable air-gap single-file:
-1591240891275727dcb2ee590b013764e603ade0422929864dfba799dc2c52aa *biowallet.html
+3fe14789c9a071ee9f06735a804cd15444b78bf93c508be343b2e38c8d80dac1 *biowallet.html
 #
 df60de6e3a1adb7c89ad3bc20bdb9dd06d11994c4a9c109a0273ea9cdd80d84f *spec/biowallet.bio
 740f1ea4d8ebd020ade795a8a0caa0ae2f77026ccf0c935b3e5a55b7900c0e39 *src/core/causal_chain.js
@@ -21,10 +21,10 @@ fba25c166327dd7c53c95b4f6a01314f427865fe5b4d01a29aaf5d14114a1a28 *src/core/bio_c
 8425955917148900654aba99d4feddfde4e3a494e0bf9f84e25e38755511face *src/core/rpc.js
 77376c8a7258b81286414f289f10b0ac6ed12076d65ec1e64bc9a146904ee138 *src/core/wc2.js
 ba1f27b739984d0d79d4505b9d596e3b92333cc8a30d8e994d520bc477d62901 *src/core/i18n.js
-b526a1798c961c38d7f176dd730d298ab32cf8aafa219bf5383ecc20e1e72ac4 *src/core/swap.js
+ba753a3d007295231a9e00e52b17cda9df43cd66b5213cfe7e3aff7cfb4e5a90 *src/core/swap.js
 11bcabfcb65cab904fbfdb9ccbdc8047f32a48f5fcd224e56d3eabf2a7d790cb *src/core/prices.js
 ffe9dcdd445553a7f6a1145abd94823fc26e4e3b3f6cd731e0bd89055a51bc1e *src/app/vault_worker.js
-4c0533a6e9d133792b6d76a5ed58f20a1de4a0ad481c87d43ca75ed513d30b34 *src/app/app.js
+51a3c728a61fe5692f374960e2ea8962a20579e3a431551bd270941abc983f5b *src/app/app.js
 78be129137815620cfa10363527b64ff09cfcf7ca19cba6a5a46c255a42012ba *src/app/sw.js
 49f3708999bd8b47891e41438bd6bfbbcde79d01a439e6801787f1a2e85c39ac *src/app/index.html
 01a20fc9525f86e8bd3b7b16c941fd24287e6410906c30507d24537181f731bf *recovery_tool.html

@@ -3,17 +3,17 @@
 A `Build: <fingerprint>` értéke az app footer-ében ezekkel egyezik meg, ha a szerver
 nem módosított fájlokat szolgált ki.
 
-## v0.9 (2026-11-26, commit `f55a8c4`)
+## v0.9 (2026-11-26, commit `7b121d0`)
 
 | Fájl | SHA-256 |
 |------|---------|
 | `index.html` | `49f3708999bd8b47891e41438bd6bfbbcde79d01a439e6801787f1a2e85c39ac` |
-| `app.js` | `4c0533a6e9d133792b6d76a5ed58f20a1de4a0ad481c87d43ca75ed513d30b34` |
+| `app.js` | `51a3c728a61fe5692f374960e2ea8962a20579e3a431551bd270941abc983f5b` |
 | `vault_worker.js` | `ffe9dcdd445553a7f6a1145abd94823fc26e4e3b3f6cd731e0bd89055a51bc1e` |
 | `vault.js` | `4e458607c47aab21e07a3f71b8496220beb906b6149e034ca32883abb75c6596` |
 | `recovery_formula.js` | `dae76b4d4e7232481fc534cf44eb6e46cc1c43d872aaadefb558709e9ab0d833` |
 
-**Combined fingerprint:** `c135654a266ffb2a`
+**Combined fingerprint:** `80e9edc99b140760`
 
 ### Ellenőrzés
 
