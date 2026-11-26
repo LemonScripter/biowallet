@@ -3,7 +3,7 @@
 A `Build: <fingerprint>` értéke az app footer-ében ezekkel egyezik meg, ha a szerver
 nem módosított fájlokat szolgált ki.
 
-## v0.9 (2026-11-26, commit `63edbd8`)
+## v0.9 (2026-11-26, commit `f55a8c4`)
 
 | Fájl | SHA-256 |
 |------|---------|
