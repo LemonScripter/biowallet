@@ -7,7 +7,7 @@
  */
 
 const APP_VERSION = 'v37.5';                // domainfüggetlen egyfájlos build (F2): nincs hamis fingerprint, eszköz-tényező csak a saját rpId-n
-const SW_CACHE_VERSION = 'biowallet-v115';  // KÖTELEZŐEN egyezzen a sw.js CACHE értékével
+const SW_CACHE_VERSION = 'biowallet-v116';  // KÖTELEZŐEN egyezzen a sw.js CACHE értékével
 
 // Egyfájlos (air-gap) build: a build_single.py állítja be. Ilyenkor nincs szerver-oldali
 // /version.json, /app/sw.js és /app/*.js — ezekre nem szabad támaszkodni.
