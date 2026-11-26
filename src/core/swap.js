@@ -8,7 +8,7 @@ const PARASWAP   = 'https://apiv5.paraswap.io';
 const PARTNER_ID = 'biowallet';
 export const ETH_ADDR = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
 
-export const TREASURY = '0x4368F0bF9201118bD19b62fB68bFcbaC4B61B7Eb';
+export const TREASURY = '0x1B6aa94C507763190DEb5057E6B81e42c2363106';  // swap partner-díj címzett (EOA, v37.5-től; előtte 0x4368F0bF…B7Eb)
 const FEE_BPS         = 15;   // 0.15%
 const MAX_SLIPPAGE    = 1;    // 1% hard cap
 

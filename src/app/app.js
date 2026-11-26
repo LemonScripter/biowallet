@@ -45,7 +45,7 @@ import {
   WC_PROJECT_ID, initWC, wcPair, wcApprove, wcRejectProposal, wcEmitChainChanged,
   wcEmitAccountsChanged, wcRespondOk, wcRespondError, wcGetSessions, wcDisconnect, wcReady,
 } from '../core/wc2.js';
-import { isSwapSupported, buildSwapTx, buildApproveTx, getParaswapSpender, formatOutput, ETH_ADDR } from '../core/swap.js';
+import { isSwapSupported, buildSwapTx, buildApproveTx, getParaswapSpender, formatOutput, ETH_ADDR } from '../core/swap.js?v=2';
 import { fetchPricesUsd, fmtUsd, PRICE_NATIVE_ADDR } from '../core/prices.js';
 import { FEATURES } from '../config/features.js';
 const BUY_SUPPORTED_CHAINS = new Set([1, 56, 137, 42161, 8453, 10]);
