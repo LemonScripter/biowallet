@@ -144,6 +144,15 @@ def _build(tmp):
 
     interceptor = _make_interceptor(model_entries)
 
+    # 7b. Egyfájlos mód jelzése + relatív recovery_tool link (a kiadásban a két fájl egymás mellett van;
+    #     a szerveres /recovery_tool.html út domain nélkül nem létezik).
+    single_flag = 'window.__BW_SINGLE_FILE__=true;'
+    n_links = app_code.count('href="/recovery_tool.html"')
+    if n_links == 0:
+        raise RuntimeError('recovery_tool link nem található a bundle-ben — ellenőrizd az i18n.js-t')
+    app_code = app_code.replace('href="/recovery_tool.html"', 'href="recovery_tool.html"')
+    print(f'    recovery_tool link relatívvá téve: {n_links} helyen')
+
     # Összerakás:
     #   HEAD: interceptor + vendor globálok (DOM-hozzáférés nem kell)
     #   BODY vége: app_code — az esbuild IIFE nem defer-el, ezért a DOM
@@ -157,7 +166,7 @@ def _build(tmp):
         '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
         '<title>BioWallet — Air-Gap</title>',
         '<style>' + css + '</style>',
-        '<script>' + interceptor + '</script>',
+        '<script>' + single_flag + interceptor + '</script>',
         '<script>' + wc2_js + '</script>',
         '<script>' + qrcode_js + '</script>',
         '<script>' + fa_js + '</script>',

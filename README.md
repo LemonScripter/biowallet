@@ -199,7 +199,7 @@ See [docs/cryptography.md](docs/cryptography.md) for the full cryptographic spec
 
 BioWallet can be built into a **single self-contained HTML file** with every asset inlined (`python build_single.py` in the repo root, ~12 MB).
 
-> **Status:** this build is not yet published as a release asset, and its behaviour outside the official origin (`file://`, other hosts) has **not been tested yet**. The latest published release predates the current version — do not use it for real funds. Build from source and compare against the hashes below.
+> **Status (v37.5):** the single-file build is designed to run without our server and domain. The end-to-end test matrix (camera, create, restore, send) is **in progress**; until it is complete and the file is published as a release asset, do not rely on it for real funds. Build from source and compare against the hashes below.
 
 ```bash
 python build_single.py
@@ -211,12 +211,16 @@ sha256sum biowallet.html
 |----------|--------|
 | Contents | All JS, CSS, face-api models, ethers.js, WalletConnect inlined; no CDN, no telemetry |
 | Reproducible | Yes — the build is deterministic; the hash is listed in `checksums.txt` |
-| Served from `localhost` / other HTTPS host | Expected to work; **not yet tested** |
-| Opened as `file://` | **Not tested.** Browsers may block the camera there |
-| Device key (WebAuthn) | Bound to the origin it was enrolled on — on any other origin only face + paper recovery code can open the wallet |
-| Build-fingerprint footer | Only meaningful on the official origin; for the single file use `sha256sum` |
+| Contacts our server | No — in single-file mode there is no update check (`/version.json`) and no service worker; only RPC / price / WalletConnect endpoints are contacted |
+| Served from `localhost` (Chrome desktop) | Loads, face models load, no requests to our server — **measured**. Camera + create / restore / send: **pending** |
+| Opened as `file://` | **Pending test** |
+| Device key (WebAuthn) | Bound to the host it was enrolled on. On any other origin the app says so **before** the scan and requires the paper recovery code (face + paper) |
+| Build fingerprint | The footer fingerprint applies to the official origin only. In single-file mode the footer tells you to verify the file's SHA-256 against `checksums.txt` instead |
+| WalletConnect | The WalletConnect project is domain-allowlisted, so dApp connections are not expected to work from other origins. Not needed to hold or move funds |
 
-**What works without us today:** the private key can always be recovered from your paper parts with the standalone, offline [`recovery_tool.html`](recovery_tool.html) and moved to any other wallet. The app itself is served from `biowallet.metaspace.bio`; running it independently of that host is work in progress.
+**Why a file, not the installed app:** an installed PWA keeps starting from the browser cache if our server goes down, but the browser may clear that cache at any time, and if the domain ever changed hands its new owner could ship an update to installed apps. A file whose SHA-256 you check against a hash published elsewhere (GitHub release, Zenodo) does not depend on our domain at all.
+
+**What works without us today:** the private key can always be recovered from your paper parts with the standalone, offline [`recovery_tool.html`](recovery_tool.html) and moved to any other wallet.
 
 > **Note:** balances, sending and dApp connections need internet access (RPC endpoints, WalletConnect).
 

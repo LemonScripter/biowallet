@@ -209,7 +209,8 @@ const STRINGS = {
 
     /* ── Device messages ───────────────────────────────────────────── */
     'msg.device.auth':        'Eszközhitelesítés folyamatban...',
-    'msg.device.fallback':    'Eszköz kihagyva — arc-alapú belépés.',
+    'msg.device.fallback':    'Eszköz nem érhető el — a második tényező a papírkód.',
+    'single.verify':          'Egyfájlos build · ellenőrizd a fájl SHA-256-ját a kiadás checksums.txt-jével',
     'msg.device.enrolled':    'Eszköz regisztrálva!',
     'msg.device.offer':       'Regisztrálja ezt az eszközt második faktorként? (ujjlenyomat / Windows Hello)',
     'msg.device.removed':     'Eszköz eltávolítva.',
@@ -593,7 +594,8 @@ const STRINGS = {
 
     /* ── Device messages ───────────────────────────────────────────── */
     'msg.device.auth':        'Device authentication in progress...',
-    'msg.device.fallback':    'Device skipped — face-only unlock.',
+    'msg.device.fallback':    'Device unavailable — the paper code is the second factor.',
+    'single.verify':          'Single-file build · verify the file SHA-256 against the release checksums.txt',
     'msg.device.enrolled':    'Device enrolled!',
     'msg.device.offer':       'Register this device as a second factor? (fingerprint / Windows Hello)',
     'msg.device.removed':     'Device removed.',

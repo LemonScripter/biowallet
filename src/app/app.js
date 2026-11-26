@@ -6,10 +6,40 @@
  * Confirm overlay before every send.
  */
 
-const APP_VERSION = 'v37.4';                // FE_DECODE_FAIL számít hibás próbának + kamera csak scan alatt + barátságos hibaüzenet
-const SW_CACHE_VERSION = 'biowallet-v114';  // KÖTELEZŐEN egyezzen a sw.js CACHE értékével
+const APP_VERSION = 'v37.5';                // domainfüggetlen egyfájlos build (F2): nincs hamis fingerprint, eszköz-tényező csak a saját rpId-n
+const SW_CACHE_VERSION = 'biowallet-v115';  // KÖTELEZŐEN egyezzen a sw.js CACHE értékével
 
-import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=16';
+// Egyfájlos (air-gap) build: a build_single.py állítja be. Ilyenkor nincs szerver-oldali
+// /version.json, /app/sw.js és /app/*.js — ezekre nem szabad támaszkodni.
+const SINGLE_FILE = !!globalThis.__BW_SINGLE_FILE__;
+// A meglévő passkey-k rpId-je (régi tárcáknál a meta nem tárolta).
+const CANONICAL_HOST = 'biowallet.metaspace.bio';
+
+// A WebAuthn eszköz-tényező csak azon a hoston működik, ahol regisztrálták (rpId = hostname).
+// Más originen (egyfájlos build, idegen tárhely, file://) nem használható → papírkód kell.
+function _deviceUsableHere(dev) {
+  if (!dev?.credentialId) return false;
+  if (location.protocol === 'file:') return false;
+  return (dev.rpId ?? CANONICAL_HOST) === location.hostname;
+}
+
+// Papírkód az #sss-paper-input mezőből: tömb | null (üres/érvénytelen) | 'crc' (CRC-hiba).
+function _paperFromInput() {
+  const hexStr = (document.getElementById('sss-paper-input')?.value ?? '').trim().toLowerCase().replace(/\s/g, '');
+  if (hexStr.length === 66 && /^[0-9a-f]+$/.test(hexStr)) {
+    // Új formátum (v35.1+): 64 hex adat + 2 hex CRC8
+    const dataBytes = new Uint8Array(hexStr.slice(0, 64).match(/../g).map(x => parseInt(x, 16)));
+    if (_crc8(dataBytes) !== parseInt(hexStr.slice(64), 16)) return 'crc';
+    return Array.from(dataBytes);
+  }
+  if (hexStr.length === 64 && /^[0-9a-f]+$/.test(hexStr)) {
+    // Legacy paper formátum (v35.0): CRC nélkül elfogadjuk
+    return Array.from(hexStr.match(/../g).map(x => parseInt(x, 16)));
+  }
+  return null;
+}
+
+import { t, setLang, getLang, applyI18n, getInfoContent, getGuideHTML, tArr } from '../core/i18n.js?v=17';
 import { openCamera, enrollEmbedding, captureEmbedding, performLivenessChallenge } from '../core/bio_capture.js?v=13';
 import {
   WC_PROJECT_ID, initWC, wcPair, wcApprove, wcRejectProposal, wcEmitChainChanged,
@@ -400,7 +430,8 @@ function _refreshDynamicLabels() {
   // SW-független verzió-ellenőrzés: /version.json mindig friss (no-cache nginx)
   // Ha a szerver verziója nem egyezik → SW unregister + cache törlés + reload
   // sessionStorage guard: az újratöltés után ne fusson le újra (infinite loop)
-  if (sessionStorage.getItem('sw_update_done') !== SW_CACHE_VERSION) {
+  // Egyfájlos buildnél nincs „a mi szerverünk": egy idegen origin /version.json-ja nem írhatja elő a frissítést.
+  if (!SINGLE_FILE && sessionStorage.getItem('sw_update_done') !== SW_CACHE_VERSION) {
     fetch('/version.json?_=' + Date.now(), { cache: 'no-store' })
       .then(r => r.json())
       .then(async v => {
@@ -418,7 +449,7 @@ function _refreshDynamicLabels() {
       .catch(() => {});
   }
 
-  if ('serviceWorker' in navigator) {
+  if (!SINGLE_FILE && 'serviceWorker' in navigator) {
     navigator.serviceWorker.register('/app/sw.js').then(reg => {
       reg.update().catch(() => {});
       // Ha már vár egy új SW → azonnal kényszerítjük az aktiválást
@@ -499,7 +530,7 @@ function _refreshDynamicLabels() {
             try { const _v = JSON.parse(meta.vaultJson); vaultHasDevice = !!((_v.sss?.deviceShare) || _v.deviceWrap); } catch {}
             const paperLabel = document.querySelector('#sss-paper-row label');
             if (paperLabel) {
-              if (vaultHasDevice && !meta.device) {
+              if (vaultHasDevice && !_deviceUsableHere(meta.device)) {
                 paperLabel.style.color = '#ff4757';
                 paperLabel.setAttribute('data-i18n', 'sss.lock.paper.required');
                 paperLabel.textContent = t('sss.lock.paper.required');
@@ -638,6 +669,18 @@ function bioFailHint() {
 
 // ── Version hash (verifiable build fingerprint) ───────────────────────────
 async function showVersionHash() {
+  // Egyfájlos buildben a /app/*.js nem létezik: a fetch 404-oldalakat hash-elne (hamis fingerprint),
+  // egy idegen szerver pedig az eredeti fájlokat kiszolgálva „helyes" értéket mutathatna.
+  // A hitelesség itt a LETÖLTÖTT FÁJL SHA-256-ja a publikált checksums.txt-hez képest.
+  if (SINGLE_FILE) {
+    const footer = document.getElementById('app-footer');
+    if (!footer) return;
+    const el = document.createElement('div');
+    el.style.cssText = 'margin-top:0.35rem;font-family:"SF Mono","Fira Code",monospace;font-size:0.6rem;color:#52527a;letter-spacing:0.04em';
+    el.textContent = t('single.verify');
+    footer.appendChild(el);
+    return;
+  }
   const FILES = [
     ['/app/index.html',           'index.html'],
     ['/app/app.js',               'app.js'],
@@ -986,7 +1029,7 @@ btnEnroll.addEventListener('click', async () => {
 
     const vaultJson = new TextDecoder().decode(encryptedVault);
     const newMeta = { vaultId, P, vaultJson };
-    if (wa) newMeta.device = { credentialId: wa.credentialId, prfSalt: wa.prfSalt };
+    if (wa) newMeta.device = { credentialId: wa.credentialId, prfSalt: wa.prfSalt, rpId: location.hostname };
     localStorage.setItem('biowallet_meta', JSON.stringify(newMeta));
 
     // Step 3: mandatory paper share display
@@ -1408,7 +1451,7 @@ btnImportEnroll.addEventListener('click', async () => {
 
     const vaultJson = new TextDecoder().decode(encryptedVault);
     const newMeta = { vaultId, P, vaultJson };
-    if (wa) newMeta.device = { credentialId: wa.credentialId, prfSalt: wa.prfSalt };
+    if (wa) newMeta.device = { credentialId: wa.credentialId, prfSalt: wa.prfSalt, rpId: location.hostname };
     localStorage.setItem('biowallet_meta', JSON.stringify(newMeta));
 
     // Step 3: mandatory paper share display
@@ -1518,14 +1561,19 @@ btnScan.addEventListener('click', async () => {
   btnScan.disabled = true;
   setMsg(t('msg.camera.init'), '');
 
-  // Pre-scan: if vault has deviceShare but no device linked here, paper code is mandatory
+  // Pre-scan: ha a vaultnak van eszköz-tényezője, de az itt nem használható (nincs regisztrálva,
+  // vagy más origin: egyfájlos build / idegen tárhely), a papírkód kötelező — scan ELŐTT szólunk.
   {
     let _vaultHasDevice = false;
     try { const _v = JSON.parse(meta.vaultJson); _vaultHasDevice = !!((_v.sss?.deviceShare) || _v.deviceWrap); } catch {}
-    if (_vaultHasDevice && !meta.device) {
-      const _paperInput = document.getElementById('sss-paper-input');
-      const _hex = (_paperInput?.value ?? '').trim().toLowerCase().replace(/\s/g, '');
-      if (!(_hex.length === 64 && /^[0-9a-f]+$/.test(_hex))) {
+    if (_vaultHasDevice && !_deviceUsableHere(meta.device)) {
+      const _p = _paperFromInput();
+      if (_p === 'crc') {
+        setMsg(t('err.paper.crc'), 'error');
+        btnScan.disabled = false;
+        return;
+      }
+      if (!_p) {
         setMsg(t('sss.paper.required.warn'), 'error');
         btnScan.disabled = false;
         return;
@@ -1549,7 +1597,7 @@ btnScan.addEventListener('click', async () => {
 
     // Try device factor if this vault has one registered on this device
     let devicePrf = null;
-    if (meta.device?.credentialId) {
+    if (_deviceUsableHere(meta.device)) {
       setMsg(t('msg.device.auth'), '');
       try {
         devicePrf = await getDevicePrf(meta.device.credentialId, meta.device.prfSalt);
@@ -1569,25 +1617,12 @@ btnScan.addEventListener('click', async () => {
       return;
     }
 
-    let paperShareY = null;
-    {
-      const paperInput = document.getElementById('sss-paper-input');
-      const hexStr = (paperInput?.value ?? '').trim().toLowerCase().replace(/\s/g, '');
-      if (hexStr.length === 66 && /^[0-9a-f]+$/.test(hexStr)) {
-        // Új formátum (v35.1+): 64 hex adat + 2 hex CRC8
-        const dataBytes = new Uint8Array(hexStr.slice(0, 64).match(/../g).map(x => parseInt(x, 16)));
-        const expectedCrc = parseInt(hexStr.slice(64), 16);
-        if (_crc8(dataBytes) !== expectedCrc) {
-          setScanning(false);
-          btnScan.disabled = false;
-          setMsg(t('err.paper.crc'), 'error');
-          return;
-        }
-        paperShareY = Array.from(dataBytes);
-      } else if (hexStr.length === 64 && /^[0-9a-f]+$/.test(hexStr)) {
-        // Legacy paper formátum (v35.0): CRC nélkül elfogadjuk
-        paperShareY = Array.from(hexStr.match(/../g).map(x => parseInt(x, 16)));
-      }
+    let paperShareY = _paperFromInput();
+    if (paperShareY === 'crc') {
+      setScanning(false);
+      btnScan.disabled = false;
+      setMsg(t('err.paper.crc'), 'error');
+      return;
     }
 
     const { address, hasDevice, usedDevice, usedFace, isV4, isV5 } = await callWorker(
@@ -2442,7 +2477,7 @@ function _applyVaultJson(meta, vaultText) {
     try { const _v = JSON.parse(vaultText); vaultHasDevice = !!((_v.sss?.deviceShare) || _v.deviceWrap); } catch {}
     const paperLabel = document.querySelector('#sss-paper-row label');
     if (paperLabel) {
-      if (vaultHasDevice && !meta.device) {
+      if (vaultHasDevice && !_deviceUsableHere(meta.device)) {
         paperLabel.style.color = '#ff4757';
         paperLabel.setAttribute('data-i18n', 'sss.lock.paper.required');
         paperLabel.textContent = t('sss.lock.paper.required');
@@ -2551,7 +2586,7 @@ btnDevice.addEventListener('click', async () => {
       prfSalt:      wa.prfSalt,
     });
 
-    meta.device   = { credentialId: wa.credentialId, prfSalt: wa.prfSalt };
+    meta.device   = { credentialId: wa.credentialId, prfSalt: wa.prfSalt, rpId: location.hostname };
     meta.vaultJson = new TextDecoder().decode(encryptedVault);
     localStorage.setItem('biowallet_meta', JSON.stringify(meta));
 
@@ -3509,11 +3544,14 @@ async function _reopenVaultForSwap(meta, stepLabel) {
     const embedding = await captureEmbedding(video);
     await callWorker('BIO_CAPTURE', { embedding, P: meta.P }, [embedding.buffer]);
     let devicePrf = null;
-    if (meta.device?.credentialId) {
+    if (_deviceUsableHere(meta.device)) {
       try { devicePrf = await getDevicePrf(meta.device.credentialId, meta.device.prfSalt); } catch {}
     }
+    // Eszköz nélkül (más origin) a papírkód a második tényező — a mezőből, ha ki van töltve.
+    const _p = _paperFromInput();
+    const paperShareY = Array.isArray(_p) ? _p : null;
     const encBuf = new TextEncoder().encode(meta.vaultJson).buffer;
-    await callWorker('OPEN', { encryptedVault: encBuf, P: meta.P, devicePrf }, [encBuf]);
+    await callWorker('OPEN', { encryptedVault: encBuf, P: meta.P, devicePrf, paperShareY }, [encBuf]);
   } finally {
     setScanning(false);  // WARN-03: minden kivételuton nullázza a scanning state-et
   }
