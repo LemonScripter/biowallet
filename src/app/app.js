@@ -681,11 +681,31 @@ async function showVersionHash() {
     // Kattintásra: HOGYAN ellenőrizd (parancsok + a publikált checksums.txt helye).
     // Szándékosan NINCS benne hash-érték: a fájl nem hordozhatja hitelesen a saját lenyomatát.
     el.addEventListener('click', () => {
-      const existing = document.getElementById('single-verify-box');
-      if (existing) { existing.remove(); return; }
+      if (document.getElementById('single-verify-modal')) return;
+      // Modal: sötét háttér + középre igazított doboz; bezárás: ✕, háttérkattintás, Esc.
+      const ov = document.createElement('div');
+      ov.id = 'single-verify-modal';
+      ov.setAttribute('role', 'dialog');
+      ov.setAttribute('aria-modal', 'true');
+      ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;padding:1rem';
       const box = document.createElement('div');
       box.id = 'single-verify-box';
-      box.style.cssText = 'margin:0.5rem auto 0;max-width:30rem;text-align:left;background:#0d0d10;border:1px solid #2a2a35;border-radius:8px;padding:0.7rem 0.8rem;font-size:0.68rem;line-height:1.6;color:#c8c8d8;user-select:text;cursor:auto';
+      box.style.cssText = 'position:relative;width:100%;max-width:30rem;max-height:90vh;overflow:auto;text-align:left;background:#0d0d10;border:1px solid #2a2a35;border-radius:12px;padding:1.1rem 1.1rem 1rem;font-family:"SF Mono","Fira Code",monospace;font-size:0.75rem;line-height:1.6;color:#c8c8d8;letter-spacing:0;user-select:text;cursor:auto';
+      const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
+      const onKey = (e) => { if (e.key === 'Escape') close(); };
+      document.addEventListener('keydown', onKey);
+      ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+      const x = document.createElement('button');
+      x.type = 'button';
+      x.textContent = '✕';
+      x.setAttribute('aria-label', 'Close');
+      x.style.cssText = 'position:absolute;top:0.5rem;right:0.6rem;background:none;border:none;color:#8888a8;font-size:1rem;cursor:pointer';
+      x.addEventListener('click', close);
+      box.appendChild(x);
+      const title = document.createElement('div');
+      title.textContent = t('single.verify.title');
+      title.style.cssText = 'font-weight:700;color:#e8e8f0;margin:0 1.5rem 0.6rem 0;font-size:0.85rem';
+      box.appendChild(title);
       const p = (txt) => { const d = document.createElement('div'); d.textContent = txt; return d; };
       const code = (txt) => { const d = document.createElement('code'); d.textContent = txt; d.style.cssText = 'display:block;margin:0.15rem 0 0.4rem;padding:0.3rem 0.45rem;background:#15151c;border-radius:5px;color:#e8e8f0;word-break:break-all'; return d; };
       box.appendChild(p(t('single.verify.step1')));
@@ -703,8 +723,9 @@ async function showVersionHash() {
       a.style.cssText = 'color:#6c63ff;font-weight:600';
       box.appendChild(a);
       box.appendChild(p(t('single.verify.step3')));
-      box.addEventListener('click', e => e.stopPropagation());
-      el.appendChild(box);
+      ov.appendChild(box);
+      document.body.appendChild(ov);
+      x.focus();
     });
     footer.appendChild(el);
     return;
