@@ -12,13 +12,15 @@
 
 <p align="center">
   <a href="https://biowallet.metaspace.bio"><img src="https://img.shields.io/badge/live-biowallet.metaspace.bio-6c63ff" alt="Live" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/licenc-Non--Commercial-orange" alt="Licenc: Non-Commercial" /></a>
-  <a href="tests/verify_biowallet.py"><img src="https://img.shields.io/badge/Z3%20invariáns-56%2F56%20PASS-brightgreen" alt="Z3 56/56" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licenc-AGPL--3.0-blue" alt="Licenc: AGPL-3.0" /></a>
+  <a href="tests/verify_biowallet.py"><img src="https://img.shields.io/badge/Z3%20invariáns-71%2F71%20PASS-brightgreen" alt="Z3 71/71" /></a>
   <a href="tests/verify_sss_gf256.py"><img src="https://img.shields.io/badge/SSS%20GF(2%E2%81%B8)-13%2F13%20PASS-brightgreen" alt="SSS GF(2^8)" /></a>
   <img src="https://img.shields.io/badge/CDN%20függőség-nulla-blue" alt="Nincs CDN" />
 </p>
 
 ---
+
+> **Megjegyzés:** ez a magyar leírás a v32 körüli állapotot tükrözi, egyes részei elavultak. A mérvadó, naprakész leírás az angol [README.md](README.md) (verziótörténet, egyfájlos build, licenc: AGPL-3.0).
 
 A BioWallet egy önszuverén, biometrikus Ethereum-tárca, amely teljes egészében a böngészőben fut. Nincs szerver, amely érintkezik a kulcsoddal, nincs létrehozandó fiók, nincs elfelejtendő jelszó. Az arcodat beolvasva a titkosítókulcs helyi szinten keletkezik — és minden egyes művelet után automatikusan törlődik.
 
@@ -219,6 +221,9 @@ Mindkét szkript önálló, és minden egyes tulajdonsághoz emberi olvasásra a
 
 ## Licenc
 
-MIT + Commons Clause (Non-Commercial) © 2025–2026 Szőke László-Ferenc — [MetaSpace.Bio Logic Engine](https://metaspace.bio) | admin@metaspace.bio
+A BioWallet **kettős licencű**:
 
-A BioWallet nyílt forráskódú. Személyes és kutatási célra szabadon auditálható, forkizálható és önállóan üzemeltethető. Kereskedelmi felhasználáshoz írásos engedély szükséges. Ha biztonsági problémát találsz, kérjük, először olvasd el a [SECURITY.md](SECURITY.md) fájlt, mielőtt nyilvánosságra hoznád.
+- **Nyílt forrás:** [GNU AGPL-3.0](LICENSE) — szabadon használható, tanulmányozható, módosítható és önállóan üzemeltethető. Ha módosított változatot hálózati szolgáltatásként futtatsz, a forrását közzé kell tenned.
+- **Kereskedelmi:** zárt forrású vagy forrás-közzététel nélküli hosztolt felhasználáshoz külön kereskedelmi licenc érhető el — lásd [COMMERCIAL.md](COMMERCIAL.md) vagy **admin@metaspace.bio**.
+
+© 2025–2026 Szőke László-Ferenc — [MetaSpace.Bio Logic Engine](https://metaspace.bio). Ha biztonsági problémát találsz, kérjük, először olvasd el a [SECURITY.md](SECURITY.md) fájlt, mielőtt nyilvánosságra hoznád.

@@ -175,6 +175,9 @@ Full analysis with data tables and bar charts: <a href="https://biowallet.metasp
 | v35.3s | **Stable baseline (v35.2 core + DCC hardening):** reverted to v35.2 codebase (v5 PBKDF2, no Argon2id, no liveness). **DCC GAP fixes:** GAP-2 Worker console blocks `Uint8Array`/`ArrayBuffer` logging; GAP-3 `issue()` validates R is 32-byte `Uint8Array`; GAP-4 `BroadcastChannel` enforces single vault session across tabs. **PWA auto-update:** `version.json` (no-cache) + SW unregister + cache clear on version mismatch — SW-independent, no banner required. **WC session expiry:** countdown in session bar |
 | v35.4 | **Liveness / PAD:** dynamic head-turn challenge using `faceLandmark68Net` (already loaded, zero extra dependency) — baseline nose-ratio calibration (~1.2 s), detects ~20° turn in either direction, 8 s timeout; active at vault OPEN, face re-enrollment, and emergency seed recovery. Defeats static-photo attacks. `captureEmbedding` / `enrollEmbedding` untouched — only pre-scan challenge added. **Local-first:** tested on `localhost:8080` before deploy |
 | v37 (SW v109) | **v5-only hardening + self-healing.** **Data-loss fix:** both startup `localStorage.clear()` paths removed — a corrupt active meta now recovers from the wallet index (`_recoverActiveFromIndex`) instead of wiping all wallets; `navigator.storage.persist()` requested against eviction. **Worker self-heal:** respawnable worker (`_spawnWorker`/`_respawnWorker`, backoff limit 5), `_initVaultWithRetry`, fast-fail when worker dead — a worker error never causes data loss. **v5-only:** `open()` accepts only the current v5 format (deviceWrap + SSS); everything else → `UNSUPPORTED_FORMAT`. Removed legacy v1–v4 read/create paths, the spurious PIN prompt, and the 'upgrade to 2-of-3' footgun. **Wallet switch:** clear "scan to switch" message, per-wallet snapshot sync after re-enroll/device-enroll, `BroadcastChannel` `senderId` (no self-lock), WC `accountsChanged` so connected dApps follow the active wallet. **Scan watchdog:** 90 s safety timer guarantees the scan UI never stays stuck. **Cache-bust:** module `?v=` bumps (vault 23, i18n 13, worker 30, app 23), root `/sw.js` → self-unregistering stub |
+| v37.1–v37.3 | **Wallet switching:** restore and create now share one canonical `vaultId` (no phantom duplicates); full snapshot saved on every open. **SEND button:** token selector reconciled by symbol + address on every chain switch (no stale token). **Scan button** blue and the switch flow explained step by step (HU + EN) |
+| v37.4 | **Failed attempts:** an undecodable face scan (`FE_DECODE_FAIL`) now counts as a failed attempt and triggers the worker cooldown, with a friendly message and "n attempts left". **Camera** is off by default and only on during a scan |
+| v37.5 (SW v115) | **Domain-independent single-file build:** in single-file mode no update check, no service worker and no requests to our server; the footer no longer shows a server-derived fingerprint (meaningless off-origin) but explains how to verify the file's SHA-256 against the published `checksums.txt`. **Device factor** is used only on the host it was enrolled on — elsewhere the app asks for the paper code *before* the scan (66-char CRC codes accepted in the pre-check). **User guide:** authenticity = the published hash (GitHub Releases + Zenodo), not the domain; no absolute links to our domain. **Swap fee recipient** changed to `0x1B6aa94C507763190DEb5057E6B81e42c2363106` (0.15%, unchanged rate) |
 
 ---
 
@@ -267,7 +270,8 @@ Both scripts are self-contained and produce human-readable PASS/FAIL output for 
 - [x] **MetaMask import** — BIP39 seed phrase (12–24 words) and raw private key, correct HD derivation *(LIVE since v34)*
 - [x] **Paraswap swap** — ERC-20 token swaps with gas speed selector, balance-checked *(LIVE since v35)*
 - [x] **Genesis HMAC** — tamper-evident identity chain, verified on every vault open *(LIVE since v35)*
-- [x] **Single-file build** — `python build_single.py` produces `biowallet.html` (~12 MB, all assets inlined); standalone use outside the official origin is still being tested, see [Air-gapped / offline use](#air-gapped--offline-use)
+- [x] **Single-file build** — `python build_single.py` produces `biowallet.html` (~12 MB, all assets inlined); domain-independent since v37.5, end-to-end test matrix in progress, see [Air-gapped / offline use](#air-gapped--offline-use)
+- [ ] **Signed app package** — Android / desktop package with bundled assets, so updates are bound to a signing key instead of the domain
 - [x] **Multi-wallet UI** — wallet switcher, NATIVE/SEED/PRIVKEY type badges, add/delete *(LIVE since v35.2)*
 - [x] **TX ABI decode** — ERC-20 function names shown in confirm dialog *(LIVE since v35.2)*
 - [x] **DCC hardening** — GAP-2 console guard, GAP-3 R validation, GAP-4 single-session enforcement *(LIVE since v35.3s)*
@@ -291,7 +295,7 @@ biowallet/
 │   ├── core/           # Business logic (vault, rpc, wc2, bio_capture, …)
 │   └── vendor/         # Bundled third-party libraries (no CDN)
 ├── tests/
-│   ├── verify_biowallet.py   # 56 Z3 formal properties
+│   ├── verify_biowallet.py   # 71 Z3 formal properties
 │   └── verify_sss_gf256.py   # 13 GF(2^8) SSS proofs
 ├── tools/
 │   └── build_wc2_entry.js    # WalletConnect v2 bundle entry point
