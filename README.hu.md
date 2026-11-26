@@ -26,6 +26,8 @@ A BioWallet egy önszuverén, biometrikus Ethereum-tárca, amely teljes egészé
 
 **Több EVM-lánc:** Ethereum, BNB Chain, Polygon, Arbitrum, Base, Optimism, Avalanche, Sepolia — és bármely egyéni EVM-hálózat.
 
+**Amire nem való:** a BioWallettel nem lehet valódi pénzért (fiat) kriptót venni vagy eladni — nincs bankkártyás vagy banki be- és kiváltás. Kripto tartására, fogadására és küldésére, valamint tárcán belüli tokencserére való (ParaSwap, 0,15% swap-díj).
+
 ---
 
 ## Biztonság — bizonyítva, nem csak állítva

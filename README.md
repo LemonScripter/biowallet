@@ -31,6 +31,8 @@ BioWallet is a self-sovereign, biometric Ethereum wallet that runs entirely in t
 
 **Multi-network EVM support:** Ethereum, BNB Chain, Polygon, Arbitrum, Base, Optimism, Avalanche, Sepolia — plus any custom EVM network.
 
+**What it is not:** BioWallet does not buy or sell crypto for fiat money — there is no card or bank on/off-ramp. It is for holding, receiving and sending crypto, and for in-wallet token swaps (via ParaSwap, with a 0.15% swap fee).
+
 ---
 
 ## Security — proved, not claimed
