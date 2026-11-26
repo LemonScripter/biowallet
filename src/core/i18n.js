@@ -1024,7 +1024,7 @@ const GUIDE_HTML = {
     <div class="guide-section">
       <div class="guide-h2">8. recovery_tool.html — offline visszafejtő</div>
       <p class="guide-p">A <strong>recovery_tool.html</strong> teljesen offline működő HTML eszköz a Papírképlet kezeléséhez. Csak <strong>natív és seed phrase</strong> tárcáknál érhető el.</p>
-      <p class="guide-p"><strong>Letöltés:</strong> <a href="/recovery_tool.html" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:600;">biowallet.metaspace.bio/recovery_tool.html</a></p>
+      <p class="guide-p"><strong>Letöltés:</strong> <a href="/recovery_tool.html" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:600;">recovery_tool.html</a> — a <a href="https://github.com/LemonScripter/biowallet/releases" target="_blank" rel="noopener" style="color:#6c63ff;">GitHub kiadásban</a> a biowallet.html mellett is megtalálható.</p>
       <table class="guide-table" style="margin-top:0.5rem"><thead><tr><th>Mód</th><th>Mit csinál?</th></tr></thead><tbody>
         <tr><td><strong>ENCODE</strong></td><td>Nyers Papír A + P → <strong>Végleges Papír A</strong> (ezt kell eltenni)</td></tr>
         <tr><td><strong>DECODE</strong></td><td>Végleges Papír A + Papír B + P → <strong>12 vagy 24 BIP39 szó</strong> → MetaMask import</td></tr>
@@ -1049,8 +1049,7 @@ const GUIDE_HTML = {
     <hr class="guide-sep">
     <div class="guide-section">
       <div class="guide-h2">8. PWA telepítés</div>
-      <p class="guide-p">A BioWallet elérhető és közvetlenül a böngészőből telepíthető alkalmazásként (PWA):</p>
-      <p class="guide-p" style="text-align:center;margin:0.5rem 0"><a href="https://biowallet.metaspace.bio" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:700;font-size:1rem;">https://biowallet.metaspace.bio</a></p>
+      <p class="guide-p">A BioWallet a <strong>biowallet.metaspace.bio</strong> oldalról közvetlenül a böngészőből telepíthető alkalmazásként (PWA). A telepített app ennek a domainnek a frissítéseit kapja; a domaintől független, hash-sel ellenőrizhető változat az egyfájlos kiadás (lásd 9.).</p>
       <table class="guide-table" style="margin-top:0.4rem"><thead><tr><th>Platform</th><th>Telepítés</th></tr></thead><tbody>
         <tr><td>Chrome / Edge (asztali)</td><td>Telepítés ikon (⊕) a böngésző-sávban → Telepítés</td></tr>
         <tr><td>Chrome (Android)</td><td>Menü (⋮) → Hozzáadás a kezdőképernyőhöz</td></tr>
@@ -1061,16 +1060,12 @@ const GUIDE_HTML = {
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">9. Kanonikus verzió és alkotmányvédelem</div>
-      <p class="guide-p"><strong style="color:#ffa502;">Csak a hivatalos telepítési forrásból telepített alkalmazás megbízható.</strong></p>
-      <p class="guide-p">A BioWallet kanonikus, ellenőrzött példánya kizárólag itt érhető el:</p>
-      <p class="guide-p" style="text-align:center;margin:0.5rem 0"><a href="https://biowallet.metaspace.bio" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:700;font-size:1rem;">https://biowallet.metaspace.bio</a></p>
-      <p class="guide-p">A forráskód nyilvános, de a <strong>DCC alkotmány</strong> (<code style="font-size:0.75rem">spec/biowallet.bio</code>) módosítása kriptográfiailag detektálható — az eredeti fájl SHA-256 lenyomata blokkláncon rögzített:</p>
-      <div class="guide-ok" style="font-family:'SF Mono','Fira Code',monospace;font-size:0.67rem;word-break:break-all;margin-top:0.4rem">
-        793cac74939d658e3cebde0e8066b2ac754ab34e9c85657043c5f58a0a1866e2<br>
-        <span style="color:var(--muted)">Arbitrum One · TX: 0x1c1c485f19fdc1a7f448f06ea8e8c5d0ef0094640cf376e11f42ae14f264a35c</span>
-      </div>
-      <div class="guide-note" style="margin-top:0.6rem">⚠ Ha olyan "BioWallet" alkalmazást lát, amely <strong>nem a fenti URL-ről</strong> érhető el, ne használja — a biztonsági alkotmány módosítva lehet. Ellenőrizze a hash-t: <code style="font-size:0.72rem">sha256sum spec/biowallet.bio</code></div>
+      <div class="guide-h2">9. Hiteles példány – a hash dönt, nem a domain</div>
+      <p class="guide-p">A hitelesség forrása a <strong>publikált SHA-256 lenyomat</strong>, nem egy webcím. Minden kiadás lenyomatai (<code style="font-size:0.75rem">checksums.txt</code>) a GitHubon és a Zenodón érhetők el – ezek a mi szerverünktől és domainünktől függetlenek:</p>
+      <p class="guide-p" style="text-align:center;margin:0.5rem 0"><a href="https://github.com/LemonScripter/biowallet/releases" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:700;font-size:1rem;">github.com/LemonScripter/biowallet/releases</a><br><a href="https://doi.org/10.5281/zenodo.20517348" target="_blank" rel="noopener" style="color:#6c63ff;font-size:0.8rem;">Zenodo archívum (DOI 10.5281/zenodo.20517348)</a></p>
+      <p class="guide-p">Domaintől független használat: töltse le a <code style="font-size:0.75rem">biowallet.html</code> és <code style="font-size:0.75rem">recovery_tool.html</code> fájlt, ellenőrizze (<code style="font-size:0.72rem">sha256sum biowallet.html</code> = a checksums.txt sora), és ezt nyissa meg. Más gépen/címen a tárca arc + papírkóddal nyílik.</p>
+      <p class="guide-p">A DCC alkotmány (<code style="font-size:0.75rem">spec/biowallet.bio</code>) aktuális lenyomata is a checksums.txt-ben van; az első változat lenyomata blokkláncon rögzített (Arbitrum One · TX: 0x1c1c485f19fdc1a7f448f06ea8e8c5d0ef0094640cf376e11f42ae14f264a35c).</p>
+      <div class="guide-note" style="margin-top:0.6rem">⚠ Ha egy „BioWallet" fájl hash-e nem egyezik a GitHub/Zenodo checksums.txt-vel, ne használja. A böngészőbe telepített (PWA) változat a domainről frissül: ha a domain valaha más kezébe kerülne, az ellen csak az ellenőrzött fájl véd.</div>
     </div>
     <hr class="guide-sep">
     <p style="font-size:0.75rem;color:var(--muted);text-align:center;line-height:1.9">
@@ -1164,7 +1159,7 @@ const GUIDE_HTML = {
     <div class="guide-section">
       <div class="guide-h2">8. recovery_tool.html — offline decoder</div>
       <p class="guide-p">Standalone fully offline HTML tool for Paper Recovery. Available for <strong>native and seed phrase wallets only</strong>.</p>
-      <p class="guide-p"><strong>Download:</strong> <a href="/recovery_tool.html" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:600;">biowallet.metaspace.bio/recovery_tool.html</a></p>
+      <p class="guide-p"><strong>Download:</strong> <a href="/recovery_tool.html" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:600;">recovery_tool.html</a> — also shipped next to biowallet.html in every <a href="https://github.com/LemonScripter/biowallet/releases" target="_blank" rel="noopener" style="color:#6c63ff;">GitHub release</a>.</p>
       <table class="guide-table" style="margin-top:0.5rem"><thead><tr><th>Mode</th><th>What it does</th></tr></thead><tbody>
         <tr><td><strong>ENCODE</strong></td><td>Raw Paper A + P → <strong>Final Paper A</strong> (keep this)</td></tr>
         <tr><td><strong>DECODE</strong></td><td>Final Paper A + Paper B + P → <strong>12 or 24 BIP39 words</strong> → MetaMask import</td></tr>
@@ -1189,8 +1184,7 @@ const GUIDE_HTML = {
     <hr class="guide-sep">
     <div class="guide-section">
       <div class="guide-h2">8. Install as PWA</div>
-      <p class="guide-p">BioWallet is available and installable directly from the browser (PWA):</p>
-      <p class="guide-p" style="text-align:center;margin:0.5rem 0"><a href="https://biowallet.metaspace.bio" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:700;font-size:1rem;">https://biowallet.metaspace.bio</a></p>
+      <p class="guide-p">BioWallet can be installed from <strong>biowallet.metaspace.bio</strong> directly in the browser (PWA). The installed app receives updates from that domain; the domain-independent, hash-verifiable version is the single-file release (see 9).</p>
       <table class="guide-table" style="margin-top:0.4rem"><thead><tr><th>Platform</th><th>How to install</th></tr></thead><tbody>
         <tr><td>Chrome / Edge (desktop)</td><td>Install icon (⊕) in the address bar → Install</td></tr>
         <tr><td>Chrome (Android)</td><td>Menu (⋮) → Add to home screen</td></tr>
@@ -1201,16 +1195,12 @@ const GUIDE_HTML = {
     </div>
     <hr class="guide-sep">
     <div class="guide-section">
-      <div class="guide-h2">9. Canonical version &amp; constitution protection</div>
-      <p class="guide-p"><strong style="color:#ffa502;">Only the app installed from the official source is trustworthy.</strong></p>
-      <p class="guide-p">The canonical, verified instance of BioWallet is available exclusively at:</p>
-      <p class="guide-p" style="text-align:center;margin:0.5rem 0"><a href="https://biowallet.metaspace.bio" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:700;font-size:1rem;">https://biowallet.metaspace.bio</a></p>
-      <p class="guide-p">The source code is open, but any modification to the <strong>DCC constitution</strong> (<code style="font-size:0.75rem">spec/biowallet.bio</code>) is cryptographically detectable — the original file's SHA-256 fingerprint is anchored on-chain:</p>
-      <div class="guide-ok" style="font-family:'SF Mono','Fira Code',monospace;font-size:0.67rem;word-break:break-all;margin-top:0.4rem">
-        793cac74939d658e3cebde0e8066b2ac754ab34e9c85657043c5f58a0a1866e2<br>
-        <span style="color:var(--muted)">Arbitrum One · TX: 0x1c1c485f19fdc1a7f448f06ea8e8c5d0ef0094640cf376e11f42ae14f264a35c</span>
-      </div>
-      <div class="guide-note" style="margin-top:0.6rem">⚠ If you encounter a "BioWallet" app <strong>not served from the URL above</strong>, do not use it — the security constitution may have been altered. Verify the hash: <code style="font-size:0.72rem">sha256sum spec/biowallet.bio</code></div>
+      <div class="guide-h2">9. Authentic copy – the hash decides, not the domain</div>
+      <p class="guide-p">Authenticity comes from the <strong>published SHA-256 hashes</strong>, not from a web address. Every release's hashes (<code style="font-size:0.75rem">checksums.txt</code>) are published on GitHub and Zenodo – independent of our server and domain:</p>
+      <p class="guide-p" style="text-align:center;margin:0.5rem 0"><a href="https://github.com/LemonScripter/biowallet/releases" target="_blank" rel="noopener" style="color:#6c63ff;font-weight:700;font-size:1rem;">github.com/LemonScripter/biowallet/releases</a><br><a href="https://doi.org/10.5281/zenodo.20517348" target="_blank" rel="noopener" style="color:#6c63ff;font-size:0.8rem;">Zenodo archive (DOI 10.5281/zenodo.20517348)</a></p>
+      <p class="guide-p">Domain-independent use: download <code style="font-size:0.75rem">biowallet.html</code> and <code style="font-size:0.75rem">recovery_tool.html</code>, verify (<code style="font-size:0.72rem">sha256sum biowallet.html</code> = the line in checksums.txt) and open that file. On another machine/address the wallet opens with face + paper code.</p>
+      <p class="guide-p">The current hash of the DCC constitution (<code style="font-size:0.75rem">spec/biowallet.bio</code>) is also listed in checksums.txt; the first version's hash is anchored on-chain (Arbitrum One · TX: 0x1c1c485f19fdc1a7f448f06ea8e8c5d0ef0094640cf376e11f42ae14f264a35c).</p>
+      <div class="guide-note" style="margin-top:0.6rem">⚠ If a "BioWallet" file's hash does not match the GitHub/Zenodo checksums.txt, do not use it. The browser-installed (PWA) version updates from the domain: should the domain ever change hands, only the verified file protects you.</div>
     </div>
     <hr class="guide-sep">
     <p style="font-size:0.75rem;color:var(--muted);text-align:center;line-height:1.9">
