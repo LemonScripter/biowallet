@@ -676,8 +676,36 @@ async function showVersionHash() {
     const footer = document.getElementById('app-footer');
     if (!footer) return;
     const el = document.createElement('div');
-    el.style.cssText = 'margin-top:0.35rem;font-family:"SF Mono","Fira Code",monospace;font-size:0.6rem;color:#52527a;letter-spacing:0.04em';
-    el.textContent = t('single.verify');
+    el.style.cssText = 'margin-top:0.35rem;font-family:"SF Mono","Fira Code",monospace;font-size:0.6rem;color:#52527a;letter-spacing:0.04em;cursor:pointer;user-select:none';
+    el.textContent = t('single.verify') + ' ▸';
+    // Kattintásra: HOGYAN ellenőrizd (parancsok + a publikált checksums.txt helye).
+    // Szándékosan NINCS benne hash-érték: a fájl nem hordozhatja hitelesen a saját lenyomatát.
+    el.addEventListener('click', () => {
+      const existing = document.getElementById('single-verify-box');
+      if (existing) { existing.remove(); return; }
+      const box = document.createElement('div');
+      box.id = 'single-verify-box';
+      box.style.cssText = 'margin:0.5rem auto 0;max-width:30rem;text-align:left;background:#0d0d10;border:1px solid #2a2a35;border-radius:8px;padding:0.7rem 0.8rem;font-size:0.68rem;line-height:1.6;color:#c8c8d8;user-select:text;cursor:auto';
+      const p = (txt) => { const d = document.createElement('div'); d.textContent = txt; return d; };
+      const code = (txt) => { const d = document.createElement('code'); d.textContent = txt; d.style.cssText = 'display:block;margin:0.15rem 0 0.4rem;padding:0.3rem 0.45rem;background:#15151c;border-radius:5px;color:#e8e8f0;word-break:break-all'; return d; };
+      box.appendChild(p(t('single.verify.step1')));
+      box.appendChild(p('Windows (PowerShell):'));
+      box.appendChild(code('Get-FileHash biowallet.html'));
+      box.appendChild(p('macOS:'));
+      box.appendChild(code('shasum -a 256 biowallet.html'));
+      box.appendChild(p('Linux:'));
+      box.appendChild(code('sha256sum biowallet.html'));
+      box.appendChild(p(t('single.verify.step2')));
+      const a = document.createElement('a');
+      a.href = 'https://github.com/LemonScripter/biowallet/releases';
+      a.target = '_blank'; a.rel = 'noopener';
+      a.textContent = 'github.com/LemonScripter/biowallet/releases';
+      a.style.cssText = 'color:#6c63ff;font-weight:600';
+      box.appendChild(a);
+      box.appendChild(p(t('single.verify.step3')));
+      box.addEventListener('click', e => e.stopPropagation());
+      el.appendChild(box);
+    });
     footer.appendChild(el);
     return;
   }
