@@ -1,6 +1,6 @@
-# BioWallet v37.4 — Canonical File Hashes
-# Date: 2026-10-22
-# Commit: da0dbe1 (SW biowallet-v114)
+# BioWallet v37.5 — Canonical File Hashes
+# Date: 2026-11-26
+# Commit: 63edbd8 (SW biowallet-v115)
 # Verify: sha256sum -c checksums.txt
 #
 # Footer 'Build:' fingerprint (live) == HASHES.md Combined -> server authentic.
@@ -8,7 +8,7 @@
 # Blockchain anchor TX: see CONSTITUTION.md
 #
 # Downloadable air-gap single-file:
-73d887e026a70e9d9d5deb6af3e798ec2cbd00a1ee7371297ea04238b0e04759 *biowallet.html
+1e955db171dddc0c43fc4844e2d594223c86af4277e7cb1682ce23dc4c930c60 *biowallet.html
 #
 df60de6e3a1adb7c89ad3bc20bdb9dd06d11994c4a9c109a0273ea9cdd80d84f *spec/biowallet.bio
 740f1ea4d8ebd020ade795a8a0caa0ae2f77026ccf0c935b3e5a55b7900c0e39 *src/core/causal_chain.js
@@ -20,13 +20,13 @@ dae76b4d4e7232481fc534cf44eb6e46cc1c43d872aaadefb558709e9ab0d833 *src/core/recov
 fba25c166327dd7c53c95b4f6a01314f427865fe5b4d01a29aaf5d14114a1a28 *src/core/bio_capture.js
 8425955917148900654aba99d4feddfde4e3a494e0bf9f84e25e38755511face *src/core/rpc.js
 77376c8a7258b81286414f289f10b0ac6ed12076d65ec1e64bc9a146904ee138 *src/core/wc2.js
-de71f19feb8bcddfd97232d4ae787b2186ccc89ba3b408b7aaa636be433bd229 *src/core/i18n.js
+3fefa7f72fc6f6ac95219154f07bcca8c18e5e63bfc37943b092f631344a2473 *src/core/i18n.js
 b526a1798c961c38d7f176dd730d298ab32cf8aafa219bf5383ecc20e1e72ac4 *src/core/swap.js
 11bcabfcb65cab904fbfdb9ccbdc8047f32a48f5fcd224e56d3eabf2a7d790cb *src/core/prices.js
 ffe9dcdd445553a7f6a1145abd94823fc26e4e3b3f6cd731e0bd89055a51bc1e *src/app/vault_worker.js
-f2ba0e51e1576ee5cfca50a3dfaea3e7c05ce50450988c7b648cdcd478f109d0 *src/app/app.js
-e4140467ea747432e06bf62bae58f670c2c9dbd17c752fffd9f43f37778ea2d1 *src/app/sw.js
-63329c359dc3c2319f06418caefb186ed12e77a86bcba1fa284f798b97d0208a *src/app/index.html
+4c0533a6e9d133792b6d76a5ed58f20a1de4a0ad481c87d43ca75ed513d30b34 *src/app/app.js
+78be129137815620cfa10363527b64ff09cfcf7ca19cba6a5a46c255a42012ba *src/app/sw.js
+49f3708999bd8b47891e41438bd6bfbbcde79d01a439e6801787f1a2e85c39ac *src/app/index.html
 01a20fc9525f86e8bd3b7b16c941fd24287e6410906c30507d24537181f731bf *recovery_tool.html
 8092420c33973ea23acfad3aa4fe58ee3b6e0af7fb6597f58f4ada55c925b5b0 *src/app/dapp-guide.html
 86bf498d2edad52823ff038c6a0c56747d04243e57f81205f90c4265cdbda7eb *src/app/dapp-guide.js
